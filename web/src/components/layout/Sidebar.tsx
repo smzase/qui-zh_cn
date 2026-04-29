@@ -16,6 +16,7 @@ import { useCrossSeedInstanceState } from "@/hooks/useCrossSeedInstanceState"
 import { usePersistedUnifiedInstanceFilter } from "@/hooks/usePersistedUnifiedInstanceFilter"
 import { useTheme } from "@/hooks/useTheme"
 import { api } from "@/lib/api"
+import { useTranslation } from "react-i18next"
 import { getAppVersion } from "@/lib/build-info"
 import { normalizeUnifiedInstanceIds } from "@/lib/instances"
 import { cn } from "@/lib/utils"
@@ -105,6 +106,7 @@ const navigation: NavItem[] = [
 ]
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const routeSearch = useSearch({ strict: false }) as Record<string, unknown> | undefined
@@ -191,7 +193,7 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {item.title}
+                {t(`nav.${item.id}` as const)}
               </Link>
             )
           })}
@@ -202,7 +204,7 @@ export function Sidebar() {
         <div className="flex-1 min-h-0">
           <div className="flex h-full min-h-0 flex-col">
             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/70">
-              Instances
+              {t("nav.instances")}
             </p>
             <div className="mt-1 flex-1 overflow-y-auto space-y-1 pr-1">
               {hasMultipleActiveInstances && (
@@ -257,8 +259,8 @@ export function Sidebar() {
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="right" className="text-xs">
-                            RSS {csState?.rssRunning ? "running" : "enabled"}
-                          </TooltipContent>
+                                  RSS {csState?.rssRunning ? t("common.loading") : t("common.enabled")}
+                                </TooltipContent>
                         </Tooltip>
                       )}
                       {hasSearch && (
@@ -272,7 +274,7 @@ export function Sidebar() {
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="right" className="text-xs">
-                            Scan running
+                            {t("common.loading")}
                           </TooltipContent>
                         </Tooltip>
                       )}
@@ -288,7 +290,7 @@ export function Sidebar() {
               })}
               {activeInstances.length === 0 && (
                 <p className="px-3 py-2 text-sm text-sidebar-foreground/50">
-                  {hasConfiguredInstances ? "All instances are disabled" : "No instances configured"}
+                  {hasConfiguredInstances ? t("dashboard.allInstancesDisabled") : t("dashboard.noInstances")}
                 </p>
               )}
             </div>
@@ -305,7 +307,7 @@ export function Sidebar() {
           onClick={() => logout()}
         >
           <LogOut className="mr-2 h-4 w-4" />
-          Logout
+          {t("header.logout")}
         </Button>
 
         <Separator className="mx-3 mb-3" />

@@ -29,6 +29,7 @@ import type { Category, CrossInstanceTorrent, ServerState, Torrent, TorrentCount
 import { useNavigate } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels"
+import { useTranslation } from "react-i18next"
 
 interface TorrentsProps {
   instanceId: number
@@ -39,6 +40,7 @@ interface TorrentsProps {
 }
 
 export function Torrents({ instanceId, instanceName, isAllInstancesView = false, search, onSearchChange }: TorrentsProps) {
+  const { t } = useTranslation()
   const isAllInstances = isAllInstancesView || isAllInstancesScope(instanceId)
   const [filters, setFilters] = usePersistedFilters(instanceId)
   const [filterSidebarCollapsed] = usePersistedFilterSidebarState(false)
@@ -479,7 +481,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
           }}
         >
           <SheetHeader className="px-4 py-3 border-b">
-            <SheetTitle className="text-lg font-semibold">Filters</SheetTitle>
+            <SheetTitle className="text-lg font-semibold">{t("common.filters")}</SheetTitle>
           </SheetHeader>
           <div className="flex-1 min-h-0 overflow-hidden">
             <FilterSidebar
@@ -622,7 +624,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
             <SheetHeader className="sr-only">
               <VisuallyHidden>
                 <SheetTitle>
-                  {selectedTorrent ? `Torrent Details: ${selectedTorrent.name}` : "Torrent Details"}
+                  {selectedTorrent ? `${t("torrents.torrentDetails")}: ${selectedTorrent.name}` : t("torrents.torrentDetails")}
                 </SheetTitle>
               </VisuallyHidden>
             </SheetHeader>
@@ -654,7 +656,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
         <Dialog open={isTasksModalOpen} onOpenChange={handleTasksModalChange}>
           <DialogContent className="w-full sm:max-w-screen-sm md:max-w-screen-md lg:max-w-screen-xl xl:max-w-screen-xl max-h-[85vh] overflow-hidden flex flex-col">
             <DialogHeader>
-              <DialogTitle>Torrent Creation Tasks</DialogTitle>
+              <DialogTitle>{t("torrents.torrentCreationTasks")}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-auto">
               <TorrentCreationTasks instanceId={instanceId} />

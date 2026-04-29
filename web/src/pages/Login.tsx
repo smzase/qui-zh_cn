@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/useAuth"
 import { navigateAfterAuth } from "@/lib/add-intent"
 import { api } from "@/lib/api"
+import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate } from "@tanstack/react-router"
@@ -24,6 +25,7 @@ import { useEffect } from "react"
 import { toast } from "sonner"
 
 export function Login() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { login, isLoggingIn, loginError, setIsAuthenticated, isAuthenticated, isLoading } = useAuth()
 
@@ -48,7 +50,7 @@ export function Login() {
   useEffect(() => {
     if (sessionStorage.getItem("qui_sso_recovered")) {
       sessionStorage.removeItem("qui_sso_recovered")
-      toast.info("SSO session refreshed. Please sign in again.")
+      toast.info(t("login.ssoRefreshed"))
     }
   }, [])
 
@@ -103,7 +105,7 @@ export function Login() {
   if (oidcConfig === null) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center">Loading...</div>
+        <div className="text-center">{t("login.loading")}</div>
       </div>
     )
   }
@@ -125,7 +127,7 @@ export function Login() {
               qui
             </CardTitle>
             <CardDescription className="pointer-events-none select-none">
-              qBittorrent management interface
+              {t("app.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
@@ -141,21 +143,21 @@ export function Login() {
                   name="username"
                   validators={{
                     onChange: ({ value }) => {
-                      if (!value) return "Username is required"
+                      if (!value) return t("login.usernameRequired")
                       return undefined
                     },
                   }}
                 >
                   {(field) => (
                     <div className="space-y-2">
-                      <Label htmlFor={field.name}>Username</Label>
+                      <Label htmlFor={field.name}>{t("login.username")}</Label>
                       <Input
                         id={field.name}
                         type="text"
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
-                        placeholder="Enter your username"
+                        placeholder={t("login.username")}
                       />
                       {field.state.meta.isTouched && field.state.meta.errors[0] && (
                         <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
@@ -168,21 +170,21 @@ export function Login() {
                   name="password"
                   validators={{
                     onChange: ({ value }) => {
-                      if (!value) return "Password is required"
+                      if (!value) return t("login.passwordRequired")
                       return undefined
                     },
                   }}
                 >
                   {(field) => (
                     <div className="space-y-2">
-                      <Label htmlFor={field.name}>Password</Label>
+                      <Label htmlFor={field.name}>{t("login.password")}</Label>
                       <Input
                         id={field.name}
                         type="password"
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
-                        placeholder="Enter your password"
+                        placeholder={t("login.password")}
                       />
                       {field.state.meta.isTouched && field.state.meta.errors[0] && (
                         <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
@@ -203,7 +205,7 @@ export function Login() {
                         htmlFor={field.name}
                         className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        Remember me
+                        {t("login.rememberMe")}
                       </Label>
                     </div>
                   )}
@@ -211,7 +213,7 @@ export function Login() {
 
                 {loginError && (
                   <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">
-                    {typeof loginError === "string"? loginError: loginError.message?.includes("Invalid credentials") || loginError.message?.includes("401") || loginError.message?.includes("403") ? "Invalid username or password": loginError.message || "Login failed. Please try again."}
+                    {typeof loginError === "string"? loginError: loginError.message?.includes("Invalid credentials") || loginError.message?.includes("401") || loginError.message?.includes("403") ? t("login.invalidCredentials"): loginError.message || t("login.loginFailed")}
                   </div>
                 )}
 
@@ -225,7 +227,7 @@ export function Login() {
                       size="lg"
                       disabled={!canSubmit || isSubmitting || isLoggingIn}
                     >
-                      {isLoggingIn ? "Logging in..." : "Sign in"}
+                      {isLoggingIn ? t("login.loggingIn") : t("login.signIn")}
                     </Button>
                   )}
                 </form.Subscribe>
@@ -239,7 +241,7 @@ export function Login() {
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with
+                    {t("login.orContinueWith")}
                   </span>
                 </div>
               </div>
@@ -254,7 +256,7 @@ export function Login() {
                 onClick={handleOIDCLogin}
               >
                 <Fingerprint className="mr-2 h-5 w-5" />
-                OpenID Connect
+                {t("login.openidConnect")}
               </Button>
             )}
 
