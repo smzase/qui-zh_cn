@@ -1,0 +1,103 @@
+name: Build Windows Binary
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Build version (optional)'
+        required: false
+        default: 'dev'
+
+env:
+  NODE_VERSION: "22.18.0"
+
+jobs:
+  web:
+    name: Build web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: latest
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check and build frontend
+        working-directory: web
+        run: |
+          pnpm tsc --noEmit &
+          TSC_PID=$!
+          CI= pnpm run build &
+          BUILD_PID=$!
+          wait $TSC_PID || exit 1
+          wait $BUILD_PID || exit 1
+
+      - name: Upload web production build
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-dist
+          path: web/dist
+
+  build-windows:
+    name: Build Windows binary
+    runs-on: ubuntu-latest
+    needs: [web]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download web production build
+        uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build Windows binary
+        env:
+          CGO_ENABLED: 0
+          VERSION: ${{ github.event.inputs.version || 'dev' }}
+        run: |
+          go build -trimpath \
+            -ldflags "-s -w -X github.com/autobrr/qui/internal/buildinfo.Version=$VERSION -X github.com/autobrr/qui/internal/buildinfo.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X github.com/autobrr/qui/internal/buildinfo.Commit=$(git rev-parse HEAD)" \
+            -o qui_windows_amd64.exe \
+            ./cmd/qui
+
+      - name: Upload Windows binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: qui-windows-amd64
+          path: qui_windows_amd64.exe

@@ -49,6 +49,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 interface InstanceCardProps {
   instance: InstanceResponse
@@ -67,6 +68,7 @@ export function InstanceCard({
   disableMoveUp = false,
   disableMoveDown = false,
 }: InstanceCardProps) {
+  const { t } = useTranslation()
   const {
     deleteInstance,
     testConnection,
@@ -82,15 +84,15 @@ export function InstanceCard({
   const displayUrl = instance.host
 
   const statusBadge = !instance.isActive
-    ? { label: "Disabled", variant: "secondary" as const }
+    ? { label: t("instances:disabled"), variant: "secondary" as const }
     : instance.connected
-      ? { label: "Connected", variant: "default" as const }
-      : { label: "Disconnected", variant: "destructive" as const }
+      ? { label: t("instances:connected"), variant: "default" as const }
+      : { label: t("instances:disconnected"), variant: "destructive" as const }
 
   const handleTest = async () => {
     if (!instance.isActive) {
-      toast.error("Instance Disabled", {
-        description: "Enable the instance before testing the connection.",
+      toast.error(t("instances:instanceDisabled"), {
+        description: t("instances:enableBeforeTest"),
       })
       return
     }
@@ -103,18 +105,18 @@ export function InstanceCard({
       setTestResult(testResult)
 
       if (result.connected) {
-        toast.success("Test Connection Successful", {
-          description: result.message || "Successfully connected to qBittorrent instance",
+        toast.success(t("instances:testSuccess"), {
+          description: result.message || t("instances:testSuccessDesc"),
         })
       } else {
-        toast.error("Test Connection Failed", {
-          description: result.message ? formatErrorMessage(result.message) : "Could not connect to qBittorrent instance",
+        toast.error(t("instances:testFailed"), {
+          description: result.message ? formatErrorMessage(result.message) : t("instances:testFailedDesc"),
         })
       }
     } catch (error) {
-      const message = "Connection failed"
+      const message = t("instances:connectionFailed")
       setTestResult({ success: false, message })
-      toast.error("Test Connection Failed", {
+      toast.error(t("instances:testFailed"), {
         description: error instanceof Error ? formatErrorMessage(error.message) : message,
       })
     }
@@ -125,15 +127,15 @@ export function InstanceCard({
     setInstanceStatus({ id: instance.id, isActive: nextState }, {
       onSuccess: () => {
         setTestResult(null)
-        toast.success(nextState ? "Instance Enabled" : "Instance Disabled", {
+        toast.success(nextState ? t("instances:instanceEnabled") : t("instances:instanceDisabledToast"), {
           description: nextState
-            ? "qui will resume connecting to this qBittorrent instance."
-            : "qui will stop attempting to reach this qBittorrent instance.",
+            ? t("instances:instanceEnabledDesc")
+            : t("instances:instanceDisabledDesc"),
         })
       },
       onError: (error) => {
-        toast.error("Status Update Failed", {
-          description: error instanceof Error ? formatErrorMessage(error.message) : "Failed to update instance status",
+        toast.error(t("instances:statusUpdateFailed"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("instances:statusUpdateFailedDesc"),
         })
       },
     })
@@ -142,14 +144,14 @@ export function InstanceCard({
   const handleDelete = () => {
     deleteInstance({ id: instance.id, name: instance.name }, {
       onSuccess: () => {
-        toast.success("Instance Deleted", {
-          description: `Successfully deleted "${instance.name}"`,
+        toast.success(t("instances:instanceDeleted"), {
+          description: t("instances:instanceDeletedDesc", { name: instance.name }),
         })
         setShowDeleteDialog(false)
       },
       onError: (error) => {
-        toast.error("Delete Failed", {
-          description: error instanceof Error ? formatErrorMessage(error.message) : "Failed to delete instance",
+        toast.error(t("instances:deleteFailed"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("instances:deleteFailedDesc"),
         })
         setShowDeleteDialog(false)
       },
@@ -177,7 +179,7 @@ export function InstanceCard({
                   className={cn("h-8 w-8 p-0")}
                   disabled={isUpdatingStatus && updatingStatusId === instance.id}
                   aria-pressed={instance.isActive}
-                  aria-label={instance.isActive ? "Disable instance" : "Enable instance"}
+                  aria-label={instance.isActive ? t("instances:disableInstance") : t("instances:enableInstance")}
                   onClick={(event) => {
                     event.preventDefault()
                     event.stopPropagation()
@@ -188,7 +190,7 @@ export function InstanceCard({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {instance.isActive ? "Disable instance" : "Enable instance"}
+                {instance.isActive ? t("instances:disableInstance") : t("instances:enableInstance")}
               </TooltipContent>
             </Tooltip>
             {(onMoveUp || onMoveDown) && (
@@ -201,7 +203,7 @@ export function InstanceCard({
                         size="icon"
                         className="h-8 w-8 p-0"
                         disabled={disableMoveUp}
-                        aria-label="Move instance up"
+                        aria-label={t("instances:moveUp")}
                         onClick={(event) => {
                           event.preventDefault()
                           event.stopPropagation()
@@ -213,7 +215,7 @@ export function InstanceCard({
                         <ArrowUp className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Move up</TooltipContent>
+                    <TooltipContent>{t("instances:moveUp")}</TooltipContent>
                   </Tooltip>
                 )}
                 {onMoveDown && (
@@ -224,7 +226,7 @@ export function InstanceCard({
                         size="icon"
                         className="h-8 w-8 p-0"
                         disabled={disableMoveDown}
-                        aria-label="Move instance down"
+                        aria-label={t("instances:moveDown")}
                         onClick={(event) => {
                           event.preventDefault()
                           event.stopPropagation()
@@ -236,7 +238,7 @@ export function InstanceCard({
                         <ArrowDown className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Move down</TooltipContent>
+                    <TooltipContent>{t("instances:moveDown")}</TooltipContent>
                   </Tooltip>
                 )}
               </div>
@@ -250,11 +252,11 @@ export function InstanceCard({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={onEdit}>
                   <Edit className="mr-2 h-4 w-4" />
-                  Edit
+                  {t("instances:edit")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleTest} disabled={isTesting || !instance.isActive}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Test Connection
+                  {t("instances:testConnection")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -263,7 +265,7 @@ export function InstanceCard({
                   className="text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
+                  {t("instances:delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -293,7 +295,7 @@ export function InstanceCard({
       <CardContent>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Username:</span>
+            <span className="text-muted-foreground">{t("instances:username")}</span>
             {/* qBittorrent's default username is 'admin' */}
             <span className={incognitoMode ? "blur-sm select-none" : ""}>
               {instance.username || "admin"}
@@ -301,26 +303,26 @@ export function InstanceCard({
           </div>
           {instance.basicUsername && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Basic Auth:</span>
+              <span className="text-muted-foreground">{t("instances:basicAuth")}</span>
               <span className={incognitoMode ? "blur-sm select-none" : ""}>
                 {instance.basicUsername}
               </span>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-muted-foreground">TLS Verification:</span>
+            <span className="text-muted-foreground">{t("instances:tlsVerification")}</span>
             <span className={instance.tlsSkipVerify ? "text-amber-500" : ""}>
-              {instance.tlsSkipVerify ? "Skipped" : "Strict"}
+              {instance.tlsSkipVerify ? t("instances:skipped") : t("instances:strict")}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Local File Access:</span>
+            <span className="text-muted-foreground">{t("instances:localFileAccess")}</span>
             <span className={cn(
               "flex items-center gap-1",
               instance.hasLocalFilesystemAccess ? "text-primary" : "text-muted-foreground"
             )}>
               <HardDrive className="h-3 w-3" />
-              {instance.hasLocalFilesystemAccess ? "Enabled" : "Disabled"}
+              {instance.hasLocalFilesystemAccess ? t("instances:enabled") : t("instances:disabled")}
             </span>
           </div>
         </div>
@@ -344,7 +346,7 @@ export function InstanceCard({
         {isTesting && (
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Testing connection...</span>
+            <span>{t("instances:testingConnection")}</span>
           </div>
         )}
       </CardContent>
@@ -352,18 +354,18 @@ export function InstanceCard({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Instance</AlertDialogTitle>
+            <AlertDialogTitle>{t("instances:deleteInstance")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{instance.name}"? This action cannot be undone.
+              {t("instances:deleteInstanceConfirm", { name: instance.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("instances:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t("instances:delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
