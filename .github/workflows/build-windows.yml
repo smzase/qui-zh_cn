@@ -89,6 +89,8 @@ jobs:
       - name: Build Windows binary
         env:
           CGO_ENABLED: 0
+          GOOS: windows
+          GOARCH: amd64
           VERSION: ${{ github.event.inputs.version || 'dev' }}
         run: |
           go build -trimpath \
