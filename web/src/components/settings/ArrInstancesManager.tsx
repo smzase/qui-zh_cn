@@ -45,9 +45,11 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CheckCircle, Edit, Loader2, Plus, Trash2, XCircle, Zap } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 export function ArrInstancesManager() {
+  const { t } = useTranslation()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editInstance, setEditInstance] = useState<ArrInstance | null>(null)
   const [deleteInstance, setDeleteInstance] = useState<ArrInstance | null>(null)
@@ -68,10 +70,10 @@ export function ArrInstancesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["arrInstances"] })
       setShowCreateDialog(false)
-      toast.success("ARR instance created successfully")
+      toast.success(t("arr.createSuccess"))
     },
     onError: (error: Error) => {
-      toast.error(`Failed to create ARR instance: ${error.message || "Unknown error"}`)
+      toast.error(t("arr.createError", { error: error.message || t("common.unknown") }))
     },
   })
 
@@ -82,10 +84,10 @@ export function ArrInstancesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["arrInstances"] })
       setEditInstance(null)
-      toast.success("ARR instance updated successfully")
+      toast.success(t("arr.updateSuccess"))
     },
     onError: (error: Error) => {
-      toast.error(`Failed to update ARR instance: ${error.message || "Unknown error"}`)
+      toast.error(t("arr.updateError", { error: error.message || t("common.unknown") }))
     },
   })
 
@@ -96,10 +98,10 @@ export function ArrInstancesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["arrInstances"] })
       setDeleteInstance(null)
-      toast.success("ARR instance deleted successfully")
+      toast.success(t("arr.deleteSuccess"))
     },
     onError: (error: Error) => {
-      toast.error(`Failed to delete ARR instance: ${error.message || "Unknown error"}`)
+      toast.error(t("arr.deleteError", { error: error.message || t("common.unknown") }))
     },
   })
 
@@ -111,13 +113,13 @@ export function ArrInstancesManager() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["arrInstances"] })
       if (result.success) {
-        toast.success("Connection successful")
+        toast.success(t("arr.connectionSuccess"))
       } else {
-        toast.error(`Connection failed: ${result.error || "Unknown error"}`)
+        toast.error(t("arr.connectionFailed", { error: result.error || t("common.unknown") }))
       }
     },
     onError: (error: Error) => {
-      toast.error(`Connection test failed: ${error.message || "Unknown error"}`)
+      toast.error(t("arr.connectionTestFailed", { error: error.message || t("common.unknown") }))
     },
     onSettled: () => {
       setTestingId(null)
@@ -136,18 +138,18 @@ export function ArrInstancesManager() {
             <div className="flex items-center gap-2 flex-wrap">
               <CardTitle className="text-lg truncate">{instance.name}</CardTitle>
               <Badge variant={instance.enabled ? "default" : "secondary"}>
-                {instance.enabled ? "Enabled" : "Disabled"}
+                {instance.enabled ? t("common.enabled") : t("common.disabled")}
               </Badge>
               {instance.last_test_status === "ok" && (
                 <Badge variant="outline" className="text-green-500 border-green-500/50">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  Connected
+                  {t("arr.connected")}
                 </Badge>
               )}
               {instance.last_test_status === "error" && (
                 <Badge variant="outline" className="text-red-500 border-red-500/50">
                   <XCircle className="h-3 w-3 mr-1" />
-                  Failed
+                  {t("arr.failed")}
                 </Badge>
               )}
             </div>
@@ -165,7 +167,7 @@ export function ArrInstancesManager() {
               size="sm"
               onClick={() => testMutation.mutate(instance.id)}
               disabled={testingId === instance.id}
-              aria-label={`Test connection for ${instance.name}`}
+              aria-label={t("arr.testConnectionFor", { name: instance.name })}
             >
               {testingId === instance.id ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -177,7 +179,7 @@ export function ArrInstancesManager() {
               variant="ghost"
               size="sm"
               onClick={() => setEditInstance(instance)}
-              aria-label={`Edit ${instance.name}`}
+              aria-label={t("arr.editName", { name: instance.name })}
             >
               <Edit className="h-4 w-4" />
             </Button>
@@ -185,7 +187,7 @@ export function ArrInstancesManager() {
               variant="ghost"
               size="sm"
               onClick={() => setDeleteInstance(instance)}
-              aria-label={`Delete ${instance.name}`}
+              aria-label={t("arr.deleteName", { name: instance.name })}
             >
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
@@ -209,14 +211,14 @@ export function ArrInstancesManager() {
           <DialogTrigger asChild>
             <Button size="sm" className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
-              Add ARR Instance
+              {t("arr.addArrInstance")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg max-w-full max-h-[90dvh] flex flex-col">
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Add ARR Instance</DialogTitle>
+              <DialogTitle>{t("arr.addArrInstance")}</DialogTitle>
               <DialogDescription>
-                Configure a Sonarr or Radarr instance for ID lookups during cross-seed searches.
+                {t("arr.addArrInstanceDesc")}
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -230,11 +232,11 @@ export function ArrInstancesManager() {
         </Dialog>
       </div>
 
-      {isLoading && <div className="text-center py-8">Loading ARR instances...</div>}
+      {isLoading && <div className="text-center py-8">{t("arr.loadingArrInstances")}</div>}
       {error && (
         <Card>
           <CardContent className="pt-6">
-            <div className="text-destructive">Failed to load ARR instances</div>
+            <div className="text-destructive">{t("arr.failedLoadArrInstances")}</div>
           </CardContent>
         </Card>
       )}
@@ -243,7 +245,7 @@ export function ArrInstancesManager() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-muted-foreground">
-              No ARR instances configured. Add a Sonarr or Radarr instance to enable ID-based cross-seed searches.
+              {t("arr.noArrInstances")}
             </div>
           </CardContent>
         </Card>
@@ -251,7 +253,7 @@ export function ArrInstancesManager() {
 
       {sonarrInstances.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Sonarr Instances</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">{t("arr.sonarrInstances")}</h3>
           <div className="grid gap-3">
             {sonarrInstances.map(renderInstanceCard)}
           </div>
@@ -260,7 +262,7 @@ export function ArrInstancesManager() {
 
       {radarrInstances.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Radarr Instances</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">{t("arr.radarrInstances")}</h3>
           <div className="grid gap-3">
             {radarrInstances.map(renderInstanceCard)}
           </div>
@@ -272,7 +274,7 @@ export function ArrInstancesManager() {
         <Dialog open={true} onOpenChange={() => setEditInstance(null)}>
           <DialogContent className="sm:max-w-lg max-w-full max-h-[90dvh] flex flex-col">
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Edit ARR Instance</DialogTitle>
+              <DialogTitle>{t("arr.editArrInstance")}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto min-h-0">
               <ArrInstanceForm
@@ -290,18 +292,18 @@ export function ArrInstancesManager() {
       <AlertDialog open={deleteInstance !== null} onOpenChange={() => setDeleteInstance(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete ARR Instance</AlertDialogTitle>
+            <AlertDialogTitle>{t("arr.deleteArrInstance")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteInstance?.name}"? This action cannot be undone.
+              {t("arr.deleteArrInstanceConfirm", { name: deleteInstance?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteInstance && deleteMutation.mutate(deleteInstance.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

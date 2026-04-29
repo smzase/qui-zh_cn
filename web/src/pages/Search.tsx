@@ -31,6 +31,7 @@ import type { TorznabIndexer, TorznabRecentSearch, TorznabSearchRequest, Torznab
 import { Link } from "@tanstack/react-router"
 import { Check, ChevronDown, ChevronUp, Download, ExternalLink, Plus, RefreshCw, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 type AdvancedParamsState = {
@@ -66,30 +67,31 @@ const ADVANCED_PARAM_DEFAULTS: AdvancedParamsState = {
 }
 
 const SEARCH_PLACEHOLDERS: Record<SearchType, string> = {
-  auto: "Try: \"Sample Movie 2024\", \"tt1234567\", \"tvdb 123456\", or \"Example Artist – Example Album\"",
-  movies: "e.g., \"Sample Movie 2024\", \"Another Film 1999\", \"tt1234567\"",
-  tv: "e.g., \"Sample Show S01E01\", \"tvdb 123456\", \"Fictional Series S02\"",
-  music: "e.g., \"Example Artist – Example Album\", \"Sample Band – Debut EP\"",
-  books: "e.g., \"Example Book Title\", \"Fictional Series Book 1\"",
-  apps: "e.g., \"Sample OS ISO\", \"Example App 2025\"",
-  xxx: "Enter a specific adult release name",
+  auto: "尝试：\"Sample Movie 2024\"、\"tt1234567\"、\"tvdb 123456\" 或 \"Example Artist – Example Album\"",
+  movies: "例如：\"Sample Movie 2024\"、\"Another Film 1999\"、\"tt1234567\"",
+  tv: "例如：\"Sample Show S01E01\"、\"tvdb 123456\"、\"Fictional Series S02\"",
+  music: "例如：\"Example Artist – Example Album\"、\"Sample Band – Debut EP\"",
+  books: "例如：\"Example Book Title\"、\"Fictional Series Book 1\"",
+  apps: "例如：\"Sample OS ISO\"、\"Example App 2025\"",
+  xxx: "输入特定的成人资源名称",
 }
 
 const ADVANCED_PARAM_CONFIG: AdvancedParamConfig[] = [
   { key: "imdbId", label: "IMDb ID", placeholder: "tt1234567", type: "text" },
   { key: "tvdbId", label: "TVDb ID", placeholder: "12345", type: "text" },
-  { key: "year", label: "Year", placeholder: "2024", type: "number", min: 0 },
-  { key: "season", label: "Season", placeholder: "1", type: "number", min: 0 },
-  { key: "episode", label: "Episode", placeholder: "2", type: "number", min: 0 },
-  { key: "artist", label: "Artist", placeholder: "Nine Inch Nails", type: "text" },
-  { key: "album", label: "Album", placeholder: "The Fragile", type: "text" },
-  { key: "limit", label: "Limit", placeholder: "100", type: "number", min: 1 },
-  { key: "offset", label: "Offset", placeholder: "0", type: "number", min: 0 },
+  { key: "year", label: "年份", placeholder: "2024", type: "number", min: 0 },
+  { key: "season", label: "季", placeholder: "1", type: "number", min: 0 },
+  { key: "episode", label: "集", placeholder: "2", type: "number", min: 0 },
+  { key: "artist", label: "艺术家", placeholder: "Nine Inch Nails", type: "text" },
+  { key: "album", label: "专辑", placeholder: "The Fragile", type: "text" },
+  { key: "limit", label: "限制", placeholder: "100", type: "number", min: 1 },
+  { key: "offset", label: "偏移", placeholder: "0", type: "number", min: 0 },
 ]
 
 const LAST_USED_INSTANCE_KEY = "qui:search:lastInstanceId"
 
 export function Search() {
+  const { t } = useTranslation()
   const SUGGESTION_BLUR_DELAY_MS = 100
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(false)
@@ -144,8 +146,8 @@ export function Search() {
         window.sessionStorage.setItem(LAST_USED_INSTANCE_KEY, String(instanceId))
       }
     } catch (error) {
-      console.error("Failed to persist instance selection", error)
-    }
+        console.error(t("searchPage.failedPersistInstance"), error)
+      }
   }, [])
 
   const handleAdvancedParamChange = useCallback((key: keyof AdvancedParamsState, value: string) => {
@@ -186,7 +188,11 @@ export function Search() {
     return instances.find(instance => instance.id === selectedInstanceId) ?? null
   }, [instances, selectedInstanceId])
   const totalIndexers = indexers.length
-  const indexerSummaryText = totalIndexers === 0? "No enabled indexers": selectedIndexers.size === totalIndexers? `All enabled (${totalIndexers})`: `${selectedIndexers.size} of ${totalIndexers} selected`
+  const indexerSummaryText = totalIndexers === 0
+    ? t("searchPage.noEnabledIndexersSearch")
+    : selectedIndexers.size === totalIndexers
+      ? `${t("common.all")} (${totalIndexers})`
+      : t("searchPage.selectedOfEnabled", { selected: selectedIndexers.size, total: totalIndexers })
 
   const REFRESH_COOLDOWN_MS = 30_000
   const refreshCooldownRemaining = Math.max(0, refreshCooldownUntil - Date.now())
@@ -216,7 +222,7 @@ export function Search() {
       case "prowlarr":
         return "Prowlarr"
       case "native":
-        return "Native"
+        return "原生"
       default:
         return "Jackett"
     }
@@ -227,17 +233,17 @@ export function Search() {
 
     // Allow search with either query or advanced parameters
     if (!normalizedQuery && !hasAdvancedParams) {
-      toast.error("Please enter a search query or fill in advanced parameters")
+      toast.error(t("searchPage.pleaseEnterQuery"))
       return false
     }
 
     if (selectedIndexers.size === 0) {
-      toast.error("Please select at least one indexer")
+      toast.error(t("searchPage.pleaseSelectIndexer"))
       return false
     }
 
     if (indexers.length === 0) {
-      toast.error("No enabled indexers available. Please add and enable indexers first.")
+      toast.error(t("searchPage.noEnabledIndexersSearch"))
       return false
     }
 
@@ -350,15 +356,15 @@ export function Search() {
         setCacheMetadata(response.cache ?? null)
 
         if (response.results.length === 0) {
-          toast.info("No results found")
+          toast.info(t("searchPage.noResultsFound"))
         } else {
-          const cacheSuffix = response.cache?.hit ? " (cached)" : ""
-          toast.success(`Found ${response.total} results${cacheSuffix}`)
+          const cacheSuffix = response.cache?.hit ? ` (${t("searchPage.cached")})` : ""
+          toast.success(t("searchPage.foundResults", { total: response.total, cacheSuffix }))
         }
         void refreshRecentSearches()
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error"
-        toast.error(`Search failed: ${errorMsg}`)
+        const errorMsg = error instanceof Error ? error.message : t("common.unknown")
+        toast.error(t("searchPage.searchFailed", { error: errorMsg }))
         console.error("Search error:", error)
       } finally {
         if (reqId === latestReqIdRef.current) setLoading(false)
@@ -441,11 +447,11 @@ export function Search() {
         // Select all enabled indexers by default
         setSelectedIndexers(new Set(enabledIndexers.map(idx => idx.id)))
       } catch (error) {
-        toast.error("Failed to load indexers")
-        console.error("Load indexers error:", error)
-      } finally {
-        setLoadingIndexers(false)
-      }
+      toast.error(t("searchPage.failedLoadIndexers"))
+      console.error("Load indexers error:", error)
+    } finally {
+      setLoadingIndexers(false)
+    }
     }
     loadIndexers()
   }, [])
@@ -486,7 +492,7 @@ export function Search() {
           }
         }
       } catch (error) {
-        console.error("Failed to load instance selection", error)
+        console.error(t("searchPage.failedLoadInstance"), error)
       }
     }
 
@@ -698,13 +704,13 @@ export function Search() {
       return { label: "", variant: "outline" as const }
     }
     if (cacheMetadata.source === "hybrid") {
-      return { label: "Cache + live", variant: "secondary" as const }
+      return { label: t("searchPage.cachePlusLive"), variant: "secondary" as const }
     }
     if (cacheMetadata.hit) {
-      return { label: "Cache hit", variant: "secondary" as const }
+      return { label: t("searchPage.cacheHit"), variant: "secondary" as const }
     }
-    return { label: "Live fetch", variant: "outline" as const }
-  }, [cacheMetadata])
+    return { label: t("searchPage.liveFetch"), variant: "outline" as const }
+  }, [cacheMetadata, t])
 
   const handleSuggestionClick = useCallback((search: TorznabRecentSearch) => {
     setQuery(search.query)
@@ -728,16 +734,16 @@ export function Search() {
 
     if (!targetId) {
       if (!hasInstances) {
-        toast.error("Add a download instance under Settings -> Instances")
+        toast.error(t("searchPage.addInstanceSettings"))
       } else {
-        toast.error("Choose an instance to add torrents")
+        toast.error(t("searchPage.chooseInstance"))
         setInstanceMenuOpen(true)
       }
       return
     }
 
     if (!result.downloadUrl) {
-      toast.error("No download URL available for this result")
+      toast.error(t("searchPage.noDownloadUrl"))
       return
     }
 
@@ -748,17 +754,17 @@ export function Search() {
 
   const handleViewDetails = (result: TorznabSearchResult) => {
     if (!result.infoUrl) {
-      toast.error("No additional info available for this result")
+      toast.error(t("searchPage.noAdditionalInfo"))
       return
     }
     try {
       const url = new URL(result.infoUrl)
       if (!["http:", "https:"].includes(url.protocol)) {
-        toast.error("Invalid URL protocol")
+        toast.error(t("searchPage.invalidUrlProtocol"))
         return
       }
     } catch {
-      toast.error("Invalid URL format")
+      toast.error(t("searchPage.invalidUrlFormat"))
       return
     }
 
@@ -780,17 +786,21 @@ export function Search() {
     }
   }
 
-  const addButtonTitle = targetInstance? `Add to ${targetInstance.name}`: hasInstances? "Choose an instance to add torrents": "Add a download instance under Settings -> Instances"
-  const primaryAddButtonLabel = targetInstance ? `Add to ${targetInstance.name}` : "Add to instance"
+  const addButtonTitle = targetInstance
+    ? t("searchPage.addTo", { name: targetInstance.name })
+    : hasInstances
+      ? t("searchPage.chooseInstance")
+      : t("searchPage.addInstanceSettings")
+  const primaryAddButtonLabel = targetInstance ? t("searchPage.addTo", { name: targetInstance.name }) : t("searchPage.addToInstance")
   const instancesAvailable = hasInstances
 
   return (
     <TooltipProvider>
       <div className="space-y-6 p-4 lg:p-6">
         <div className="flex-1 space-y-2">
-          <h1 className="text-2xl font-semibold">Search Indexers</h1>
+          <h1 className="text-2xl font-semibold">{t("searchPage.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Search across all enabled indexers. Pick a query type or leave Auto to have categories detected automatically.
+            {t("searchPage.description")}
           </p>
         </div>
 
@@ -800,23 +810,23 @@ export function Search() {
               <SheetTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-start">
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span className="text-sm">Indexers: {indexerSummaryText}</span>
+                  <span className="text-sm">{t("searchPage.indexers")}: {indexerSummaryText}</span>
                 </Button>
               </SheetTrigger>
 
               <SheetContent side="right" className="flex h-full max-h-dvh max-w-xl flex-col overflow-hidden p-0">
                 <SheetHeader>
-                  <SheetTitle>Indexer selection</SheetTitle>
-                  <SheetDescription>Pick which indexers to include in searches.</SheetDescription>
+                  <SheetTitle>{t("searchPage.indexerSelection")}</SheetTitle>
+                  <SheetDescription>{t("searchPage.indexerSelectionDesc")}</SheetDescription>
                 </SheetHeader>
 
                 <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden px-4 pb-4">
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={handleSelectAll}>
-                      Select all
+                      {t("searchPage.selectAll")}
                     </Button>
                     <Button type="button" variant="ghost" size="sm" onClick={handleDeselectAll}>
-                      Clear selection
+                      {t("searchPage.clearSelection")}
                     </Button>
                   </div>
 
@@ -859,7 +869,7 @@ export function Search() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-xs text-muted-foreground">No categories</p>
+                                  <p className="text-xs text-muted-foreground">{t("searchPage.noCategories")}</p>
                                 )}
                               </div>
                             </label>
@@ -872,11 +882,11 @@ export function Search() {
 
                 <SheetFooter className="border-t bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
-                    {selectedIndexers.size} of {indexers.length} enabled indexers selected
+                    {t("searchPage.selectedOfEnabled", { selected: selectedIndexers.size, total: indexers.length })}
                   </p>
                   <SheetClose asChild>
                     <Button type="button" size="sm">
-                      Done
+                      {t("searchPage.done")}
                     </Button>
                   </SheetClose>
                 </SheetFooter>
@@ -894,7 +904,11 @@ export function Search() {
                     className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-start"
                   >
                     <span className="text-sm">
-                      {targetInstance? `Target: ${targetInstance.name}${!targetInstance.connected ? " (offline)" : ""}`: instancesAvailable? "Choose target instance": "No instances"}
+                      {targetInstance
+                        ? `${t("searchPage.targetInstance")}: ${targetInstance.name}${!targetInstance.connected ? ` (${t("searchPage.offline")})` : ""}`
+                        : instancesAvailable
+                          ? t("searchPage.chooseTarget")
+                          : t("searchPage.noInstances")}
                     </span>
                     <ChevronDown className="h-3 w-3" />
                   </Button>
@@ -916,7 +930,7 @@ export function Search() {
                           <div className="flex flex-col">
                             <span className="font-medium">{instance.name}</span>
                             {!instance.connected && (
-                              <span className="text-xs text-muted-foreground">Offline</span>
+                              <span className="text-xs text-muted-foreground">{t("searchPage.offline")}</span>
                             )}
                           </div>
                         </DropdownMenuItem>
@@ -929,17 +943,17 @@ export function Search() {
                         }}
                         disabled={!targetInstance}
                       >
-                        Clear selection
+                        {t("searchPage.clearSelectionInstance")}
                       </DropdownMenuItem>
                     </>
                   ) : (
-                    <DropdownMenuItem disabled>No instances configured</DropdownMenuItem>
+                    <DropdownMenuItem disabled>{t("searchPage.noInstancesConfigured")}</DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
               {!instancesAvailable && !loadingInstances && (
                 <p className="text-xs text-muted-foreground">
-                  Add a download instance under Settings {">"} Instances.
+                  {t("searchPage.addInstanceHint")}
                 </p>
               )}
             </div>
@@ -952,10 +966,10 @@ export function Search() {
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
                 <div className="flex items-center gap-2">
                   <div className="shrink-0 min-w-30 max-w-45">
-                    <Label htmlFor="search-type" className="sr-only">Search type</Label>
+                    <Label htmlFor="search-type" className="sr-only">{t("searchPage.searchType")}</Label>
                     <Select value={searchType} onValueChange={(value) => setSearchType(value as SearchType)}>
                       <SelectTrigger id="search-type" className="w-full">
-                        <SelectValue placeholder="Auto detect" />
+                        <SelectValue placeholder={t("searchPage.autoDetect")} />
                       </SelectTrigger>
                       <SelectContent>
                         {SEARCH_TYPE_OPTIONS.map((option) => (
@@ -978,11 +992,11 @@ export function Search() {
                       onClick={() => setShowAdvancedParams(prev => !prev)}
                     >
                       <SlidersHorizontal className="mr-2 h-4 w-4" />
-                      Advanced
+                      {t("searchPage.advanced")}
                     </Button>
                     {hasAdvancedParams && (
                       <>
-                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Active</Badge>
+                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">{t("searchPage.active")}</Badge>
                         <Button
                           type="button"
                           variant="ghost"
@@ -990,7 +1004,7 @@ export function Search() {
                           className="text-muted-foreground"
                           onClick={handleResetAdvancedParams}
                         >
-                          Clear
+                          {t("searchPage.clear")}
                         </Button>
                       </>
                     )}
@@ -998,7 +1012,7 @@ export function Search() {
                 </div>
                 <div className="flex flex-1 items-center gap-2 min-w-0">
                   <div className="flex-1 relative min-w-0">
-                    <Label htmlFor="query" className="sr-only">Search Query</Label>
+                    <Label htmlFor="query" className="sr-only">{t("searchPage.searchQuery")}</Label>
                     <Input
                       ref={queryInputRef}
                       id="query"
@@ -1045,7 +1059,7 @@ export function Search() {
                                 {search.query}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {suggestionTypeLabel} · {search.totalResults} results · {formatCacheTimestamp(search.lastUsedAt ?? search.cachedAt)}
+                                {suggestionTypeLabel} · {search.totalResults} {t("searchPage.results")} · {formatCacheTimestamp(search.lastUsedAt ?? search.cachedAt)}
                               </div>
                             </button>
                           )
@@ -1059,7 +1073,7 @@ export function Search() {
                     className="shrink-0"
                   >
                     <SearchIcon className="mr-2 h-4 w-4" />
-                    {loading ? "Searching..." : "Search"}
+                    {loading ? t("searchPage.searching") : t("searchPage.search")}
                   </Button>
                 </div>
               </div>
@@ -1086,17 +1100,17 @@ export function Search() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Optional (but recommended) Torznab parameters.
+                    {t("searchPage.optionalParams")}
                   </p>
                 </div>
               )}
               {!loadingIndexers && indexers.length === 0 && (
                 <div className="text-sm text-muted-foreground">
-                  No enabled indexers available. Please add and enable indexers in the{" "}
+                  {t("searchPage.noEnabledIndexers")}{" "}
                   <Link to="/settings" search={{ tab: "indexers" }} className="font-medium text-primary underline-offset-4 hover:underline">
-                    Indexers page
+                    {t("searchPage.indexersPage")}
                   </Link>
-                  .
+                  {t("searchPage.addAndEnable")}
                 </div>
               )}
 
@@ -1105,13 +1119,13 @@ export function Search() {
             {results.length > 0 && (
               <div className="mt-6">
                 <div className="mb-2 text-xs text-muted-foreground">
-                  Showing {filteredAndSortedResults.length} of {total} results
+                  {t("searchPage.showingResults", { filtered: filteredAndSortedResults.length, total })}
                 </div>
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
                   <div className="w-full sm:min-w-50 sm:flex-1 min-w-0 relative">
                     <Input
                       type="text"
-                      placeholder="Filter results..."
+                      placeholder={t("searchPage.filterResults")}
                       value={resultsFilter}
                       onChange={(e) => setResultsFilter(e.target.value)}
                       className="pr-8"
@@ -1131,7 +1145,7 @@ export function Search() {
                               <X className="h-3.5 w-3.5 text-muted-foreground" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent>Clear search</TooltipContent>
+                          <TooltipContent>{t("searchPage.clearSearch")}</TooltipContent>
                         </Tooltip>
                       </div>
                     )}
@@ -1152,10 +1166,10 @@ export function Search() {
                           className="h-9"
                         >
                           <X className="h-4 w-4" />
-                          <span className="sr-only">Clear all column filters</span>
+                          <span className="sr-only">{t("searchPage.clearAllColumnFilters")}</span>
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Clear all column filters</TooltipContent>
+                      <TooltipContent>{t("searchPage.clearAllColumnFilters")}</TooltipContent>
                     </Tooltip>
                   )}
                   {selectedResult && (
@@ -1183,7 +1197,7 @@ export function Search() {
                                 disabled={!instancesAvailable}
                               >
                                 <ChevronDown className="h-4 w-4" />
-                                <span className="sr-only">Pick instance</span>
+                                <span className="sr-only">{t("searchPage.pickInstance")}</span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56">
@@ -1195,7 +1209,7 @@ export function Search() {
                                     handleAddTorrent(selectedResult, instance.id)
                                   }}
                                 >
-                                  Add to {instance.name}{!instance.connected ? " (offline)" : ""}
+                                  {t("searchPage.addTo", { name: instance.name })}{!instance.connected ? ` (${t("searchPage.offline")})` : ""}
                                 </DropdownMenuItem>
                               ))}
                             </DropdownMenuContent>
@@ -1207,14 +1221,14 @@ export function Search() {
                           size="sm"
                           onClick={handleClearSelection}
                         >
-                          Clear selection
+                          {t("searchPage.clearSelection")}
                         </Button>
                       </div>
                       <div className="sm:hidden">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button type="button" size="sm" variant="outline" className="w-full">
-                              Actions
+                              {t("searchPage.actions")}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -1230,7 +1244,7 @@ export function Search() {
                             {instancesAvailable && (
                               <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>
-                                  Quick add to...
+                                  {t("searchPage.quickAddTo")}
                                 </DropdownMenuSubTrigger>
                                 <DropdownMenuSubContent>
                                   {instances?.map(instance => (
@@ -1241,7 +1255,7 @@ export function Search() {
                                         handleAddTorrent(selectedResult, instance.id)
                                       }}
                                     >
-                                      Add to {instance.name}{!instance.connected ? " (offline)" : ""}
+                                      {t("searchPage.addTo", { name: instance.name })}{!instance.connected ? ` (${t("searchPage.offline")})` : ""}
                                     </DropdownMenuItem>
                                   ))}
                                 </DropdownMenuSubContent>
@@ -1253,7 +1267,7 @@ export function Search() {
                                 handleDownload(selectedResult)
                               }}
                             >
-                              <Download className="mr-2 h-4 w-4" /> Download
+                              <Download className="mr-2 h-4 w-4" /> {t("searchPage.download")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onSelect={(event) => {
@@ -1264,7 +1278,7 @@ export function Search() {
                               }}
                               disabled={!selectedResult.infoUrl}
                             >
-                              <ExternalLink className="mr-2 h-4 w-4" /> View details
+                              <ExternalLink className="mr-2 h-4 w-4" /> {t("searchPage.viewDetails")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1284,9 +1298,9 @@ export function Search() {
                       {cacheMetadata && (
                         <TooltipContent>
                           <p className="text-xs">
-                            Cached {formatCacheTimestamp(cacheMetadata.cachedAt)} · Expires {formatCacheTimestamp(cacheMetadata.expiresAt)}
+                            {t("searchPage.cached")} {formatCacheTimestamp(cacheMetadata.cachedAt)} · {t("searchPage.expires")} {formatCacheTimestamp(cacheMetadata.expiresAt)}
                             <br />
-                            Source: {cacheMetadata.source} · Scope: {cacheMetadata.scope}
+                            {t("searchPage.source")}: {cacheMetadata.source} · {t("searchPage.scope")}: {cacheMetadata.scope}
                           </p>
                         </TooltipContent>
                       )}
@@ -1298,7 +1312,7 @@ export function Search() {
                       className={`h-7 w-7 opacity-40 transition-opacity hover:opacity-100 ${!showRefreshButton ? "invisible" : ""}`}
                       onClick={() => setRefreshConfirmOpen(true)}
                       disabled={!canForceRefresh}
-                      title={refreshCooldownRemaining > 0 ? `Ready in ${Math.ceil(refreshCooldownRemaining / 1000)}s` : "Refresh from indexers"}
+                      title={refreshCooldownRemaining > 0 ? t("searchPage.readyIn", { seconds: Math.ceil(refreshCooldownRemaining / 1000) }) : t("searchPage.refreshFromIndexers")}
                     >
                       <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                     </Button>
@@ -1332,13 +1346,13 @@ export function Search() {
                       <TableRow className="bg-card">
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("title")}>
-                            <span className="select-none">Title</span>
+                            <span className="select-none">{t("searchPage.title")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("title")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="title"
-                                  columnName="Title"
+                                  columnName={t("searchPage.title")}
                                   columnType="string"
                                   currentFilter={columnFilters.title}
                                   onApply={(filter) => {
@@ -1356,13 +1370,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("indexer")}>
-                            <span className="select-none">Indexer</span>
+                            <span className="select-none">{t("searchPage.indexer")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("indexer")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="indexer"
-                                  columnName="Indexer"
+                                  columnName={t("searchPage.indexer")}
                                   columnType="enum"
                                   options={indexerOptions}
                                   currentFilter={columnFilters.indexer}
@@ -1382,13 +1396,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("size")}>
-                            <span className="select-none">Size</span>
+                            <span className="select-none">{t("searchPage.size")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("size")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="size"
-                                  columnName="Size"
+                                  columnName={t("searchPage.size")}
                                   columnType="size"
                                   currentFilter={columnFilters.size}
                                   onApply={(filter) => {
@@ -1406,13 +1420,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("seeders")}>
-                            <span className="select-none">Seeders</span>
+                            <span className="select-none">{t("searchPage.seeders")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("seeders")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="seeders"
-                                  columnName="Seeders"
+                                  columnName={t("searchPage.seeders")}
                                   columnType="number"
                                   currentFilter={columnFilters.seeders}
                                   onApply={(filter) => {
@@ -1430,13 +1444,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("category")}>
-                            <span className="select-none">Category</span>
+                            <span className="select-none">{t("searchPage.category")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("category")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="category"
-                                  columnName="Category"
+                                  columnName={t("searchPage.category")}
                                   columnType="enum"
                                   options={categoryOptions}
                                   currentFilter={columnFilters.category}
@@ -1456,13 +1470,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("source")}>
-                            <span className="select-none">Source</span>
+                            <span className="select-none">{t("searchPage.sourceColumn")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("source")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="source"
-                                  columnName="Source"
+                                  columnName={t("searchPage.sourceColumn")}
                                   columnType="enum"
                                   options={sourceOptions}
                                   currentFilter={columnFilters.source}
@@ -1482,13 +1496,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("collection")}>
-                            <span className="select-none">Collection</span>
+                            <span className="select-none">{t("searchPage.collection")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("collection")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="collection"
-                                  columnName="Collection"
+                                  columnName={t("searchPage.collection")}
                                   columnType="string"
                                   currentFilter={columnFilters.collection}
                                   onApply={(filter) => {
@@ -1506,13 +1520,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("group")}>
-                            <span className="select-none">Group</span>
+                            <span className="select-none">{t("searchPage.group")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("group")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="group"
-                                  columnName="Group"
+                                  columnName={t("searchPage.group")}
                                   columnType="string"
                                   currentFilter={columnFilters.group}
                                   onApply={(filter) => {
@@ -1530,10 +1544,10 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 select-none text-muted-foreground">
-                            <span>Freeleech</span>
+                            <span>{t("searchPage.freeleech")}</span>
                             <ColumnFilterPopover
                               columnId="freeleech"
-                              columnName="Freeleech"
+                              columnName={t("searchPage.freeleech")}
                               columnType="enum"
                               options={freeleechOptions}
                               currentFilter={columnFilters.freeleech}
@@ -1551,13 +1565,13 @@ export function Search() {
                         </TableHead>
                         <TableHead>
                           <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("published")}>
-                            <span className="select-none">Published</span>
+                            <span className="select-none">{t("searchPage.published")}</span>
                             <div className="flex items-center gap-1">
                               {getSortIcon("published")}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <ColumnFilterPopover
                                   columnId="published"
-                                  columnName="Published"
+                                  columnName={t("searchPage.published")}
                                   columnType="date"
                                   currentFilter={columnFilters.published}
                                   onApply={(filter) => {
@@ -1574,7 +1588,7 @@ export function Search() {
                           </div>
                         </TableHead>
                         <TableHead className="w-20">
-                          <span className="sr-only">Actions</span>
+                          <span className="sr-only">{t("searchPage.actions")}</span>
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1616,7 +1630,7 @@ export function Search() {
                               </Badge>
                             </TableCell>
                             <TableCell className={cn("text-sm text-muted-foreground", isSelected && "text-accent-foreground")}>
-                              {categoryMap.get(result.categoryId) || result.categoryName || `Category ${result.categoryId}`}
+                              {categoryMap.get(result.categoryId) || result.categoryName || t("searchPage.categoryId", { id: result.categoryId })}
                             </TableCell>
                             <TableCell className={cn("text-sm", isSelected && "text-accent-foreground")}>
                               {result.source ? (
@@ -1641,7 +1655,7 @@ export function Search() {
                             </TableCell>
                             <TableCell className={cn(isSelected && "text-accent-foreground")}>
                               {result.downloadVolumeFactor === 0 && (
-                                <Badge variant="default">Free</Badge>
+                                <Badge variant="default">{t("searchPage.free")}</Badge>
                               )}
                               {result.downloadVolumeFactor > 0 && result.downloadVolumeFactor < 1 && (
                                 <Badge variant="secondary">{result.downloadVolumeFactor * 100}%</Badge>
@@ -1663,10 +1677,10 @@ export function Search() {
                                       disabled={!result.downloadUrl}
                                     >
                                       <Download className="h-3.5 w-3.5" />
-                                      <span className="sr-only">Download</span>
+                                      <span className="sr-only">{t("searchPage.download")}</span>
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Download .torrent</TooltipContent>
+                                  <TooltipContent>{t("searchPage.downloadTorrent")}</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -1679,10 +1693,10 @@ export function Search() {
                                       disabled={!result.infoUrl}
                                     >
                                       <ExternalLink className="h-3.5 w-3.5" />
-                                      <span className="sr-only">View details</span>
+                                      <span className="sr-only">{t("searchPage.viewDetails")}</span>
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>{result.infoUrl ? "View details" : "No info URL"}</TooltipContent>
+                                  <TooltipContent>{result.infoUrl ? t("searchPage.viewDetails") : t("searchPage.noInfoUrl")}</TooltipContent>
                                 </Tooltip>
                               </div>
                             </TableCell>
@@ -1697,13 +1711,13 @@ export function Search() {
 
             {!loading && results.length === 0 && total === 0 && query && (
               <div className="mt-6 text-center text-muted-foreground">
-                No results found for "{query}"
+                {t("searchPage.noResultsFor", { query })}
               </div>
             )}
 
             {!loading && !query && results.length == 0 && (
               <div className="mt-6 text-center text-muted-foreground">
-                Enter a search query to get started
+                {t("searchPage.enterSearchQuery")}
               </div>
             )}
           </CardContent>
@@ -1722,18 +1736,18 @@ export function Search() {
         <AlertDialog open={refreshConfirmOpen} onOpenChange={setRefreshConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Bypass the cache?</AlertDialogTitle>
+              <AlertDialogTitle>{t("searchPage.bypassCache")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will send the request directly to every selected indexer. Use sparingly to avoid rate limits. You can refresh again after a short cooldown.
+                {t("searchPage.bypassCacheDesc")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={loading}>{t("searchPage.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleForceRefreshConfirm}
                 disabled={!canForceRefresh || loading}
               >
-                Refresh now
+                {t("searchPage.refreshNow")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

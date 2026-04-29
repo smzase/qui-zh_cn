@@ -35,13 +35,13 @@ const PARENT_CATEGORY_TO_TYPE: Record<number, NonAutoSearchType> = {
 }
 
 export const SEARCH_TYPE_OPTIONS: SearchTypeOption[] = [
-  { value: 'auto', label: 'Auto detect', description: 'Automatically infer the right categories' },
-  { value: 'movies', label: 'Movies' },
-  { value: 'tv', label: 'TV' },
-  { value: 'music', label: 'Music' },
-  { value: 'books', label: 'Books & comics' },
-  { value: 'apps', label: 'Apps & games' },
-  { value: 'xxx', label: 'Adult' }
+  { value: 'auto', label: '自动检测', description: '自动推断正确的类别' },
+  { value: 'movies', label: '电影' },
+  { value: 'tv', label: '电视剧' },
+  { value: 'music', label: '音乐' },
+  { value: 'books', label: '书籍与漫画' },
+  { value: 'apps', label: '应用与游戏' },
+  { value: 'xxx', label: '成人' }
 ]
 
 export function getCategoriesForSearchType(type: SearchType): number[] | undefined {
@@ -74,5 +74,5 @@ export function inferSearchTypeFromCategories(categories?: number[]): SearchType
 
 export function getSearchTypeLabel(type: SearchType): string {
   const match = SEARCH_TYPE_OPTIONS.find((option) => option.value === type)
-  return match?.label ?? 'Auto detect'
+  return match?.label ?? '自动检测'
 }
