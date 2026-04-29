@@ -48,6 +48,7 @@ import {
 } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { InstancePreferencesDialog } from "../instances/preferences/InstancePreferencesDialog"
 import { TorrentContextMenu } from "./TorrentContextMenu"
 import { TORRENT_SORT_OPTIONS, getDefaultSortOrder, type TorrentSortOptionValue } from "./torrentSortOptions"
@@ -598,6 +599,7 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   onServerStateUpdate,
   onSelectionInfoUpdate,
 }: TorrentTableOptimizedProps) {
+  const { t } = useTranslation()
   const isReadOnly = readOnly
   const isUnifiedView = isAllInstancesScope(instanceId)
   // State management
@@ -1359,8 +1361,8 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
       getSelectionIdentity,
       isAllSelected,
       excludedFromSelectAll,
-    }, speedUnit, trackerIcons, formatTimestamp, preferences, supportsTrackerHealth, isUnifiedView && isCrossInstanceEndpoint, desktopViewMode as TableViewMode, trackerCustomizationLookup, !isReadOnly),
-    [incognitoMode, speedUnit, trackerIcons, formatTimestamp, handleSelectAll, isSelectAllChecked, isSelectAllIndeterminate, handleRowSelection, getSelectionIdentity, isAllSelected, excludedFromSelectAll, preferences, supportsTrackerHealth, isUnifiedView, isCrossInstanceEndpoint, desktopViewMode, trackerCustomizationLookup, isReadOnly]
+    }, speedUnit, trackerIcons, formatTimestamp, preferences, supportsTrackerHealth, isUnifiedView && isCrossInstanceEndpoint, desktopViewMode as TableViewMode, trackerCustomizationLookup, !isReadOnly, t),
+    [incognitoMode, speedUnit, trackerIcons, formatTimestamp, handleSelectAll, isSelectAllChecked, isSelectAllIndeterminate, handleRowSelection, getSelectionIdentity, isAllSelected, excludedFromSelectAll, preferences, supportsTrackerHealth, isUnifiedView, isCrossInstanceEndpoint, desktopViewMode, trackerCustomizationLookup, isReadOnly, t]
   )
 
   const torrentIdentityCounts = useMemo(() => {
@@ -2468,14 +2470,14 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
                                 size="icon"
                               >
                                 <Columns3 className="h-4 w-4" />
-                                <span className="sr-only">Toggle columns</span>
+                                <span className="sr-only">{t("torrents:toggleColumns")}</span>
                               </Button>
                             </DropdownMenuTrigger>
                           </TooltipTrigger>
-                          <TooltipContent>Toggle columns</TooltipContent>
+                          <TooltipContent>{t("torrents:toggleColumns")}</TooltipContent>
                         </Tooltip>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                          <DropdownMenuLabel>{t("torrents:toggleColumns")}</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           {table
                             .getAllColumns()

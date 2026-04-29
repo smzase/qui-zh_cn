@@ -28,6 +28,7 @@ import { cn, formatErrorMessage } from "@/lib/utils"
 import type { Instance } from "@/types"
 import { Clock, Cog, Folder, Gauge, MoreVertical, Power, Radar, RefreshCw, Server, Settings, Trash2, Upload, Wifi } from "lucide-react"
 import { Component, lazy, Suspense, useCallback, useMemo, useState, type ErrorInfo, type ReactNode } from "react"
+import { useTranslation, Trans } from "react-i18next"
 
 import { toast } from "sonner"
 
@@ -36,21 +37,23 @@ import { InstanceSettingsPanel } from "./InstanceSettingsPanel"
 
 /** Loading fallback for lazy-loaded tab content */
 function TabLoadingFallback() {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
-      <div className="text-sm text-muted-foreground">Loading...</div>
+      <div className="text-sm text-muted-foreground">{t("torrents:loading")}</div>
     </div>
   )
 }
 
 /** Error fallback for lazy-loaded tab content */
 function TabErrorFallback({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-4" role="alert">
-      <p className="text-sm text-muted-foreground">Failed to load settings. Please try again.</p>
+      <p className="text-sm text-muted-foreground">{t("torrents:failedLoadSettings")}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         <RefreshCw className="mr-2 h-4 w-4" />
-        Retry
+        {t("torrents:retry")}
       </Button>
     </div>
   )
@@ -134,6 +137,7 @@ export function InstancePreferencesDialog({
   instance,
   defaultTab,
 }: InstancePreferencesDialogProps) {
+  const { t } = useTranslation()
   const {
     instances,
     deleteInstance,
@@ -195,13 +199,13 @@ export function InstancePreferencesDialog({
     const nextState = !currentInstance.isActive
     setInstanceStatus({ id: currentInstance.id, isActive: nextState }, {
       onSuccess: () => {
-        toast.success(nextState ? "Instance Enabled" : "Instance Disabled", {
-          description: nextState ? "qui will resume connecting to this qBittorrent instance." : "qui will stop attempting to reach this qBittorrent instance.",
+        toast.success(nextState ? t("torrents:instanceEnabled") : t("torrents:instanceDisabledToast"), {
+          description: nextState ? t("torrents:instanceEnabledDesc") : t("torrents:instanceDisabledDesc"),
         })
       },
       onError: (error) => {
-        toast.error("Status Update Failed", {
-          description: error instanceof Error ? formatErrorMessage(error.message) : "Failed to update instance status",
+        toast.error(t("torrents:statusUpdateFailed"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents:statusUpdateFailedDesc"),
         })
       },
     })
@@ -211,15 +215,15 @@ export function InstancePreferencesDialog({
     if (!currentInstance) return
     deleteInstance({ id: currentInstance.id, name: currentInstance.name }, {
       onSuccess: () => {
-        toast.success("Instance Deleted", {
-          description: `Successfully deleted "${currentInstance.name}"`,
+        toast.success(t("torrents:instanceDeleted"), {
+          description: t("torrents:instanceDeletedDesc", { name: currentInstance.name }),
         })
         setShowDeleteDialog(false)
         handleDeleted()
       },
       onError: (error) => {
-        toast.error("Delete Failed", {
-          description: error instanceof Error ? formatErrorMessage(error.message) : "Failed to delete instance",
+        toast.error(t("torrents:deleteFailed"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents:deleteFailedDesc"),
         })
         setShowDeleteDialog(false)
       },
@@ -235,7 +239,7 @@ export function InstancePreferencesDialog({
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Cog className="h-5 w-5" />
-              <span>Instance Settings</span>
+              <span>{t("torrents:instanceSettings")}</span>
               {currentInstance && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -254,7 +258,7 @@ export function InstancePreferencesDialog({
                       disabled={isStatusUpdating}
                     >
                       <Power className={cn("mr-2 h-4 w-4", !currentInstance.isActive && "text-destructive")} />
-                      {isStatusUpdating ? "Updating..." : currentInstance.isActive ? "Disable Instance" : "Enable Instance"}
+                      {isStatusUpdating ? t("torrents:updating") : currentInstance.isActive ? t("torrents:disableInstance") : t("torrents:enableInstance")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -263,15 +267,21 @@ export function InstancePreferencesDialog({
                       className="text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Instance
+                      {t("torrents:deleteInstance")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
             </DialogTitle>
             <DialogDescription>
-              Configure all settings and preferences for <strong className="truncate max-w-xs inline-block align-bottom" title={displayInstanceName}>{displayInstanceName}</strong>
-            </DialogDescription>
+                <Trans
+                  i18nKey="torrents:configureSettingsFor"
+                  values={{ name: displayInstanceName }}
+                  components={{
+                    strong: <strong className="truncate max-w-xs inline-block align-bottom" title={displayInstanceName} />,
+                  }}
+                />
+              </DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue={defaultTab ?? "instance"} className="flex w-full min-h-0 flex-1 flex-col">
@@ -279,44 +289,44 @@ export function InstancePreferencesDialog({
               <TabsList className="flex w-full justify-start overflow-x-auto h-11 sm:h-9">
                 <TabsTrigger value="instance" className="flex items-center gap-1.5 shrink-0">
                   <Server className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Instance</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:instance")}</span>
                 </TabsTrigger>
                 <div className="h-6 w-px bg-muted-foreground/50 mx-1 sm:mx-2 self-center shrink-0" />
                 <TabsTrigger value="speed" className="flex items-center gap-1.5 shrink-0">
                   <Gauge className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Speed</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:speed")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="queue" className="flex items-center gap-1.5 shrink-0">
                   <Clock className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Queue</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:queue")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="files" className="flex items-center gap-1.5 shrink-0">
                   <Folder className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Files</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:files")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="seeding" className="flex items-center gap-1.5 shrink-0">
                   <Upload className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Seeding</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:seeding")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="connection" className="flex items-center gap-1.5 shrink-0">
                   <Wifi className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Connect</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:connection")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="discovery" className="flex items-center gap-1.5 shrink-0">
                   <Radar className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Discovery</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:discovery")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="advanced" className="flex items-center gap-1.5 shrink-0">
                   <Settings className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">Advanced</span>
+                  <span className="text-xs sm:text-sm">{t("torrents:advanced")}</span>
                 </TabsTrigger>
               </TabsList>
             </div>
 
             <PreferencesTabSection
               value="instance"
-              title="Instance Configuration"
-              description="Configure connection settings, authentication, and access options"
+              title={t("torrents:instanceConfiguration")}
+              description={t("torrents:instanceConfigurationDesc")}
             >
               {currentInstance ? (
                 <InstanceSettingsPanel instance={currentInstance} onSuccess={handleSuccess} />
@@ -329,8 +339,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="speed"
-              title="Speed Limits"
-              description="Configure download and upload speed limits"
+              title={t("torrents:speedLimits")}
+              description={t("torrents:speedLimitsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -341,8 +351,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="queue"
-              title="Queue Management"
-              description="Configure torrent queue settings and active torrent limits"
+              title={t("torrents:queueManagement")}
+              description={t("torrents:queueManagementDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -353,8 +363,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="files"
-              title="File Management"
-              description="Configure file paths and torrent management settings"
+              title={t("torrents:fileManagement")}
+              description={t("torrents:fileManagementDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -365,8 +375,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="seeding"
-              title="Seeding Limits"
-              description="Configure share ratio and seeding time limits"
+              title={t("torrents:seedingLimits")}
+              description={t("torrents:seedingLimitsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -377,8 +387,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="connection"
-              title="Connection Settings"
-              description="Configure listening port, protocol settings, and connection limits"
+              title={t("torrents:connectionSettings")}
+              description={t("torrents:connectionSettingsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -389,8 +399,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="discovery"
-              title="Network Discovery"
-              description="Configure peer discovery protocols and tracker settings"
+              title={t("torrents:networkDiscovery")}
+              description={t("torrents:networkDiscoveryDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -401,8 +411,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="advanced"
-              title="Advanced Settings"
-              description="Performance tuning, disk I/O, peer management, and security settings"
+              title={t("torrents:advancedSettings")}
+              description={t("torrents:advancedSettingsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -418,19 +428,19 @@ export function InstancePreferencesDialog({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Instance</AlertDialogTitle>
+            <AlertDialogTitle>{t("torrents:deleteInstance")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{displayInstanceName}"? This action cannot be undone.
+              {t("torrents:deleteInstanceConfirm", { name: displayInstanceName })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
             >
-              Delete
+              {t("common:delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
