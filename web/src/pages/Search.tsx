@@ -66,26 +66,26 @@ const ADVANCED_PARAM_DEFAULTS: AdvancedParamsState = {
   offset: "",
 }
 
-const SEARCH_PLACEHOLDERS: Record<SearchType, string> = {
-  auto: "尝试：\"Sample Movie 2024\"、\"tt1234567\"、\"tvdb 123456\" 或 \"Example Artist – Example Album\"",
-  movies: "例如：\"Sample Movie 2024\"、\"Another Film 1999\"、\"tt1234567\"",
-  tv: "例如：\"Sample Show S01E01\"、\"tvdb 123456\"、\"Fictional Series S02\"",
-  music: "例如：\"Example Artist – Example Album\"、\"Sample Band – Debut EP\"",
-  books: "例如：\"Example Book Title\"、\"Fictional Series Book 1\"",
-  apps: "例如：\"Sample OS ISO\"、\"Example App 2025\"",
-  xxx: "输入特定的成人资源名称",
-}
+const useSearchPlaceholders = (t: (key: string) => string): Record<SearchType, string> => ({
+  auto: t("searchPage.placeholderAuto"),
+  movies: t("searchPage.placeholderMovies"),
+  tv: t("searchPage.placeholderTv"),
+  music: t("searchPage.placeholderMusic"),
+  books: t("searchPage.placeholderBooks"),
+  apps: t("searchPage.placeholderApps"),
+  xxx: t("searchPage.placeholderXxx"),
+})
 
-const ADVANCED_PARAM_CONFIG: AdvancedParamConfig[] = [
-  { key: "imdbId", label: "IMDb ID", placeholder: "tt1234567", type: "text" },
-  { key: "tvdbId", label: "TVDb ID", placeholder: "12345", type: "text" },
-  { key: "year", label: "年份", placeholder: "2024", type: "number", min: 0 },
-  { key: "season", label: "季", placeholder: "1", type: "number", min: 0 },
-  { key: "episode", label: "集", placeholder: "2", type: "number", min: 0 },
-  { key: "artist", label: "艺术家", placeholder: "Nine Inch Nails", type: "text" },
-  { key: "album", label: "专辑", placeholder: "The Fragile", type: "text" },
-  { key: "limit", label: "限制", placeholder: "100", type: "number", min: 1 },
-  { key: "offset", label: "偏移", placeholder: "0", type: "number", min: 0 },
+const useAdvancedParamConfig = (t: (key: string) => string): AdvancedParamConfig[] => [
+  { key: "imdbId", label: t("searchPage.imdbId"), placeholder: "tt1234567", type: "text" },
+  { key: "tvdbId", label: t("searchPage.tvdbId"), placeholder: "12345", type: "text" },
+  { key: "year", label: t("searchPage.year"), placeholder: "2024", type: "number", min: 0 },
+  { key: "season", label: t("searchPage.season"), placeholder: "1", type: "number", min: 0 },
+  { key: "episode", label: t("searchPage.episode"), placeholder: "2", type: "number", min: 0 },
+  { key: "artist", label: t("searchPage.artist"), placeholder: "Nine Inch Nails", type: "text" },
+  { key: "album", label: t("searchPage.album"), placeholder: "The Fragile", type: "text" },
+  { key: "limit", label: t("searchPage.limit"), placeholder: "100", type: "number", min: 1 },
+  { key: "offset", label: t("searchPage.offset"), placeholder: "0", type: "number", min: 0 },
 ]
 
 const LAST_USED_INSTANCE_KEY = "qui:search:lastInstanceId"
@@ -120,7 +120,8 @@ export function Search() {
   const [showAdvancedParams, setShowAdvancedParams] = useState(false)
   const [advancedParams, setAdvancedParams] = useState<AdvancedParamsState>(() => ({ ...ADVANCED_PARAM_DEFAULTS }))
   const [selectedResultGuid, setSelectedResultGuid] = useState<string | null>(null)
-  const searchPlaceholder = useMemo(() => SEARCH_PLACEHOLDERS[searchType], [searchType])
+  const searchPlaceholders = useSearchPlaceholders(t)
+  const searchPlaceholder = useMemo(() => searchPlaceholders[searchType], [searchPlaceholders, searchType])
   const hasAdvancedParams = useMemo(() => Object.values(advancedParams).some(value => value.trim() !== ""), [advancedParams])
   const queryInputRef = useRef<HTMLInputElement | null>(null)
   const blurTimeoutRef = useRef<number | null>(null)
@@ -146,7 +147,7 @@ export function Search() {
         window.sessionStorage.setItem(LAST_USED_INSTANCE_KEY, String(instanceId))
       }
     } catch (error) {
-        console.error(t("searchPage.failedPersistInstance"), error)
+        console.error("Failed to persist instance selection:", error)
       }
   }, [])
 
@@ -220,11 +221,11 @@ export function Search() {
   const formatBackend = (backend: TorznabIndexer["backend"]) => {
     switch (backend) {
       case "prowlarr":
-        return "Prowlarr"
+        return t("searchPage.backendProwlarr")
       case "native":
-        return "原生"
+        return t("searchPage.backendNative")
       default:
-        return "Jackett"
+        return t("searchPage.backendJackett")
     }
   }
 
@@ -412,11 +413,11 @@ export function Search() {
   }, [results])
 
   const freeleechOptions = [
-    { value: "true", label: "Free" },
-    { value: "0.25", label: "25%" },
-    { value: "0.5", label: "50%" },
-    { value: "0.75", label: "75%" },
-    { value: "false", label: "Neutral" },
+    { value: "true", label: t("searchPage.freeleechFree") },
+    { value: "0.25", label: t("searchPage.freeleech25") },
+    { value: "0.5", label: t("searchPage.freeleech50") },
+    { value: "0.75", label: t("searchPage.freeleech75") },
+    { value: "false", label: t("searchPage.freeleechNeutral") },
   ]
 
   useEffect(() => {
@@ -1082,7 +1083,7 @@ export function Search() {
               {showAdvancedParams && (
                 <div className="rounded-lg border bg-muted/40 p-4 space-y-4">
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {ADVANCED_PARAM_CONFIG.map(({ key, label, placeholder, type, min }) => (
+                    {useAdvancedParamConfig(t).map(({ key, label, placeholder, type, min }) => (
                       <div key={key} className="space-y-1.5">
                         <Label htmlFor={`advanced-${key}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           {label}

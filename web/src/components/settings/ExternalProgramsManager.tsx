@@ -34,6 +34,7 @@ import type { ExternalProgram, ExternalProgramCreate, ExternalProgramUpdate, Pat
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Edit, Plus, Trash2, X } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 // Type for automation references in delete conflict response
@@ -50,6 +51,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function ExternalProgramsManager() {
+  const { t } = useTranslation()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editProgram, setEditProgram] = useState<ExternalProgram | null>(null)
   const [deleteProgram, setDeleteProgram] = useState<ExternalProgram | null>(null)
@@ -71,10 +73,10 @@ export function ExternalProgramsManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["externalPrograms"] })
       setShowCreateDialog(false)
-      toast.success("External program created successfully")
+      toast.success(t("externalPrograms.createSuccess"))
     },
     onError: (error: unknown) => {
-      toast.error(`Failed to create external program: ${getErrorMessage(error)}`)
+      toast.error(t("externalPrograms.createError", { error: getErrorMessage(error) }))
     },
   })
 
@@ -85,10 +87,10 @@ export function ExternalProgramsManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["externalPrograms"] })
       setEditProgram(null)
-      toast.success("External program updated successfully")
+      toast.success(t("externalPrograms.updateSuccess"))
     },
     onError: (error: unknown) => {
-      toast.error(`Failed to update external program: ${getErrorMessage(error)}`)
+      toast.error(t("externalPrograms.updateError", { error: getErrorMessage(error) }))
     },
   })
 
@@ -102,7 +104,7 @@ export function ExternalProgramsManager() {
       queryClient.invalidateQueries({ queryKey: ["automations"] })
       setDeleteProgram(null)
       setDeleteConflict(null)
-      toast.success("External program deleted successfully")
+      toast.success(t("externalPrograms.deleteSuccess"))
     },
     onError: (error: unknown) => {
       if (error instanceof APIError && error.status === 409) {
@@ -112,7 +114,7 @@ export function ExternalProgramsManager() {
           return
         }
       }
-      toast.error(`Failed to delete external program: ${getErrorMessage(error)}`)
+      toast.error(t("externalPrograms.deleteError", { error: getErrorMessage(error) }))
     },
   })
 
@@ -123,14 +125,14 @@ export function ExternalProgramsManager() {
           <DialogTrigger asChild>
             <Button size="sm" className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
-              Create External Program
+              {t("externalPrograms.createExternalProgram")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl max-w-full max-h-[90dvh] flex flex-col">
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Create External Program</DialogTitle>
+              <DialogTitle>{t("externalPrograms.createExternalProgram")}</DialogTitle>
               <DialogDescription>
-                Configure an external program or script that can be executed from the torrent context menu.
+                {t("externalPrograms.createExternalProgramDesc")}
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -144,11 +146,11 @@ export function ExternalProgramsManager() {
         </Dialog>
       </div>
 
-      {isLoading && <div className="text-center py-8">Loading external programs...</div>}
+      {isLoading && <div className="text-center py-8">{t("externalPrograms.loading")}</div>}
       {error && (
         <Card>
           <CardContent className="pt-6">
-            <div className="text-destructive">Failed to load external programs</div>
+            <div className="text-destructive">{t("externalPrograms.loadError")}</div>
           </CardContent>
         </Card>
       )}
@@ -157,7 +159,7 @@ export function ExternalProgramsManager() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-muted-foreground">
-              No external programs configured. Create one to get started.
+              {t("externalPrograms.noPrograms")}
             </div>
           </CardContent>
         </Card>
@@ -173,13 +175,13 @@ export function ExternalProgramsManager() {
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{program.name}</CardTitle>
                       <Badge variant={program.enabled ? "default" : "secondary"}>
-                        {program.enabled ? "Enabled" : "Disabled"}
+                        {program.enabled ? t("common.enabled") : t("common.disabled")}
                       </Badge>
                     </div>
                     <CardDescription className="text-xs">
-                      Created {formatDate(new Date(program.created_at))}
+                      {t("common.created")} {formatDate(new Date(program.created_at))}
                       {program.updated_at !== program.created_at &&
-                        ` • Updated ${formatDate(new Date(program.updated_at))}`}
+                        ` • ${t("common.updated")} ${formatDate(new Date(program.updated_at))}`}
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
@@ -187,7 +189,7 @@ export function ExternalProgramsManager() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditProgram(program)}
-                      aria-label={`Edit ${program.name}`}
+                      aria-label={t("externalPrograms.editName", { name: program.name })}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -195,7 +197,7 @@ export function ExternalProgramsManager() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setDeleteProgram(program)}
-                      aria-label={`Delete ${program.name}`}
+                      aria-label={t("externalPrograms.deleteName", { name: program.name })}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -204,14 +206,14 @@ export function ExternalProgramsManager() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div>
-                  <div className="text-sm font-medium mb-1">Program Path:</div>
+                  <div className="text-sm font-medium mb-1">{t("externalPrograms.programPath")}</div>
                   <code className="text-xs bg-muted px-2 py-1 rounded block break-all">
                     {program.path}
                   </code>
                 </div>
                 {program.args_template && (
                   <div>
-                    <div className="text-sm font-medium mb-1">Arguments Template:</div>
+                    <div className="text-sm font-medium mb-1">{t("externalPrograms.argumentsTemplate")}</div>
                     <code className="text-xs bg-muted px-2 py-1 rounded block break-all">
                       {program.args_template}
                     </code>
@@ -228,7 +230,7 @@ export function ExternalProgramsManager() {
         <Dialog open={true} onOpenChange={() => setEditProgram(null)}>
           <DialogContent className="sm:max-w-2xl max-w-full max-h-[90dvh] flex flex-col">
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Edit External Program</DialogTitle>
+              <DialogTitle>{t("externalPrograms.editExternalProgram")}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto min-h-0">
               <ProgramForm
@@ -251,13 +253,13 @@ export function ExternalProgramsManager() {
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete External Program</AlertDialogTitle>
+            <AlertDialogTitle>{t("externalPrograms.deleteExternalProgram")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 {deleteConflict ? (
                   <>
                     <p className="text-amber-600 dark:text-amber-500">
-                      This program is used by the following automation rules:
+                      {t("externalPrograms.usedByAutomations")}
                     </p>
                     <ul className="list-disc list-inside text-sm space-y-1 max-h-32 overflow-y-auto">
                       {deleteConflict.map((ref) => (
@@ -265,23 +267,23 @@ export function ExternalProgramsManager() {
                       ))}
                     </ul>
                     <p>
-                      If you proceed, the external program action will be removed from these automation rules.
+                      {t("externalPrograms.proceedRemoveAction")}
                     </p>
                   </>
                 ) : (
-                  <p>Are you sure you want to delete "{deleteProgram?.name}"? This action cannot be undone.</p>
+                  <p>{t("externalPrograms.deleteConfirm", { name: deleteProgram?.name })}</p>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteProgram && deleteMutation.mutate({ id: deleteProgram.id, force: deleteConflict !== null })}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
             >
-              {deleteConflict ? "Delete Anyway" : "Delete"}
+              {deleteConflict ? t("externalPrograms.deleteAnyway") : t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

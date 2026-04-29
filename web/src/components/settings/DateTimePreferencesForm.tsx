@@ -20,6 +20,7 @@ import { usePersistedDateTimePreferences } from "@/hooks/usePersistedDateTimePre
 import type { DateTimePreferences } from "@/hooks/usePersistedDateTimePreferences"
 import { formatTimestamp } from "@/lib/dateTimeUtils"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 // Comprehensive worldwide timezone list organized by region
 const TIMEZONES_BY_REGION = {
@@ -174,6 +175,7 @@ function SwitchSetting({
 }
 
 export function DateTimePreferencesForm() {
+  const { t } = useTranslation()
   const { preferences, setPreferences } = usePersistedDateTimePreferences()
   const [previewKey, setPreviewKey] = React.useState(0) // Force preview updates
 
@@ -182,9 +184,9 @@ export function DateTimePreferencesForm() {
     onSubmit: async ({ value }) => {
       try {
         setPreferences(value)
-        toast.success("Date & time preferences updated successfully")
+        toast.success(t("dateTime.saveSuccess"))
       } catch (error) {
-        toast.error("Failed to update date & time preferences")
+        toast.error(t("dateTime.saveError"))
         console.error("Failed to update date & time preferences:", error)
       }
     },
@@ -230,15 +232,15 @@ export function DateTimePreferencesForm() {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Globe className="h-4 w-4" />
-          <h3 className="text-lg font-medium">Timezone</h3>
+          <h3 className="text-lg font-medium">{t("dateTime.timezone")}</h3>
         </div>
 
         <form.Field name="timezone">
           {(field) => (
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Timezone</Label>
+              <Label className="text-sm font-medium">{t("dateTime.timezone")}</Label>
               <p className="text-xs text-muted-foreground">
-                Select your local timezone for accurate time display
+                {t("dateTime.timezoneDesc")}
               </p>
               <Select
                 value={field.state.value}
@@ -248,14 +250,14 @@ export function DateTimePreferencesForm() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select timezone" />
+                  <SelectValue placeholder={t("dateTime.selectTimezone")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-96">
                   {/* Show user's detected timezone first if not in standard list */}
                   {userTimezone && !ALL_TIMEZONES.includes(userTimezone) && (
                     <>
                       <SelectItem key={userTimezone} value={userTimezone}>
-                        <span className="font-medium">{userTimezone}</span> (detected)
+                        <span className="font-medium">{userTimezone}</span> ({t("dateTime.detected")})
                       </SelectItem>
                       <div className="border-t my-1" />
                     </>
@@ -285,19 +287,19 @@ export function DateTimePreferencesForm() {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4" />
-          <h3 className="text-lg font-medium">Time Format</h3>
+          <h3 className="text-lg font-medium">{t("dateTime.timeFormat")}</h3>
         </div>
 
         <form.Field name="timeFormat">
           {(field) => (
             <SwitchSetting
-              label="Use 12-hour format (AM/PM)"
+              label={t("dateTime.use12HourFormat")}
               checked={field.state.value === "12h"}
               onCheckedChange={(checked) => {
                 field.handleChange(checked ? "12h" : "24h")
                 updatePreview()
               }}
-              description="Toggle between 12-hour and 24-hour time display"
+              description={t("dateTime.use12HourFormatDesc")}
             />
           )}
         </form.Field>
@@ -307,15 +309,15 @@ export function DateTimePreferencesForm() {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4" />
-          <h3 className="text-lg font-medium">Date Format</h3>
+          <h3 className="text-lg font-medium">{t("dateTime.dateFormat")}</h3>
         </div>
 
         <form.Field name="dateFormat">
           {(field) => (
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Date Format</Label>
+              <Label className="text-sm font-medium">{t("dateTime.dateFormat")}</Label>
               <p className="text-xs text-muted-foreground">
-                Choose how dates are displayed throughout the application
+                {t("dateTime.dateFormatDesc")}
               </p>
               <Select
                 value={field.state.value}
@@ -325,13 +327,13 @@ export function DateTimePreferencesForm() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select date format" />
+                  <SelectValue placeholder={t("dateTime.selectDateFormat")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="iso">ISO 8601 (YYYY-MM-DD)</SelectItem>
-                  <SelectItem value="us">US Format (MM/DD/YYYY)</SelectItem>
-                  <SelectItem value="eu">European Format (DD/MM/YYYY)</SelectItem>
-                  <SelectItem value="relative">Relative (e.g., "2 hours ago")</SelectItem>
+                  <SelectItem value="iso">{t("dateTime.isoFormat")}</SelectItem>
+                  <SelectItem value="us">{t("dateTime.usFormat")}</SelectItem>
+                  <SelectItem value="eu">{t("dateTime.euFormat")}</SelectItem>
+                  <SelectItem value="relative">{t("dateTime.relativeFormat")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -341,17 +343,17 @@ export function DateTimePreferencesForm() {
 
       {/* Preview Section */}
       <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
-        <Label className="text-sm font-medium">Preview</Label>
+        <Label className="text-sm font-medium">{t("dateTime.preview")}</Label>
         <p key={previewKey} className="text-sm font-mono">{getFormattedExample()}</p>
         <p className="text-xs text-muted-foreground">
-          This is how dates and times will appear in the application
+          {t("dateTime.previewDesc")}
         </p>
       </div>
 
       {/* Submit Button */}
       <div className="flex justify-end">
         <Button type="submit">
-          Save Preferences
+          {t("dateTime.savePreferences")}
         </Button>
       </div>
     </form>

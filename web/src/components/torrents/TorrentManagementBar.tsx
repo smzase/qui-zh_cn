@@ -50,6 +50,7 @@ import {
   Trash2
 } from "lucide-react"
 import { memo, useCallback, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { DeleteTorrentDialog } from "./DeleteTorrentDialog"
 import {
   LocationWarningDialog,
@@ -90,6 +91,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
   excludeTargets = [],
   onComplete,
 }: TorrentManagementBarProps) {
+  const { t } = useTranslation()
   const selectionCount = totalSelectionCount || selectedHashes.length
   const hasActionScope = typeof instanceId === "number" && instanceId >= 0
   const actionInstanceId = hasActionScope ? instanceId : -1
@@ -502,7 +504,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
       <div
         className="flex items-center h-9 dark:bg-input/30 border border-input rounded-md mr-2 px-3 py-2 gap-3 shadow-xs transition-all duration-200"
         role="toolbar"
-        aria-label={`${selectionCount} torrent${selectionCount !== 1 ? "s" : ""} selected - Bulk actions available`}
+        aria-label={t("torrents.selectedTorrents", { count: selectionCount })}
       >
         <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
           <span className="text-xs text-muted-foreground whitespace-nowrap min-w-[3ch] text-center">
@@ -523,7 +525,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <Play className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Resume</TooltipContent>
+            <TooltipContent>{t("torrents.resume")}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -537,7 +539,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <Pause className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Pause</TooltipContent>
+            <TooltipContent>{t("torrents.pause")}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -551,7 +553,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <CheckCircle className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Force Recheck</TooltipContent>
+            <TooltipContent>{t("torrents.forceRecheck")}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -565,7 +567,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <Radio className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Reannounce</TooltipContent>
+            <TooltipContent>{t("torrents.reannounce")}</TooltipContent>
           </Tooltip>
 
           {(() => {
@@ -584,7 +586,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                     <Blocks className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{allSeqDlEnabled ? "Disable" : "Enable"} Sequential Download</TooltipContent>
+                <TooltipContent>{allSeqDlEnabled ? t("torrents.disable") : t("torrents.enable")} {t("torrents.sequentialDownload")}</TooltipContent>
               </Tooltip>
             )
           })()}
@@ -600,7 +602,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <Tag className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Set Tags</TooltipContent>
+            <TooltipContent>{t("torrents.setTags")}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -614,7 +616,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <Folder className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Set Category</TooltipContent>
+            <TooltipContent>{t("torrents.setCategory")}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -628,7 +630,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Set Location</TooltipContent>
+            <TooltipContent>{t("torrents.setLocation")}</TooltipContent>
           </Tooltip>
 
           {/* Queue Priority */}
@@ -645,7 +647,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Queue Priority</TooltipContent>
+              <TooltipContent>{t("torrents.queuePriority")}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="center">
               <DropdownMenuItem
@@ -653,28 +655,28 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 disabled={isPending || isDisabled}
               >
                 <ChevronsUp className="h-4 w-4 mr-2" />
-                Top Priority {selectionCount > 1 ? `(${selectionCount})` : ""}
+                {t("torrents.topPriority")} {selectionCount > 1 ? `(${selectionCount})` : ""}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleQueueAction("increasePriority")}
                 disabled={isPending || isDisabled}
               >
                 <ArrowUp className="h-4 w-4 mr-2" />
-                Increase Priority {selectionCount > 1 ? `(${selectionCount})` : ""}
+                {t("torrents.increasePriority")} {selectionCount > 1 ? `(${selectionCount})` : ""}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleQueueAction("decreasePriority")}
                 disabled={isPending || isDisabled}
               >
                 <ArrowDown className="h-4 w-4 mr-2" />
-                Decrease Priority {selectionCount > 1 ? `(${selectionCount})` : ""}
+                {t("torrents.decreasePriority")} {selectionCount > 1 ? `(${selectionCount})` : ""}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleQueueAction("bottomPriority")}
                 disabled={isPending || isDisabled}
               >
                 <ChevronsDown className="h-4 w-4 mr-2" />
-                Bottom Priority {selectionCount > 1 ? `(${selectionCount})` : ""}
+                {t("torrents.bottomPriority")} {selectionCount > 1 ? `(${selectionCount})` : ""}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -693,7 +695,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Limits</TooltipContent>
+              <TooltipContent>{t("torrents.limits")}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent>
               <DropdownMenuItem
@@ -701,14 +703,14 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 disabled={isPending || isDisabled}
               >
                 <Sprout className="mr-2 h-4 w-4" />
-                Set Share Limit {selectionCount > 1 ? `(${selectionCount})` : ""}
+                {t("torrents.setShareLimit")} {selectionCount > 1 ? `(${selectionCount})` : ""}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => prepareSpeedLimitAction(selectedHashes, selectedTorrents)}
                 disabled={isPending || isDisabled}
               >
                 <Gauge className="mr-2 h-4 w-4" />
-                Set Speed Limit {selectionCount > 1 ? `(${selectionCount})` : ""}
+                {t("torrents.setSpeedLimit")} {selectionCount > 1 ? `(${selectionCount})` : ""}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -732,7 +734,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {mixed ? "TMM (Mixed)" : allEnabled ? "Disable TMM" : "Enable TMM"}
+                  {mixed ? t("torrents.tmmMixed") : allEnabled ? t("torrents.disableTmm") : t("torrents.enableTmm")}
                 </TooltipContent>
               </Tooltip>
             )
@@ -751,7 +753,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
                 <Trash2 className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Delete</TooltipContent>
+            <TooltipContent>{t("common.delete")}</TooltipContent>
           </Tooltip>
         </div>
       </div>

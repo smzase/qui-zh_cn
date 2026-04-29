@@ -44,6 +44,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { AlertTriangle, Loader2, Plus } from "lucide-react"
 import type { ChangeEvent, KeyboardEvent } from "react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { buildCategoryTree, type CategoryNode } from "./CategoryTree"
 
@@ -80,6 +81,7 @@ export const TagEditorDialog = memo(function TagEditorDialog({
   isPending = false,
   isLoadingTags = false,
 }: TagEditorDialogProps) {
+  const { t } = useTranslation()
   const [items, setItems] = useState<TagEditorItem[]>([])
   const [newTag, setNewTag] = useState("")
   const [selectionTagValues, setSelectionTagValues] = useState<string[]>([])
@@ -158,7 +160,7 @@ export const TagEditorDialog = memo(function TagEditorDialog({
 
     if (!canFetchRemoteBaseline) {
       setIsLoadingSelectionTags(true)
-      setSelectionBaselineError("Could not build the full tag baseline for this selection")
+      setSelectionBaselineError(t("torrents.tagBaselineError"))
       return () => {
         cancelled = true
       }
@@ -188,11 +190,11 @@ export const TagEditorDialog = memo(function TagEditorDialog({
         return
       }
 
-      setSelectionBaselineError(error.message || "Could not build the full tag baseline")
+      setSelectionBaselineError(error.message || t("torrents.tagBaselineError"))
       setIsLoadingSelectionTags(false)
       onOpenChange(false)
-      toast.error("Failed to load selected torrent tags", {
-        description: error.message || "Could not build the full tag baseline",
+      toast.error(t("torrents.failedLoadTags"), {
+        description: error.message || t("torrents.tagBaselineError"),
       })
     })
 
@@ -316,10 +318,10 @@ export const TagEditorDialog = memo(function TagEditorDialog({
           <span className={cn("truncate text-sm font-medium", isNew && "text-primary italic")}>
             {item.tag}
           </span>
-          {isNew && <span className="text-xs text-muted-foreground">(new)</span>}
+          {isNew && <span className="text-xs text-muted-foreground">({t("torrents.new")})</span>}
         </div>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {item.state === "mixed" ? "Mixed" : item.state === "on" ? "On" : "Off"}
+          {item.state === "mixed" ? t("torrents.mixed") : item.state === "on" ? t("torrents.on") : t("torrents.off")}
         </span>
       </button>
     )
@@ -329,9 +331,9 @@ export const TagEditorDialog = memo(function TagEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Tags for {hashCount} torrent(s)</DialogTitle>
+          <DialogTitle>{t("torrents.setTagsFor", { count: hashCount })}</DialogTitle>
           <DialogDescription>
-            Mixed tags stay unchanged until clicked. Click a row to cycle Mixed to On, On to Off, and Off to On.
+            {t("torrents.setTagsDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -341,24 +343,24 @@ export const TagEditorDialog = memo(function TagEditorDialog({
             </div>
           ) : isLoadingState ? (
             <div className="space-y-2">
-              <Label>Available Tags</Label>
+              <Label>{t("torrents.availableTags")}</Label>
               <div className="h-48 border rounded-md p-3 flex items-center justify-center">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Loading tags...</span>
+                  <span className="text-sm">{t("torrents.loadingTags")}</span>
                 </div>
               </div>
             </div>
           ) : items.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Available Tags</Label>
+                <Label>{t("torrents.availableTags")}</Label>
                 <div className="flex items-center gap-2">
                   <Button type="button" size="sm" variant="outline" onClick={resetItems} disabled={!hasChanges}>
-                    Reset
+                    {t("common.reset")}
                   </Button>
                   <Button type="button" size="sm" variant="outline" onClick={clearAll}>
-                    Clear All
+                    {t("torrents.clearAll")}
                   </Button>
                 </div>
               </div>
@@ -403,18 +405,18 @@ export const TagEditorDialog = memo(function TagEditorDialog({
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No tags available yet. Add one below.
+              {t("torrents.noTagsAvailable")}
             </div>
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="newTag">Add New Tag</Label>
+            <Label htmlFor="newTag">{t("torrents.addNewTag")}</Label>
             <div className="flex gap-2">
               <Input
                 id="newTag"
                 value={newTag}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setNewTag(e.target.value)}
-                placeholder="Enter new tag"
+                placeholder={t("torrents.enterNewTag")}
                 disabled={isLoadingState}
                 onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === "Enter" && newTag.trim()) {
@@ -438,21 +440,21 @@ export const TagEditorDialog = memo(function TagEditorDialog({
           {hasChanges ? (
             <div className="text-sm text-muted-foreground">
               {updatePlan.add.length > 0 && (
-                <div>Add everywhere: {updatePlan.add.join(", ")}</div>
+                <div>{t("torrents.addEverywhere")}: {updatePlan.add.join(", ")}</div>
               )}
               {updatePlan.remove.length > 0 && (
-                <div>Remove everywhere: {updatePlan.remove.join(", ")}</div>
+                <div>{t("torrents.removeEverywhere")}: {updatePlan.remove.join(", ")}</div>
               )}
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">
-              No tag changes.
+              {t("torrents.noTagChanges")}
             </div>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-          <Button onClick={handleConfirm} disabled={isPending || !hasChanges || isLoadingState || Boolean(selectionBaselineError)}>Apply</Button>
+          <Button variant="outline" onClick={handleCancel}>{t("common.cancel")}</Button>
+          <Button onClick={handleConfirm} disabled={isPending || !hasChanges || isLoadingState || Boolean(selectionBaselineError)}>{t("common.apply")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -492,6 +494,7 @@ export const SetLocationDialog = memo(function SetLocationDialog({
   instanceId = 0,
   capabilities,
 }: SetLocationDialogProps) {
+  const { t } = useTranslation()
   const [location, setLocation] = useState("")
   const wasOpen = useRef(false)
 
@@ -550,14 +553,14 @@ export const SetLocationDialog = memo(function SetLocationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Set Location for {hashCount} torrent(s)</DialogTitle>
+          <DialogTitle>{t("torrents.setLocationFor", { count: hashCount })}</DialogTitle>
           <DialogDescription>
-            Enter the new save location for the selected torrents. This will disable Auto TMM and move the torrents to the specified location.
+            {t("torrents.setLocationDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
+            <Label htmlFor="location">{t("torrents.location")}</Label>
             <Input
               ref={effectiveInputRef}
               id="location"
@@ -573,7 +576,7 @@ export const SetLocationDialog = memo(function SetLocationDialog({
               }}
               onKeyDown={handleKeyDown}
               onBlur={supportsPathAutocomplete ? handleAutocompleteBlur : undefined}
-              placeholder="/path/to/save/location"
+              placeholder={t("torrents.locationPlaceholder")}
               disabled={isPending}
             />
             {supportsPathAutocomplete && showSuggestions && suggestions.length > 0 && (
@@ -603,13 +606,13 @@ export const SetLocationDialog = memo(function SetLocationDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel} disabled={isPending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={isPending || !location.trim()}
           >
-            Set Location
+            {t("torrents.setLocation")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -632,6 +635,7 @@ export const RenameTorrentDialog = memo(function RenameTorrentDialog({
   onConfirm,
   isPending = false,
 }: RenameTorrentDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState("")
   const wasOpen = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -661,20 +665,20 @@ export const RenameTorrentDialog = memo(function RenameTorrentDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rename Torrent</DialogTitle>
+          <DialogTitle>{t("torrents.renameTorrent")}</DialogTitle>
           <DialogDescription>
-            Update the display name for this torrent. This changes how it appears in qBittorrent and qui.
+            {t("torrents.renameTorrentDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="torrentName">Torrent Name</Label>
+            <Label htmlFor="torrentName">{t("torrents.torrentName")}</Label>
             <Input
               ref={inputRef}
               id="torrentName"
               value={name}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-              placeholder="Enter new torrent name"
+              placeholder={t("torrents.enterNewTorrentName")}
               disabled={isPending}
               onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                 if (e.key === "Enter" && !isPending && name.trim()) {
@@ -687,10 +691,10 @@ export const RenameTorrentDialog = memo(function RenameTorrentDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleClose(false)} disabled={isPending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleConfirm} disabled={isPending || !name.trim()}>
-            Rename
+            {t("common.rename")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -717,6 +721,7 @@ export const RenameTorrentFileDialog = memo(function RenameTorrentFileDialog({
   isPending = false,
   initialPath,
 }: RenameTorrentFileDialogProps) {
+  const { t } = useTranslation()
   const [newName, setNewName] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -782,24 +787,24 @@ export const RenameTorrentFileDialog = memo(function RenameTorrentFileDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-[calc(100vw-2.5rem)] max-w-md sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Rename File</DialogTitle>
+          <DialogTitle>{t("torrents.renameFile")}</DialogTitle>
         </DialogHeader>
         <div className="py-2 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Loading...
+              {t("torrents.loading")}
             </div>
           ) : !initialPath || !fileExists ? (
             <div className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
-              No file selected.
+              {t("torrents.noFileSelected")}
             </div>
           ) : (
             <>
               {/* Current path display */}
               {folderPath && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Location</Label>
+                  <Label className="text-xs text-muted-foreground">{t("torrents.location")}</Label>
                   <div className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-2.5 py-1.5 break-all">
                     {folderPath}/
                   </div>
@@ -808,13 +813,13 @@ export const RenameTorrentFileDialog = memo(function RenameTorrentFileDialog({
 
               {/* New name input */}
               <div className="space-y-1.5">
-                <Label htmlFor="fileName">File Name</Label>
+                <Label htmlFor="fileName">{t("torrents.fileName")}</Label>
                 <Input
                   ref={inputRef}
                   id="fileName"
                   value={newName}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
-                  placeholder="Enter file name"
+                  placeholder={t("torrents.enterFileName")}
                   disabled={isPending}
                   className="font-mono"
                   onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
@@ -831,14 +836,14 @@ export const RenameTorrentFileDialog = memo(function RenameTorrentFileDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleClose(false)} disabled={isPending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={isPending || !initialPath || !newName.trim() || !hasChanges || !fileExists}
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Rename
+            {t("torrents.rename")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -865,6 +870,7 @@ export const RenameTorrentFolderDialog = memo(function RenameTorrentFolderDialog
   isPending = false,
   initialPath,
 }: RenameTorrentFolderDialogProps) {
+  const { t } = useTranslation()
   const [selectedPath, setSelectedPath] = useState("")
   const [newName, setNewName] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -949,27 +955,27 @@ export const RenameTorrentFolderDialog = memo(function RenameTorrentFolderDialog
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-[calc(100vw-2.5rem)] max-w-md sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Rename Folder</DialogTitle>
+          <DialogTitle>{t("torrents.renameFolder")}</DialogTitle>
         </DialogHeader>
         <div className="py-2 space-y-4 overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Loading...
+              {t("torrents.loading")}
             </div>
           ) : sortedFolders.length === 0 ? (
             <div className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
-              No folders available to rename.
+              {t("torrents.noFoldersAvailable")}
             </div>
           ) : (
             <>
               {/* Folder selector - only if no initialPath and multiple folders */}
               {showFolderSelector && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="folderSelect">Select Folder</Label>
+                  <Label htmlFor="folderSelect">{t("torrents.selectFolder")}</Label>
                   <Select value={selectedPath} onValueChange={handleFolderSelect}>
                     <SelectTrigger id="folderSelect" className="font-mono text-xs">
-                      <SelectValue placeholder="Choose a folder..." />
+                      <SelectValue placeholder={t("torrents.chooseFolder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {sortedFolders.map((folder) => (
@@ -985,7 +991,7 @@ export const RenameTorrentFolderDialog = memo(function RenameTorrentFolderDialog
               {/* Parent path display */}
               {parentPath && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Location</Label>
+                  <Label className="text-xs text-muted-foreground">{t("torrents.location")}</Label>
                   <div className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-2.5 py-1.5 break-all">
                     {parentPath}/
                   </div>
@@ -994,13 +1000,13 @@ export const RenameTorrentFolderDialog = memo(function RenameTorrentFolderDialog
 
               {/* New name input */}
               <div className="space-y-1.5">
-                <Label htmlFor="folderName">Folder Name</Label>
+                <Label htmlFor="folderName">{t("torrents.folderName")}</Label>
                 <Input
                   ref={inputRef}
                   id="folderName"
                   value={newName}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
-                  placeholder="Enter folder name"
+                  placeholder={t("torrents.enterFolderName")}
                   disabled={isPending}
                   className="font-mono"
                   onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
@@ -1014,21 +1020,21 @@ export const RenameTorrentFolderDialog = memo(function RenameTorrentFolderDialog
 
 
               <p className="text-xs text-muted-foreground">
-                All files inside this folder will be moved to the new location.
+                {t("torrents.folderMoveWarning")}
               </p>
             </>
           )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleClose(false)} disabled={isPending}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={isPending || !folderExists || !newName.trim() || !hasChanges}
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Rename
+            {t("torrents.rename")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1047,6 +1053,7 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
   isLoadingCategories = false,
   useSubcategories = false,
 }: SetCategoryDialogProps) {
+  const { t } = useTranslation()
   const [categoryInput, setCategoryInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [dialogCategories, setDialogCategories] = useState<Record<string, Category>>({})
@@ -1156,9 +1163,9 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Category for {hashCount} torrent(s)</DialogTitle>
+          <DialogTitle>{t("torrents.setCategoryFor", { hashCount })}</DialogTitle>
           <DialogDescription>
-            Select a category from the list or create a new one
+            {t("torrents.selectCategoryDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -1166,10 +1173,10 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
           <div className={showSearch ? "space-y-2" : "hidden"} aria-hidden={!showSearch}>
             {showSearch && (
               <>
-                <Label htmlFor="categorySearch">Search Categories</Label>
+                <Label htmlFor="categorySearch">{t("torrents.searchCategories")}</Label>
                 <Input
                   id="categorySearch"
-                  placeholder="Type to search..."
+                  placeholder={t("torrents.typeToSearch")}
                   value={searchQuery}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                 />
@@ -1179,7 +1186,7 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
 
           {/* Category list with optional virtualization */}
           <div className="space-y-2">
-            <Label>Select Category</Label>
+            <Label>{t("torrents.category")}</Label>
             <div
               ref={scrollContainerRef}
               className="max-h-64 border rounded-md overflow-y-auto"
@@ -1188,7 +1195,7 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
                 <div className="p-3 flex items-center justify-center">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Loading categories...</span>
+                    <span className="text-sm">{t("torrents.loadingCategories")}</span>
                   </div>
                 </div>
               ) : (
@@ -1201,7 +1208,7 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
                       categoryInput === "" ? "bg-accent" : ""
                     }`}
                   >
-                    <span className="text-sm text-muted-foreground italic">(No category)</span>
+                    <span className="text-sm text-muted-foreground italic">{t("torrents.noCategory")}</span>
                   </button>
 
                   <div>
@@ -1227,7 +1234,7 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
 
                   {filteredCategories.length === 0 && searchQuery && (
                     <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                      No categories found matching "{searchQuery}"
+                      {t("searchPage.noResults")}
                     </div>
                   )}
                 </>
@@ -1237,10 +1244,10 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
 
           {/* Option to enter new category */}
           <div className="space-y-2">
-            <Label htmlFor="newCategory">Or create new category</Label>
+            <Label htmlFor="newCategory">{t("torrents.createNewCategory")}</Label>
             <Input
               id="newCategory"
-              placeholder="Enter new category name"
+              placeholder={t("torrents.enterNewCategoryName")}
               value={categoryInput && !categoryList.includes(categoryInput) ? categoryInput : ""}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setCategoryInput(e.target.value)}
               onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
@@ -1252,12 +1259,12 @@ export const SetCategoryDialog = memo(function SetCategoryDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+          <Button variant="outline" onClick={handleCancel}>{t("common.cancel")}</Button>
           <Button
             onClick={handleConfirm}
             disabled={isPending}
           >
-            Set Category
+            {t("torrents.setCategory")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1280,6 +1287,7 @@ export const CreateAndAssignCategoryDialog = memo(function CreateAndAssignCatego
   onConfirm,
   isPending = false,
 }: CreateAndAssignCategoryDialogProps) {
+  const { t } = useTranslation()
   const [categoryName, setCategoryName] = useState("")
   const wasOpen = useRef(false)
 
@@ -1307,16 +1315,16 @@ export const CreateAndAssignCategoryDialog = memo(function CreateAndAssignCatego
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Category</DialogTitle>
+          <DialogTitle>{t("torrents.createNewCategoryTitle")}</DialogTitle>
           <DialogDescription>
-            Enter a name for the new category. It will be created and assigned to {hashCount} torrent(s).
+            {t("torrents.createAndAssignDesc", { hashCount })}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-2">
-          <Label htmlFor="categoryName">Category Name</Label>
+          <Label htmlFor="categoryName">{t("torrents.categoryName")}</Label>
           <Input
             id="categoryName"
-            placeholder="Enter category name"
+            placeholder={t("torrents.enterCategoryName")}
             value={categoryName}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setCategoryName(e.target.value)}
             onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
@@ -1328,12 +1336,12 @@ export const CreateAndAssignCategoryDialog = memo(function CreateAndAssignCatego
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+          <Button variant="outline" onClick={handleCancel}>{t("common.cancel")}</Button>
           <Button
             onClick={handleConfirm}
             disabled={isPending || !categoryName.trim()}
           >
-            Create and Assign
+            {t("common.create")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1369,6 +1377,7 @@ export const EditTrackerDialog = memo(function EditTrackerDialog({
   onConvertHttpToHttps,
   isConverting = false,
 }: EditTrackerDialogProps) {
+  const { t } = useTranslation()
   const [oldURL, setOldURL] = useState("")
   const [newURL, setNewURL] = useState("")
   const wasOpen = useRef(false)
@@ -1452,18 +1461,18 @@ export const EditTrackerDialog = memo(function EditTrackerDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>Edit Tracker URL - {tracker}</AlertDialogTitle>
+          <AlertDialogTitle>{t("torrents.editTrackerUrl", { tracker })}</AlertDialogTitle>
           <AlertDialogDescription>
-            Update the tracker URL for all torrents using <strong className="font-mono">{tracker}</strong>.
-            This is useful for updating passkeys or changing tracker addresses.
+            {t("torrents.editTrackerDesc", { tracker })}<br />
+            {t("torrents.editTrackerHint")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="oldURL">Current Full Tracker URL</Label>
+            <Label htmlFor="oldURL">{t("torrents.currentFullTrackerUrl")}</Label>
             {loadingURLs ? (
               <div className="flex items-center justify-center py-3 text-sm text-muted-foreground">
-                <span className="animate-pulse">Loading tracker URLs...</span>
+                <span className="animate-pulse">{t("torrents.loading")}</span>
               </div>
             ) : trackerURLs && trackerURLs.length > 1 ? (
               <div className="space-y-2">
@@ -1472,7 +1481,7 @@ export const EditTrackerDialog = memo(function EditTrackerDialog({
                   value={oldURL}
                   onChange={(e) => setOldURL(e.target.value)}
                 >
-                  <option value="">Select a tracker URL</option>
+                  <option value="">{t("torrents.selectTrackerUrl")}</option>
                   {trackerURLs.map((url) => (
                     <option key={url} value={url}>
                       {url}
@@ -1480,7 +1489,7 @@ export const EditTrackerDialog = memo(function EditTrackerDialog({
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Multiple tracker URLs found. Select the one you want to update.
+                  {t("torrents.selectTrackerUrl")}
                 </p>
               </div>
             ) : (
@@ -1494,19 +1503,19 @@ export const EditTrackerDialog = memo(function EditTrackerDialog({
                 />
                 {trackerURLs.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Enter the complete tracker URL including the announce path
+                    {t("torrents.noUrlsAvailable")}
                   </p>
                 )}
                 {trackerURLs.length === 1 && (
                   <p className="text-xs text-muted-foreground">
-                    Pre-populated from detected URL. Edit if needed (e.g., different scheme).
+                    {t("torrents.prePopulatedUrl")}
                   </p>
                 )}
               </>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="newURL">New Full Tracker URL</Label>
+            <Label htmlFor="newURL">{t("torrents.newFullTrackerUrl")}</Label>
             <Input
               id="newURL"
               value={newURL}
@@ -1515,13 +1524,13 @@ export const EditTrackerDialog = memo(function EditTrackerDialog({
               className="font-mono text-sm"
             />
             <p className="text-xs text-muted-foreground">
-              Enter the new complete URL (typically with updated passkey)
+              {t("torrents.enterCompleteTrackerUrl")}
             </p>
           </div>
           {isFilteredMode && (
             <div className="bg-muted p-3 rounded-md">
               <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> This will update all torrents that have the exact matching tracker URL.
+                {t("torrents.updateTrackerNote")}
               </p>
             </div>
           )}
@@ -1535,21 +1544,21 @@ export const EditTrackerDialog = memo(function EditTrackerDialog({
                 disabled={isConverting || loadingURLs || isPending}
                 className="w-full"
               >
-                {isConverting ? "Converting..." : "Convert all HTTP to HTTPS"}
+                {isConverting ? t("common.loading") : t("torrents.convertHttpToHttps")}
               </Button>
               <p className="text-xs text-muted-foreground mt-1">
-                Upgrades all http:// tracker URLs to https:// for this domain
+                {t("torrents.upgradeHttpDesc")}
               </p>
             </div>
           )}
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={handleCancel}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={!oldURL.trim() || !newURL.trim() || oldURL === newURL || isPending || loadingURLs || isConverting}
           >
-            Update Tracker
+            {t("torrents.updateTracker")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -1667,6 +1676,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
   onConfirm,
   isPending = false,
 }: ShareLimitDialogProps) {
+  const { t } = useTranslation()
   const [ratioMode, setRatioMode] = useState<ShareLimitMode>("global")
   const [ratioCustom, setRatioCustom] = useState(1.0)
   const [ratioMixed, setRatioMixed] = useState(false)
@@ -1764,28 +1774,28 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Share Limits for {hashCount} torrent(s)</DialogTitle>
+          <DialogTitle>{t("torrents.setShareLimitsFor", { hashCount })}</DialogTitle>
           <DialogDescription>
-            Configure seeding limits for selected torrents. All three fields will be applied.
+            {t("torrents.shareLimitsDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="py-2 space-y-4">
           {/* Quick action: Set all to global */}
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={setAllGlobal}>
-              Set all to Global
+              {t("torrents.useGlobal")}
             </Button>
           </div>
 
           {/* Ratio limit */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Ratio limit</Label>
+              <Label className="text-sm font-medium">{t("torrents.ratioLimit")}</Label>
               {ratioMixed && !ratioTouched && (
-                <span className="text-xs text-yellow-600">Select a value</span>
+                <span className="text-xs text-yellow-600">{t("torrents.selectValue")}</span>
               )}
               {ratioMixed && ratioTouched && (
-                <span className="text-xs text-muted-foreground">(was mixed)</span>
+                <span className="text-xs text-muted-foreground">{t("torrents.wasMixed")}</span>
               )}
             </div>
             <div className="flex gap-2">
@@ -1800,9 +1810,9 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="global">Use global</SelectItem>
-                  <SelectItem value="unlimited">Unlimited</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="global">{t("torrents.useGlobal")}</SelectItem>
+                  <SelectItem value="unlimited">{t("torrents.unlimited")}</SelectItem>
+                  <SelectItem value="custom">{t("torrents.custom")}</SelectItem>
                 </SelectContent>
               </Select>
               {ratioMode === "custom" && (
@@ -1821,19 +1831,19 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {ratioMode === "global" ? "Follow qBittorrent global settings" :ratioMode === "unlimited" ? "No ratio limit" :"Stop seeding when ratio reaches this value"}
+              {ratioMode === "global" ? t("torrents.useGlobal") :ratioMode === "unlimited" ? t("torrents.unlimited") :t("torrents.ratioLimitDesc")}
             </p>
           </div>
 
           {/* Seeding time limit */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Seeding time limit</Label>
+              <Label className="text-sm font-medium">{t("torrents.seedingTimeLimit")}</Label>
               {seedTimeMixed && !seedTimeTouched && (
-                <span className="text-xs text-yellow-600">Select a value</span>
+                <span className="text-xs text-yellow-600">{t("torrents.selectValue")}</span>
               )}
               {seedTimeMixed && seedTimeTouched && (
-                <span className="text-xs text-muted-foreground">(was mixed)</span>
+                <span className="text-xs text-muted-foreground">{t("torrents.wasMixed")}</span>
               )}
             </div>
             <div className="flex gap-2">
@@ -1848,9 +1858,9 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="global">Use global</SelectItem>
-                  <SelectItem value="unlimited">Unlimited</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="global">{t("torrents.useGlobal")}</SelectItem>
+                  <SelectItem value="unlimited">{t("torrents.unlimited")}</SelectItem>
+                  <SelectItem value="custom">{t("torrents.custom")}</SelectItem>
                 </SelectContent>
               </Select>
               {seedTimeMode === "custom" && (
@@ -1868,19 +1878,19 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {seedTimeMode === "global" ? "Follow qBittorrent global settings" :seedTimeMode === "unlimited" ? "No time limit" :"Minutes (1440 = 24 hours)"}
+              {seedTimeMode === "global" ? t("torrents.useGlobal") :seedTimeMode === "unlimited" ? t("torrents.unlimited") :t("torrents.seedingTimeLimitDesc")}
             </p>
           </div>
 
           {/* Inactive seeding time limit */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Inactive seeding limit</Label>
+              <Label className="text-sm font-medium">{t("torrents.inactiveSeedingLimit")}</Label>
               {inactiveTimeMixed && !inactiveTimeTouched && (
-                <span className="text-xs text-yellow-600">Select a value</span>
+                <span className="text-xs text-yellow-600">{t("torrents.selectValue")}</span>
               )}
               {inactiveTimeMixed && inactiveTimeTouched && (
-                <span className="text-xs text-muted-foreground">(was mixed)</span>
+                <span className="text-xs text-muted-foreground">{t("torrents.wasMixed")}</span>
               )}
             </div>
             <div className="flex gap-2">
@@ -1895,9 +1905,9 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="global">Use global</SelectItem>
-                  <SelectItem value="unlimited">Unlimited</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="global">{t("torrents.useGlobal")}</SelectItem>
+                  <SelectItem value="unlimited">{t("torrents.unlimited")}</SelectItem>
+                  <SelectItem value="custom">{t("torrents.custom")}</SelectItem>
                 </SelectContent>
               </Select>
               {inactiveTimeMode === "custom" && (
@@ -1915,25 +1925,25 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {inactiveTimeMode === "global" ? "Follow qBittorrent global settings" :inactiveTimeMode === "unlimited" ? "No inactive limit" :"Minutes (10080 = 7 days)"}
+              {inactiveTimeMode === "global" ? t("torrents.useGlobal") :inactiveTimeMode === "unlimited" ? t("torrents.unlimited") :t("torrents.inactiveSeedingLimitDesc")}
             </p>
           </div>
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2">
           {hasUnresolvedMixed && (
             <p className="text-xs text-yellow-600 text-left sm:flex-1">
-              Select values for all mixed fields before applying
+              {t("torrents.selectValuesForAllMixed")}
             </p>
           )}
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleCancel}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={handleConfirm}
               disabled={isPending || hasUnresolvedMixed}
             >
-              {isPending ? "Setting..." : "Apply Limits"}
+              {isPending ? t("common.loading") : t("torrents.applyLimits")}
             </Button>
           </div>
         </DialogFooter>
@@ -1996,6 +2006,7 @@ export const SpeedLimitsDialog = memo(function SpeedLimitsDialog({
   onConfirm,
   isPending = false,
 }: SpeedLimitsDialogProps) {
+  const { t } = useTranslation()
   const [uploadEnabled, setUploadEnabled] = useState(false)
   const [uploadLimit, setUploadLimit] = useState(SPEED_DEFAULT_LIMIT)
   const [downloadEnabled, setDownloadEnabled] = useState(false)
@@ -2039,9 +2050,9 @@ export const SpeedLimitsDialog = memo(function SpeedLimitsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Speed Limits for {hashCount} torrent(s)</DialogTitle>
+          <DialogTitle>{t("torrents.setSpeedLimitsFor", { hashCount })}</DialogTitle>
           <DialogDescription>
-            Set upload and download speed limits in KB/s. Disable to use global limits.
+            {t("torrents.speedLimitsDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="py-2 space-y-4">
@@ -2052,7 +2063,7 @@ export const SpeedLimitsDialog = memo(function SpeedLimitsDialog({
                 checked={uploadEnabled}
                 onCheckedChange={setUploadEnabled}
               />
-              <Label htmlFor="uploadEnabled">Set upload limit (KB/s)</Label>
+              <Label htmlFor="uploadEnabled">{t("torrents.setUploadLimit")}</Label>
             </div>
             <Input
               type="number"
@@ -2071,7 +2082,7 @@ export const SpeedLimitsDialog = memo(function SpeedLimitsDialog({
                 checked={downloadEnabled}
                 onCheckedChange={setDownloadEnabled}
               />
-              <Label htmlFor="downloadEnabled">Set download limit (KB/s)</Label>
+              <Label htmlFor="downloadEnabled">{t("torrents.setDownloadLimit")}</Label>
             </div>
             <Input
               type="number"
@@ -2085,13 +2096,13 @@ export const SpeedLimitsDialog = memo(function SpeedLimitsDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={isPending}
           >
-            {isPending ? "Setting..." : "Apply Limits"}
+            {isPending ? t("common.loading") : t("torrents.applyLimits")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2116,24 +2127,25 @@ export const TmmConfirmDialog = memo(function TmmConfirmDialog({
   onConfirm,
   isPending = false,
 }: TmmConfirmDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-warning" />
-            {enable ? "Enable" : "Disable"} TMM for {count} torrent(s)?
+            {enable ? t("torrents.enableTmmFor", { count }) : t("torrents.disableTmmFor", { count })}
           </DialogTitle>
           <DialogDescription>
-            Automatic Torrent Management will move files based on category settings. This may affect cross-seeded torrents sharing the same data.
+            {t("torrents.tmmEnableDesc")}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onConfirm} disabled={isPending}>
-            {enable ? "Enable" : "Disable"} TMM
+            {enable ? t("torrents.enableTmm") : t("torrents.disableTmm")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2156,24 +2168,25 @@ export const LocationWarningDialog = memo(function LocationWarningDialog({
   onConfirm,
   isPending = false,
 }: LocationWarningDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-warning" />
-            Set Location for {count} torrent(s)?
+            {t("torrents.setLocationFor", { count })}
           </DialogTitle>
           <DialogDescription>
-            Changing the save location will move files on disk. This may affect cross-seeded torrents sharing the same data.
+            {t("torrents.locationWarningDesc")}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onConfirm} disabled={isPending}>
-            Continue
+            {t("torrents.continue")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -34,6 +34,7 @@ import type { NotificationEventDefinition, NotificationTarget, NotificationTarge
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Bell, Edit, Loader2, Plus, Send, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -122,6 +123,7 @@ interface NotificationTargetFormProps {
 }
 
 function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel, isPending }: NotificationTargetFormProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initial?.name ?? "")
   const [url, setUrl] = useState(initial?.url ?? "")
   const [enabled, setEnabled] = useState(initial?.enabled ?? true)
@@ -169,15 +171,15 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
     const trimmedUrl = normalizeNotificationUrl(url).trim()
 
     if (!trimmedName) {
-      toast.error("Name is required")
+      toast.error(t("notifications.nameRequired"))
       return
     }
     if (!trimmedUrl) {
-      toast.error("URL is required")
+      toast.error(t("notifications.urlRequired"))
       return
     }
     if (eventTypes.length === 0) {
-      toast.error("Select at least one event")
+      toast.error(t("notifications.selectAtLeastOneEvent"))
       return
     }
 
@@ -231,10 +233,10 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="notification-name">Name</Label>
+        <Label htmlFor="notification-name">{t("notifications.name")}</Label>
         <Input
           id="notification-name"
-          placeholder="My Discord"
+          placeholder={t("notifications.namePlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           data-1p-ignore
@@ -243,30 +245,29 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="notification-url">Shoutrrr URL</Label>
+        <Label htmlFor="notification-url">{t("notifications.shoutrrrUrl")}</Label>
         <Input
           id="notification-url"
-          placeholder="discord://token@id or notifiarrapi://apikey"
+          placeholder={t("notifications.urlPlaceholder")}
           value={url}
           onChange={(e) => setUrl(normalizeNotificationUrl(e.target.value))}
         />
         <p className="text-xs text-muted-foreground">
-          Use any Shoutrrr-supported URL scheme. Notifiarr API uses <span className="font-mono">notifiarrapi://apikey</span>.
-          Discord webhook URLs auto-convert to <span className="font-mono">discord://token@id</span>.
+          {t("notifications.urlHelp")}
         </p>
       </div>
 
       <div className="flex items-center justify-between rounded-md border px-3 py-2">
         <div>
-          <Label className="text-sm">Enabled</Label>
-          <p className="text-xs text-muted-foreground">Toggle delivery for this target.</p>
+          <Label className="text-sm">{t("common.enabled")}</Label>
+          <p className="text-xs text-muted-foreground">{t("notifications.toggleDelivery")}</p>
         </div>
         <Switch checked={enabled} onCheckedChange={setEnabled} />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm">Events</Label>
+          <Label className="text-sm">{t("notifications.events")}</Label>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -275,7 +276,7 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
               onClick={() => setEventTypes(eventDefinitions.map((event) => event.type))}
               disabled={eventDefinitions.length === 0 || allSelected}
             >
-              Select all
+              {t("common.selectAll")}
             </Button>
             <Button
               type="button"
@@ -284,13 +285,13 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
               onClick={() => setEventTypes([])}
               disabled={eventTypes.length === 0}
             >
-              Clear
+              {t("common.clear")}
             </Button>
           </div>
         </div>
         <div className="space-y-4 rounded-md border p-3">
           {eventDefinitions.length === 0 && (
-            <p className="text-sm text-muted-foreground">Loading event types…</p>
+            <p className="text-sm text-muted-foreground">{t("notifications.loadingEventTypes")}</p>
           )}
           <Accordion type="multiple" className="space-y-2">
             {groupedEvents.map((group) => {
@@ -321,7 +322,7 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
                           }}
                           disabled={group.events.length === 0 || allGroupSelected}
                         >
-                          Select
+                          {t("common.select")}
                         </Button>
                         <Button
                           type="button"
@@ -334,7 +335,7 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
                           }}
                           disabled={!anyGroupSelected}
                         >
-                          Clear
+                          {t("common.clear")}
                         </Button>
                       </div>
                     </div>
@@ -362,16 +363,16 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" disabled={isPending}>
           {isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving…
+              {t("common.saving")}
             </>
           ) : (
-            "Save"
+            t("common.save")
           )}
         </Button>
       </div>
@@ -380,6 +381,7 @@ function NotificationTargetForm({ initial, eventDefinitions, onSubmit, onCancel,
 }
 
 export function NotificationsManager() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editTarget, setEditTarget] = useState<NotificationTarget | null>(null)
@@ -417,10 +419,10 @@ export function NotificationsManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notificationTargets"] })
       setShowCreateDialog(false)
-      toast.success("Notification target created")
+      toast.success(t("notifications.notificationTargetCreated"))
     },
     onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, "Failed to create notification target"))
+      toast.error(getErrorMessage(error, t("notifications.failedCreateNotificationTarget")))
     },
   })
 
@@ -429,10 +431,10 @@ export function NotificationsManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notificationTargets"] })
       setEditTarget(null)
-      toast.success("Notification target updated")
+      toast.success(t("notifications.notificationTargetUpdated"))
     },
     onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, "Failed to update notification target"))
+      toast.error(getErrorMessage(error, t("notifications.failedUpdateNotificationTarget")))
     },
   })
 
@@ -441,20 +443,20 @@ export function NotificationsManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notificationTargets"] })
       setDeleteTarget(null)
-      toast.success("Notification target deleted")
+      toast.success(t("notifications.notificationTargetDeleted"))
     },
     onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, "Failed to delete notification target"))
+      toast.error(getErrorMessage(error, t("notifications.failedDeleteNotificationTarget")))
     },
   })
 
   const testMutation = useMutation({
     mutationFn: (id: number) => api.testNotificationTarget(id),
     onSuccess: () => {
-      toast.success("Test notification sent")
+      toast.success(t("notifications.testNotificationSent"))
     },
     onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, "Failed to send test notification"))
+      toast.error(getErrorMessage(error, t("notifications.failedSendTestNotification")))
     },
   })
 
@@ -509,7 +511,7 @@ export function NotificationsManager() {
 
   const renderEventBadges = (events: string[], targetId: number) => {
     if (events.length === 0) {
-      return <Badge variant="secondary">All events</Badge>
+      return <Badge variant="secondary">{t("notifications.allEvents")}</Badge>
     }
     const selected = new Set(events)
     const unknownEvents = events.filter((event) => !eventLabelMap.has(event))
@@ -519,7 +521,7 @@ export function NotificationsManager() {
       count: group.events.filter((event) => selected.has(event)).length,
     }))
     if (unknownEvents.length > 0) {
-      counts.push({ label: "Unknown", count: unknownEvents.length })
+      counts.push({ label: t("notifications.unknown"), count: unknownEvents.length })
     }
     const summary = counts
       .filter((group) => group.count > 0)
@@ -539,7 +541,7 @@ export function NotificationsManager() {
               )
             }
           >
-            {isExpanded ? "Hide list" : "Show list"}
+            {isExpanded ? t("notifications.hideList") : t("notifications.showList")}
           </Button>
         </div>
         {isExpanded && (
@@ -567,7 +569,7 @@ export function NotificationsManager() {
             {unknownEvents.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Unknown
+                  {t("notifications.unknown")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {unknownEvents.map((event) => (
@@ -591,14 +593,14 @@ export function NotificationsManager() {
           <DialogTrigger asChild>
             <Button size="sm" className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
-              Add Notification Target
+              {t("notifications.addNotificationTarget")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl max-w-full max-h-[90dvh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>New Notification Target</DialogTitle>
+              <DialogTitle>{t("notifications.newNotificationTarget")}</DialogTitle>
               <DialogDescription>
-                Configure where qui should send alerts and status updates.
+                {t("notifications.addNotificationTargetDesc")}
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -613,11 +615,11 @@ export function NotificationsManager() {
         </Dialog>
       </div>
 
-      {isLoading && <div className="text-center py-8">Loading notification targets…</div>}
+      {isLoading && <div className="text-center py-8">{t("notifications.loadingNotificationTargets")}</div>}
       {error && (
         <Card>
           <CardContent className="pt-6">
-            <div className="text-destructive">Failed to load notification targets</div>
+            <div className="text-destructive">{t("notifications.failedLoadNotificationTargets")}</div>
           </CardContent>
         </Card>
       )}
@@ -626,7 +628,7 @@ export function NotificationsManager() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-muted-foreground">
-              No notification targets configured. Add one to start receiving alerts.
+              {t("notifications.noNotificationTargets")}
             </div>
           </CardContent>
         </Card>
@@ -645,7 +647,7 @@ export function NotificationsManager() {
                         {target.name}
                       </CardTitle>
                       <Badge variant={target.enabled ? "default" : "secondary"}>
-                        {target.enabled ? "Enabled" : "Disabled"}
+                        {target.enabled ? t("common.enabled") : t("common.disabled")}
                       </Badge>
                     </div>
                     <CardDescription className="text-xs break-all">
@@ -657,7 +659,7 @@ export function NotificationsManager() {
                       variant="ghost"
                       size="sm"
                       onClick={() => testMutation.mutate(target.id)}
-                      aria-label={`Send test to ${target.name}`}
+                      aria-label={t("notifications.test")}
                       disabled={testMutation.isPending}
                     >
                       <Send className="h-4 w-4" />
@@ -666,7 +668,7 @@ export function NotificationsManager() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditTarget(target)}
-                      aria-label={`Edit ${target.name}`}
+                      aria-label={t("common.edit")}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -679,7 +681,7 @@ export function NotificationsManager() {
                         }
                         setDeleteTarget(target)
                       }}
-                      aria-label={`Delete ${target.name}`}
+                      aria-label={t("common.delete")}
                       disabled={deleteMutation.isPending}
                       aria-disabled={deleteMutation.isPending}
                     >
@@ -690,7 +692,7 @@ export function NotificationsManager() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div>
-                  <p className="text-muted-foreground text-xs mb-2">Events</p>
+                  <p className="text-muted-foreground text-xs mb-2">{t("notifications.events")}</p>
                   {renderEventBadges(target.eventTypes, target.id)}
                 </div>
               </CardContent>
@@ -702,8 +704,8 @@ export function NotificationsManager() {
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
         <DialogContent className="sm:max-w-2xl max-w-full max-h-[90dvh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Edit Notification Target</DialogTitle>
-            <DialogDescription>Update delivery settings for this target.</DialogDescription>
+            <DialogTitle>{t("notifications.editNotificationTarget")}</DialogTitle>
+            <DialogDescription>{t("notifications.editNotificationTargetDesc")}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
             {editTarget && (
@@ -722,20 +724,20 @@ export function NotificationsManager() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete notification target?</AlertDialogTitle>
+            <AlertDialogTitle>{t("notifications.deleteNotificationTarget")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove {deleteTarget?.name}. You can re-add it later if needed.
+              {t("notifications.deleteNotificationTargetDesc", { name: deleteTarget?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
               aria-busy={deleteMutation.isPending}
             >
-              Delete
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
