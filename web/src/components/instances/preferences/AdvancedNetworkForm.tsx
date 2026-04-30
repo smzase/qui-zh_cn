@@ -14,6 +14,7 @@ import { Settings, HardDrive, Zap, Ban, Radio, AlertTriangle } from "lucide-reac
 import { useInstancePreferences } from "@/hooks/useInstancePreferences"
 import { useQBittorrentFieldVisibility } from "@/hooks/useQBittorrentAppInfo"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 import { PreferencesFormShell } from "./PreferencesFormShell"
 
@@ -106,6 +107,7 @@ function NumberInput({
 }
 
 export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFormProps) {
+  const { t } = useTranslation()
   const { preferences, isLoading, updatePreferences, isUpdating } = useInstancePreferences(instanceId)
   const fieldVisibility = useQBittorrentFieldVisibility(instanceId)
 
@@ -152,10 +154,10 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
     onSubmit: async ({ value }) => {
       try {
         await updatePreferences(value)
-        toast.success("Advanced network settings updated successfully")
+        toast.success(t("instances.advancedSettingsUpdated"))
         onSuccess?.()
       } catch (error) {
-        toast.error("Failed to update advanced network settings")
+        toast.error(t("instances.advancedSettingsUpdateFailed"))
         console.error("Failed to update advanced network settings:", error)
       }
     },
@@ -228,7 +230,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               disabled={!canSubmit || isSubmitting || isUpdating}
               className="min-w-32"
             >
-              {isSubmitting || isUpdating ? "Saving..." : "Save Changes"}
+              {isSubmitting || isUpdating ? t("instances.saving") : t("instances.save")}
             </Button>
           )}
         </form.Subscribe>
@@ -250,7 +252,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Radio className="h-4 w-4" />
-            <h3 className="text-lg font-medium">Tracker Settings</h3>
+            <h3 className="text-lg font-medium">{t("instances.trackerSettings")}</h3>
           </div>
 
           <div className="space-y-4">
@@ -262,7 +264,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                     id="announce_ip"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="Auto-detect"
+                    placeholder={t("instances.autoDetect")}
                   />
                   <p className="text-xs text-muted-foreground">
                     IP address to announce to trackers (leave empty for auto-detect)
@@ -277,7 +279,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
-            <h3 className="text-lg font-medium">Performance Optimization</h3>
+            <h3 className="text-lg font-medium">{t("instances.performanceOptimization")}</h3>
           </div>
 
           <div className="space-y-4">
@@ -286,8 +288,8 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="limit_lan_peers">
                 {(field) => (
                   <SwitchSetting
-                    label="Apply rate limit to μTP protocol"
-                    description="Limit μTP connections to prevent flooding LAN peers"
+                    label={t("instances.applyRateLimitUtpProtocol")}
+                    description={t("instances.applyRateLimitUtpProtocolDesc")}
                     checked={field.state.value}
                     onChange={(checked) => field.handleChange(checked)}
                   />
@@ -297,8 +299,8 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="limit_tcp_overhead">
                 {(field) => (
                   <SwitchSetting
-                    label="Apply rate limit to transport overhead"
-                    description="Include protocol overhead in rate limiting calculations"
+                    label={t("instances.applyRateLimitTransportOverhead")}
+                    description={t("instances.applyRateLimitTransportOverheadDesc")}
                     checked={field.state.value}
                     onChange={(checked) => field.handleChange(checked)}
                   />
@@ -308,8 +310,8 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="limit_utp_rate">
                 {(field) => (
                   <SwitchSetting
-                    label="Apply rate limit to μTP connections"
-                    description="Apply upload/download limits to μTP connections"
+                    label={t("instances.applyRateLimitUtpConnections")}
+                    description={t("instances.applyRateLimitUtpConnectionsDesc")}
                     checked={field.state.value}
                     onChange={(checked) => field.handleChange(checked)}
                   />
@@ -322,12 +324,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="peer_tos">
                 {(field) => (
                   <NumberInput
-                    label="Peer ToS Byte"
+                    label={t("instances.peerTosByte")}
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={0}
                     max={255}
-                    description="Type of Service byte for peer connections"
+                    description={t("instances.peerTosByteDesc")}
                   />
                 )}
               </form.Field>
@@ -335,11 +337,11 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="max_concurrent_http_announces">
                 {(field) => (
                   <NumberInput
-                    label="Max HTTP Announces"
+                    label={t("instances.maxHttpAnnounces")}
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={1}
-                    description="Maximum concurrent HTTP tracker announces"
+                    description={t("instances.maxHttpAnnouncesDesc")}
                   />
                 )}
               </form.Field>
@@ -347,12 +349,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="stop_tracker_timeout">
                 {(field) => (
                   <NumberInput
-                    label="Stop Tracker Timeout"
+                    label={t("instances.stopTrackerTimeout")}
                     unit="seconds"
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={1}
-                    description="Timeout for tracker stop announcements"
+                    description={t("instances.stopTrackerTimeoutDesc")}
                   />
                 )}
               </form.Field>
@@ -361,11 +363,11 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                 <form.Field name="socket_backlog_size">
                   {(field) => (
                     <NumberInput
-                      label="Socket Backlog Size"
+                      label={t("instances.socketBacklogSize")}
                       value={field.state.value}
                       onChange={(value) => field.handleChange(value)}
                       min={1}
-                      description="Number of pending connections in socket backlog"
+                      description={t("instances.socketBacklogSizeDesc")}
                     />
                   )}
                 </form.Field>
@@ -375,11 +377,11 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                 <form.Field name="request_queue_size">
                   {(field) => (
                     <NumberInput
-                      label="Request Queue Size"
+                      label={t("instances.requestQueueSize")}
                       value={field.state.value}
                       onChange={(value) => field.handleChange(value)}
                       min={1}
-                      description="Maximum number of queued piece requests"
+                      description={t("instances.requestQueueSizeDesc")}
                     />
                   )}
                 </form.Field>
@@ -391,12 +393,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                   <form.Field name="send_buffer_watermark">
                     {(field) => (
                       <NumberInput
-                        label="Send Buffer Watermark"
+                        label={t("instances.sendBufferWatermark")}
                         unit="KiB"
                         value={field.state.value}
                         onChange={(value) => field.handleChange(value)}
                         min={1}
-                        description="Upper watermark for socket send buffer"
+                        description={t("instances.sendBufferWatermarkDesc")}
                       />
                     )}
                   </form.Field>
@@ -404,12 +406,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                   <form.Field name="send_buffer_low_watermark">
                     {(field) => (
                       <NumberInput
-                        label="Send Buffer Low Watermark"
+                        label={t("instances.sendBufferLowWatermark")}
                         unit="KiB"
                         value={field.state.value}
                         onChange={(value) => field.handleChange(value)}
                         min={1}
-                        description="Lower watermark for socket send buffer"
+                        description={t("instances.sendBufferLowWatermarkDesc")}
                       />
                     )}
                   </form.Field>
@@ -417,12 +419,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                   <form.Field name="send_buffer_watermark_factor">
                     {(field) => (
                       <NumberInput
-                        label="Watermark Factor"
+                        label={t("instances.watermarkFactor")}
                         unit="%"
                         value={field.state.value}
                         onChange={(value) => field.handleChange(value)}
                         min={1}
-                        description="Send buffer watermark factor percentage"
+                        description={t("instances.watermarkFactorDesc")}
                       />
                     )}
                   </form.Field>
@@ -436,7 +438,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <HardDrive className="h-4 w-4" />
-            <h3 className="text-lg font-medium">Disk I/O & Memory</h3>
+            <h3 className="text-lg font-medium">{t("instances.diskIoMemory")}</h3>
           </div>
 
           <div className="space-y-4">
@@ -446,8 +448,8 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                 <form.Field name="enable_coalesce_read_write">
                   {(field) => (
                     <SwitchSetting
-                      label="Coalesce reads & writes"
-                      description="Combine adjacent disk reads and writes for better performance"
+                      label={t("instances.coalesceReadsWrites")}
+                      description={t("instances.coalesceReadsWritesDesc")}
                       checked={field.state.value}
                       onChange={(checked) => field.handleChange(checked)}
                     />
@@ -462,11 +464,11 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="async_io_threads">
                 {(field) => (
                   <NumberInput
-                    label="Async I/O Threads"
+                    label={t("instances.asyncIoThreads")}
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={1}
-                    description="Number of threads for asynchronous I/O operations"
+                    description={t("instances.asyncIoThreadsDesc")}
                   />
                 )}
               </form.Field>
@@ -474,11 +476,11 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="file_pool_size">
                 {(field) => (
                   <NumberInput
-                    label="File Pool Size"
+                    label={t("instances.filePoolSize")}
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={1}
-                    description="Maximum number of open file handles in pool"
+                    description={t("instances.filePoolSizeDesc")}
                   />
                 )}
               </form.Field>
@@ -486,12 +488,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="disk_queue_size">
                 {(field) => (
                   <NumberInput
-                    label="Disk Queue Size"
+                    label={t("instances.diskQueueSize")}
                     unit="bytes"
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={1024}
-                    description="Maximum bytes queued for disk I/O"
+                    description={t("instances.diskQueueSizeDesc")}
                   />
                 )}
               </form.Field>
@@ -501,7 +503,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                 validators={{
                   onChange: ({ value }) => {
                     if (value <= 0 || value > 1024) {
-                      return "Outstanding memory when checking torrents must be greater than 0 and less than 1024"
+                      return t("instances.checkingMemoryUseError")
                     }
                     return undefined
                   },
@@ -510,13 +512,13 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                 {(field) => (
                   <div className="space-y-2">
                     <NumberInput
-                      label="Checking Memory Use"
+                      label={t("instances.checkingMemoryUse")}
                       unit="MiB"
                       value={field.state.value}
                       onChange={(value) => field.handleChange(value)}
                       min={1}
                       max={1024}
-                      description="Maximum memory used for piece checking"
+                      description={t("instances.checkingMemoryUseDesc")}
                     />
                     {field.state.meta.errors.length > 0 && (
                       <p className="text-sm text-destructive" role="alert">{field.state.meta.errors[0]}</p>
@@ -530,11 +532,11 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                 <form.Field name="hashing_threads">
                   {(field) => (
                     <NumberInput
-                      label="Hashing Threads"
+                      label={t("instances.hashingThreads")}
                       value={field.state.value}
                       onChange={(value) => field.handleChange(value)}
                       min={1}
-                      description="Number of threads for piece hash checking"
+                      description={t("instances.hashingThreadsDesc")}
                     />
                   )}
                 </form.Field>
@@ -545,12 +547,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                   <form.Field name="disk_cache">
                     {(field) => (
                       <NumberInput
-                        label="Disk Cache Size"
+                        label={t("instances.diskCacheSize")}
                         unit="MiB"
                         value={field.state.value}
                         onChange={(value) => field.handleChange(value)}
                         min={-1}
-                        description="Disk cache size (-1 = auto, 0 = disabled)"
+                        description={t("instances.diskCacheSizeDesc")}
                       />
                     )}
                   </form.Field>
@@ -558,12 +560,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                   <form.Field name="disk_cache_ttl">
                     {(field) => (
                       <NumberInput
-                        label="Disk Cache TTL"
+                        label={t("instances.diskCacheTtl")}
                         unit="seconds"
                         value={field.state.value}
                         onChange={(value) => field.handleChange(value)}
                         min={1}
-                        description="How long to keep cached data in memory"
+                        description={t("instances.diskCacheTtlDesc")}
                       />
                     )}
                   </form.Field>
@@ -574,12 +576,12 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
                 <form.Field name="memory_working_set_limit">
                   {(field) => (
                     <NumberInput
-                      label="Working Set Limit"
+                      label={t("instances.workingSetLimit")}
                       unit="MiB"
                       value={field.state.value}
                       onChange={(value) => field.handleChange(value)}
                       min={1}
-                      description="Physical memory working set size limit"
+                      description={t("instances.workingSetLimitDesc")}
                     />
                   )}
                 </form.Field>
@@ -592,7 +594,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            <h3 className="text-lg font-medium">Peer Management</h3>
+            <h3 className="text-lg font-medium">{t("instances.peerManagement")}</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -601,7 +603,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               validators={{
                 onChange: ({ value }) => {
                   if (value < 0 || value > 100) {
-                    return "Peer turnover must be between 0 and 100"
+                    return t("instances.peerTurnoverError")
                   }
                   return undefined
                 },
@@ -610,13 +612,13 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               {(field) => (
                 <div className="space-y-2">
                   <NumberInput
-                    label="Peer Turnover"
+                    label={t("instances.peerTurnover")}
                     unit="%"
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={0}
                     max={100}
-                    description="Percentage of peers to disconnect/reconnect"
+                    description={t("instances.peerTurnoverDesc")}
                   />
                   {field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-destructive" role="alert">{field.state.meta.errors[0]}</p>
@@ -630,7 +632,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               validators={{
                 onChange: ({ value }) => {
                   if (value < 0 || value > 100) {
-                    return "Peer turnover cutoff must be between 0 and 100"
+                    return t("instances.peerTurnoverCutoffError")
                   }
                   return undefined
                 },
@@ -639,13 +641,13 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               {(field) => (
                 <div className="space-y-2">
                   <NumberInput
-                    label="Turnover Cutoff"
+                    label={t("instances.turnoverCutoff")}
                     unit="%"
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={0}
                     max={100}
-                    description="Peer turnover threshold percentage"
+                    description={t("instances.turnoverCutoffDesc")}
                   />
                   {field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-destructive" role="alert">{field.state.meta.errors[0]}</p>
@@ -659,7 +661,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               validators={{
                 onChange: ({ value }) => {
                   if (value < 0 || value > 3600) {
-                    return "Peer turnover interval must be greater than or equal to 0 and less than 3600 seconds"
+                    return t("instances.peerTurnoverIntervalError")
                   }
                   return undefined
                 },
@@ -668,13 +670,13 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               {(field) => (
                 <div className="space-y-2">
                   <NumberInput
-                    label="Turnover Interval"
+                    label={t("instances.turnoverInterval")}
                     unit="seconds"
                     value={field.state.value}
                     onChange={(value) => field.handleChange(value)}
                     min={0}
                     max={3600}
-                    description="How often to perform peer turnover"
+                    description={t("instances.turnoverIntervalDesc")}
                   />
                   {field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-destructive" role="alert">{field.state.meta.errors[0]}</p>
@@ -689,7 +691,7 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Ban className="h-4 w-4" />
-            <h3 className="text-lg font-medium">Security & IP Filtering</h3>
+            <h3 className="text-lg font-medium">{t("instances.securityIpFiltering")}</h3>
           </div>
 
           <div className="space-y-4">
@@ -697,8 +699,8 @@ export function AdvancedNetworkForm({ instanceId, onSuccess }: AdvancedNetworkFo
               <form.Field name="block_peers_on_privileged_ports">
                 {(field) => (
                   <SwitchSetting
-                    label="Block peers on privileged ports"
-                    description="Block connections from peers using ports below 1024"
+                    label={t("instances.blockPeersOnPrivilegedPorts")}
+                    description={t("instances.blockPeersOnPrivilegedPortsDesc")}
                     checked={field.state.value}
                     onChange={(checked) => field.handleChange(checked)}
                   />
