@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -68,28 +68,28 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
     if (instance) {
       updateInstance({ id: instance.id, data: submitData }, {
         onSuccess: () => {
-          toast.success(t("instances:instanceEnabled"), {
-            description: t("instances:instanceEnabledDesc"),
+          toast.success(t("instances.instanceEnabled"), {
+            description: t("instances.instanceEnabledDesc"),
           })
           onSuccess()
         },
         onError: (error) => {
-          toast.error(t("instances:statusUpdateFailed"), {
-            description: error instanceof Error ? formatErrorMessage(error.message) : t("instances:statusUpdateFailedDesc"),
+          toast.error(t("instances.statusUpdateFailed"), {
+            description: error instanceof Error ? formatErrorMessage(error.message) : t("instances.statusUpdateFailedDesc"),
           })
         },
       })
     } else {
       createInstance(submitData, {
         onSuccess: () => {
-          toast.success(t("instances:instanceCreated"), {
-            description: t("instances:instanceCreatedDesc"),
+          toast.success(t("instances.instanceCreated"), {
+            description: t("instances.instanceCreatedDesc"),
           })
           onSuccess()
         },
         onError: (error) => {
-          toast.error(t("instances:createFailed"), {
-            description: error instanceof Error ? formatErrorMessage(error.message) : t("instances:createFailedDesc"),
+          toast.error(t("instances.createFailed"), {
+            description: error instanceof Error ? formatErrorMessage(error.message) : t("instances.createFailedDesc"),
           })
         },
       })
@@ -127,18 +127,18 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
           name="name"
           validators={{
             onChange: ({ value }) =>
-              !value ? t("instances:instanceNameRequired") : undefined,
+              !value ? t("instances.instanceNameRequired") : undefined,
           }}
         >
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor={field.name}>{t("instances:instanceName")}</Label>
+              <Label htmlFor={field.name}>{t("instances.instanceName")}</Label>
               <Input
                 id={field.name}
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder={t("instances:instanceNamePlaceholder")}
+                placeholder={t("instances.instanceNamePlaceholder")}
                 data-1p-ignore
                 autoComplete="off"
               />
@@ -160,7 +160,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
         >
           {(field) => (
             <div className="space-y-2">
-              <Label htmlFor={field.name}>{t("instances:url")}</Label>
+              <Label htmlFor={field.name}>{t("instances.url")}</Label>
               <Input
                 id={field.name}
                 value={field.state.value}
@@ -172,7 +172,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
                   }
                 }}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder={t("instances:urlPlaceholder")}
+                placeholder={t("instances.urlPlaceholder")}
               />
               {field.state.meta.isTouched && field.state.meta.errors[0] && (
                 <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
@@ -185,9 +185,9 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
           {(field) => (
             <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4">
               <div className="space-y-1">
-                <Label htmlFor="tls-skip-verify">{t("instances:skipTlsVerify")}</Label>
+                <Label htmlFor="tls-skip-verify">{t("instances.skipTlsVerify")}</Label>
                 <p className="text-sm text-muted-foreground max-w-prose">
-                  {t("instances:skipTlsVerifyDesc")}
+                  {t("instances.skipTlsVerifyDesc")}
                 </p>
               </div>
               <Switch
@@ -203,9 +203,9 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
           {(field) => (
             <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4">
               <div className="space-y-1">
-                <Label htmlFor="local-filesystem-access">{t("instances:localFilesystemAccess")}</Label>
+                <Label htmlFor="local-filesystem-access">{t("instances.localFilesystemAccess")}</Label>
                 <p className="text-sm text-muted-foreground max-w-prose">
-                  {t("instances:localFilesystemAccessDesc")}
+                  {t("instances.localFilesystemAccessDesc")}
                 </p>
               </div>
               <Switch
@@ -220,9 +220,9 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="auth-bypass-toggle">{t("instances:authBypass")}</Label>
+              <Label htmlFor="auth-bypass-toggle">{t("instances.authBypass")}</Label>
               <p className="text-sm text-muted-foreground pr-2">
-                {t("instances:authBypassDesc")}
+                {t("instances.authBypassDesc")}
               </p>
             </div>
             <Switch
@@ -238,13 +238,13 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
             <form.Field name="username">
               {(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>{t("instances:username")}</Label>
+                  <Label htmlFor={field.name}>{t("instances.username")}</Label>
                   <Input
                     id={field.name}
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder={t("instances:qbUsername")}
+                    placeholder={t("instances.qbUsername")}
                     data-1p-ignore
                     autoComplete="off"
                   />
@@ -257,14 +257,14 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
             >
               {(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>{t("instances:password")}</Label>
+                  <Label htmlFor={field.name}>{t("instances.password")}</Label>
                   <Input
                     id={field.name}
                     type="password"
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder={instance ? t("instances:keepPassword") : t("instances:passwordPlaceholder")}
+                    placeholder={instance ? t("instances.keepPassword") : t("instances.passwordPlaceholder")}
                     data-1p-ignore
                     autoComplete="off"
                   />
@@ -280,9 +280,9 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="basic-auth-toggle">{t("instances:httpBasicAuth")}</Label>
+              <Label htmlFor="basic-auth-toggle">{t("instances.httpBasicAuth")}</Label>
               <p className="text-sm text-muted-foreground">
-                {t("instances:httpBasicAuthDesc")}
+                {t("instances.httpBasicAuthDesc")}
               </p>
             </div>
             <Switch
@@ -297,13 +297,13 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
               <form.Field name="basicUsername">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>{t("instances:basicAuthUsername")}</Label>
+                    <Label htmlFor={field.name}>{t("instances.basicAuthUsername")}</Label>
                     <Input
                       id={field.name}
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={t("instances:basicAuthUsername")}
+                      placeholder={t("instances.basicAuthUsername")}
                       data-1p-ignore
                       autoComplete="off"
                     />
@@ -315,12 +315,12 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
                 name="basicPassword"
                 validators={{
                   onChange: ({ value }) =>
-                    showBasicAuth && value === "" ? t("instances:basicAuthPasswordRequired") : undefined,
+                    showBasicAuth && value === "" ? t("instances.basicAuthPasswordRequired") : undefined,
                 }}
               >
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>{t("instances:basicAuthPassword")}</Label>
+                    <Label htmlFor={field.name}>{t("instances.basicAuthPassword")}</Label>
                     <Input
                       id={field.name}
                       type="password"
@@ -333,7 +333,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
                         }
                       }}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={t("instances:basicAuthPassword")}
+                      placeholder={t("instances.basicAuthPassword")}
                       data-1p-ignore
                       autoComplete="off"
                     />
@@ -357,7 +357,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
                   type="submit"
                   disabled={!canSubmit || isSubmitting || isCreating || isUpdating}
                 >
-                  {(isCreating || isUpdating) ? t("instances:saving") : instance ? t("instances:updateInstance") : t("instances:addInstance")}
+                  {(isCreating || isUpdating) ? t("instances.saving") : instance ? t("instances.updateInstance") : t("instances.addInstance")}
                 </Button>
               )}
             </form.Subscribe>
@@ -367,7 +367,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
               variant="outline"
               onClick={onCancel}
             >
-              {t("common:cancel")}
+              {t("common.cancel")}
             </Button>
           </div>
         )}

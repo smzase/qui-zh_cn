@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -40,7 +40,7 @@ function TabLoadingFallback() {
   const { t } = useTranslation()
   return (
     <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
-      <div className="text-sm text-muted-foreground">{t("torrents:loading")}</div>
+      <div className="text-sm text-muted-foreground">{t("torrents.loading")}</div>
     </div>
   )
 }
@@ -50,10 +50,10 @@ function TabErrorFallback({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-4" role="alert">
-      <p className="text-sm text-muted-foreground">{t("torrents:failedLoadSettings")}</p>
+      <p className="text-sm text-muted-foreground">{t("torrents.failedLoadSettings")}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         <RefreshCw className="mr-2 h-4 w-4" />
-        {t("torrents:retry")}
+        {t("torrents.retry")}
       </Button>
     </div>
   )
@@ -199,13 +199,13 @@ export function InstancePreferencesDialog({
     const nextState = !currentInstance.isActive
     setInstanceStatus({ id: currentInstance.id, isActive: nextState }, {
       onSuccess: () => {
-        toast.success(nextState ? t("torrents:instanceEnabled") : t("torrents:instanceDisabledToast"), {
-          description: nextState ? t("torrents:instanceEnabledDesc") : t("torrents:instanceDisabledDesc"),
+        toast.success(nextState ? t("torrents.instanceEnabled") : t("torrents.instanceDisabledToast"), {
+          description: nextState ? t("torrents.instanceEnabledDesc") : t("torrents.instanceDisabledDesc"),
         })
       },
       onError: (error) => {
-        toast.error(t("torrents:statusUpdateFailed"), {
-          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents:statusUpdateFailedDesc"),
+        toast.error(t("torrents.statusUpdateFailed"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents.statusUpdateFailedDesc"),
         })
       },
     })
@@ -215,15 +215,15 @@ export function InstancePreferencesDialog({
     if (!currentInstance) return
     deleteInstance({ id: currentInstance.id, name: currentInstance.name }, {
       onSuccess: () => {
-        toast.success(t("torrents:instanceDeleted"), {
-          description: t("torrents:instanceDeletedDesc", { name: currentInstance.name }),
+        toast.success(t("torrents.instanceDeleted"), {
+          description: t("torrents.instanceDeletedDesc", { name: currentInstance.name }),
         })
         setShowDeleteDialog(false)
         handleDeleted()
       },
       onError: (error) => {
-        toast.error(t("torrents:deleteFailed"), {
-          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents:deleteFailedDesc"),
+        toast.error(t("torrents.deleteFailed"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents.deleteFailedDesc"),
         })
         setShowDeleteDialog(false)
       },
@@ -239,7 +239,7 @@ export function InstancePreferencesDialog({
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Cog className="h-5 w-5" />
-              <span>{t("torrents:instanceSettings")}</span>
+              <span>{t("torrents.instanceSettings")}</span>
               {currentInstance && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -258,7 +258,7 @@ export function InstancePreferencesDialog({
                       disabled={isStatusUpdating}
                     >
                       <Power className={cn("mr-2 h-4 w-4", !currentInstance.isActive && "text-destructive")} />
-                      {isStatusUpdating ? t("torrents:updating") : currentInstance.isActive ? t("torrents:disableInstance") : t("torrents:enableInstance")}
+                      {isStatusUpdating ? t("torrents.updating") : currentInstance.isActive ? t("torrents.disableInstance") : t("torrents.enableInstance")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -267,7 +267,7 @@ export function InstancePreferencesDialog({
                       className="text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      {t("torrents:deleteInstance")}
+                      {t("torrents.deleteInstance")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -289,44 +289,44 @@ export function InstancePreferencesDialog({
               <TabsList className="flex w-full justify-start overflow-x-auto h-11 sm:h-9">
                 <TabsTrigger value="instance" className="flex items-center gap-1.5 shrink-0">
                   <Server className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:instance")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.instance")}</span>
                 </TabsTrigger>
                 <div className="h-6 w-px bg-muted-foreground/50 mx-1 sm:mx-2 self-center shrink-0" />
                 <TabsTrigger value="speed" className="flex items-center gap-1.5 shrink-0">
                   <Gauge className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:speed")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.speed")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="queue" className="flex items-center gap-1.5 shrink-0">
                   <Clock className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:queue")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.queue")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="files" className="flex items-center gap-1.5 shrink-0">
                   <Folder className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:files")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.files")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="seeding" className="flex items-center gap-1.5 shrink-0">
                   <Upload className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:seeding")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.seeding")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="connection" className="flex items-center gap-1.5 shrink-0">
                   <Wifi className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:connection")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.connection")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="discovery" className="flex items-center gap-1.5 shrink-0">
                   <Radar className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:discovery")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.discovery")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="advanced" className="flex items-center gap-1.5 shrink-0">
                   <Settings className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents:advanced")}</span>
+                  <span className="text-xs sm:text-sm">{t("torrents.advanced")}</span>
                 </TabsTrigger>
               </TabsList>
             </div>
 
             <PreferencesTabSection
               value="instance"
-              title={t("torrents:instanceConfiguration")}
-              description={t("torrents:instanceConfigurationDesc")}
+              title={t("torrents.instanceConfiguration")}
+              description={t("torrents.instanceConfigurationDesc")}
             >
               {currentInstance ? (
                 <InstanceSettingsPanel instance={currentInstance} onSuccess={handleSuccess} />
@@ -339,8 +339,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="speed"
-              title={t("torrents:speedLimits")}
-              description={t("torrents:speedLimitsDesc")}
+              title={t("torrents.speedLimits")}
+              description={t("torrents.speedLimitsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -351,8 +351,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="queue"
-              title={t("torrents:queueManagement")}
-              description={t("torrents:queueManagementDesc")}
+              title={t("torrents.queueManagement")}
+              description={t("torrents.queueManagementDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -363,8 +363,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="files"
-              title={t("torrents:fileManagement")}
-              description={t("torrents:fileManagementDesc")}
+              title={t("torrents.fileManagement")}
+              description={t("torrents.fileManagementDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -375,8 +375,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="seeding"
-              title={t("torrents:seedingLimits")}
-              description={t("torrents:seedingLimitsDesc")}
+              title={t("torrents.seedingLimits")}
+              description={t("torrents.seedingLimitsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -387,8 +387,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="connection"
-              title={t("torrents:connectionSettings")}
-              description={t("torrents:connectionSettingsDesc")}
+              title={t("torrents.connectionSettings")}
+              description={t("torrents.connectionSettingsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -399,8 +399,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="discovery"
-              title={t("torrents:networkDiscovery")}
-              description={t("torrents:networkDiscoveryDesc")}
+              title={t("torrents.networkDiscovery")}
+              description={t("torrents.networkDiscoveryDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -411,8 +411,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="advanced"
-              title={t("torrents:advancedSettings")}
-              description={t("torrents:advancedSettingsDesc")}
+              title={t("torrents.advancedSettings")}
+              description={t("torrents.advancedSettingsDesc")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -428,19 +428,19 @@ export function InstancePreferencesDialog({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("torrents:deleteInstance")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("torrents.deleteInstance")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("torrents:deleteInstanceConfirm", { name: displayInstanceName })}
+              {t("torrents.deleteInstanceConfirm", { name: displayInstanceName })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
             >
-              {t("common:delete")}
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -105,9 +105,9 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   const copyToClipboard = useCallback(async (text: string, type: string) => {
     try {
       await copyTextToClipboard(text)
-      toast.success(`${type} ${t("common:copiedToClipboard")}`)
+      toast.success(`${type} ${t("common.copiedToClipboard")}`)
     } catch {
-      toast.error(t("common:copyFailed"))
+      toast.error(t("common.copyFailed"))
     }
   }, [t])
   // Wait for component animation before enabling queries when torrent changes
@@ -260,7 +260,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       queryClient.invalidateQueries({ queryKey: ["torrent-files", instanceId, variables.hash] })
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : t("torrentDetails:failedUpdatePriorities")
+      const message = error instanceof Error ? error.message : t("torrentDetails.failedUpdatePriorities")
       toast.error(message)
     },
     onSettled: (_, __, variables) => {
@@ -402,13 +402,13 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       await api.addPeersToTorrents(instanceId, [torrent.hash], peers)
     },
     onSuccess: () => {
-      toast.success(t("torrentDetails:peersAdded"))
+      toast.success(t("torrentDetails.peersAdded"))
       setShowAddPeersDialog(false)
       setPeersToAdd("")
       queryClient.invalidateQueries({ queryKey: ["torrent-peers", instanceId, torrent?.hash] })
     },
     onError: (error) => {
-      toast.error(`${t("torrentDetails:addPeersFailed")}: ${error.message}`)
+      toast.error(`${t("torrentDetails.addPeersFailed")}: ${error.message}`)
     },
   })
 
@@ -418,13 +418,13 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       await api.banPeers(instanceId, [peer])
     },
     onSuccess: () => {
-      toast.success(t("torrentDetails:peerBanned"))
+      toast.success(t("torrentDetails.peerBanned"))
       setShowBanPeerDialog(false)
       setPeerToBan(null)
       queryClient.invalidateQueries({ queryKey: ["torrent-peers", instanceId, torrent?.hash] })
     },
     onError: (error) => {
-      toast.error(`${t("torrentDetails:banPeerFailed")}: ${error.message}`)
+      toast.error(`${t("torrentDetails.banPeerFailed")}: ${error.message}`)
     },
   })
 
@@ -440,13 +440,13 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       })
     },
     onSuccess: () => {
-      toast.success(t("torrentDetails:trackerUpdated"))
+      toast.success(t("torrentDetails.trackerUpdated"))
       setShowEditTrackerDialog(false)
       setTrackerToEdit(null)
       queryClient.invalidateQueries({ queryKey: ["torrent-trackers", instanceId, torrent?.hash] })
     },
     onError: (error: Error) => {
-      toast.error(t("torrentDetails:trackerUpdateFailed"), {
+      toast.error(t("torrentDetails.trackerUpdateFailed"), {
         description: error.message,
       })
     },
@@ -477,7 +477,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       await api.renameTorrentFile(instanceId, hash, oldPath, newPath)
     },
     onSuccess: async (_data, variables) => {
-      toast.success(t("torrentDetails:fileRenamed"))
+      toast.success(t("torrentDetails.fileRenamed"))
       setShowRenameFileDialog(false)
       setRenameFilePath(null)
       // Small delay to let qBittorrent process the rename internally
@@ -486,7 +486,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       await queryClient.invalidateQueries({ queryKey: ["torrent-files", instanceId, variables.hash] })
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : t("torrentDetails:renameFileFailed")
+      const message = error instanceof Error ? error.message : t("torrentDetails.renameFileFailed")
       toast.error(message)
     },
   })
@@ -501,7 +501,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       await api.renameTorrentFolder(instanceId, hash, oldPath, newPath)
     },
     onSuccess: async (_data, variables) => {
-      toast.success(t("torrentDetails:folderRenamed"))
+      toast.success(t("torrentDetails.folderRenamed"))
       setShowRenameFolderDialog(false)
       setRenameFolderPath(null)
       // Small delay to let qBittorrent process the rename internally
@@ -510,7 +510,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       await queryClient.invalidateQueries({ queryKey: ["torrent-files", instanceId, variables.hash] })
     },
     onError: (error) => {
-      const message = error instanceof Error ? error.message : t("torrentDetails:renameFolderFailed")
+      const message = error instanceof Error ? error.message : t("torrentDetails.renameFolderFailed")
       toast.error(message)
     },
   })
@@ -525,10 +525,10 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
     const peerAddress = `${peer.ip}:${peer.port}`
     try {
       await copyTextToClipboard(peerAddress)
-      toast.success(`${peerAddress} ${t("common:copiedToClipboard")}`)
+      toast.success(`${peerAddress} ${t("common.copiedToClipboard")}`)
     } catch (err) {
       console.error("Failed to copy to clipboard:", err)
-      toast.error(t("common:copyFailed"))
+      toast.error(t("common.copyFailed"))
     }
   }, [t])
 
@@ -604,7 +604,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
         )
       )
 
-      toast.success(`${t("common:deleteSuccess")}: ${torrentsToDelete.length}`)
+      toast.success(`${t("common.deleteSuccess")}: ${torrentsToDelete.length}`)
 
       // Refresh all instances
       for (const instId of byInstance.keys()) {
@@ -614,7 +614,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       setSelectedCrossSeedTorrents(new Set())
       setShowDeleteCrossSeedDialog(false)
     } catch (error) {
-      toast.error(`${t("common:deleteFailed")}: ${error instanceof Error ? error.message : t("common:unknown")}`)
+      toast.error(`${t("common.deleteFailed")}: ${error instanceof Error ? error.message : t("common.unknown")}`)
     }
   }, [selectedCrossSeedTorrents, matchingTorrents, deleteCrossSeedFiles, queryClient, t])
 
@@ -628,14 +628,14 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
         deleteFiles: deleteCurrentFiles,
       })
 
-      toast.success(`${t("torrentDetails:torrentDeleted")}: ${torrent.name}`)
+      toast.success(`${t("torrentDetails.torrentDeleted")}: ${torrent.name}`)
       queryClient.invalidateQueries({ queryKey: ["torrents", instanceId] })
       setShowDeleteCurrentDialog(false)
 
       // Close the details panel by clearing selection (parent component should handle this)
       // The user will be returned to the torrent list
     } catch (error) {
-      toast.error(`${t("common:deleteFailed")}: ${error instanceof Error ? error.message : t("common:unknown")}`)
+      toast.error(`${t("common.deleteFailed")}: ${error instanceof Error ? error.message : t("common.unknown")}`)
     }
   }, [torrent, instanceId, deleteCurrentFiles, queryClient, t])
 
@@ -756,24 +756,24 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
           <div className="flex-1 overflow-x-auto scroll-smooth">
             <TabsList className="w-full justify-start rounded-none h-8 bg-background px-4 sm:px-2 flex-nowrap">
               <TabsTrigger value="general" className="text-xs shrink-0">
-                {t("common:general")}
+                {t("common.general")}
               </TabsTrigger>
               <TabsTrigger value="trackers" className="text-xs shrink-0">
-                {t("common:trackers")}
+                {t("common.trackers")}
               </TabsTrigger>
               <TabsTrigger value="peers" className="text-xs shrink-0">
-                {t("common:peers")}
+                {t("common.peers")}
               </TabsTrigger>
               {hasWebseeds && (
                 <TabsTrigger value="webseeds" className="text-xs shrink-0">
-                  {t("common:webSeeds")}
+                  {t("common.webSeeds")}
                 </TabsTrigger>
               )}
               <TabsTrigger value="content" className="text-xs shrink-0">
-                {t("common:content")}
+                {t("common.content")}
               </TabsTrigger>
               <TabsTrigger value="crossseed" className="text-xs shrink-0">
-                {t("common:crossSeed")}
+                {t("common.crossSeed")}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -783,7 +783,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
               size="icon"
               className="h-8 w-10 shrink-0 rounded-none"
               onClick={onClose}
-              aria-label={t("common:closeDetails")}
+              aria-label={t("common.closeDetails")}
             >
               <X className="h-3 w-3" />
             </Button>

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -23,9 +23,9 @@ export function PasswordIssuesBanner({ instances }: PasswordIssuesBannerProps) {
   return (
     <Alert className="mb-6">
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle>{t("instances:passwordIssues")}</AlertTitle>
+      <AlertTitle>{t("instances.passwordIssues")}</AlertTitle>
       <AlertDescription>
-        {t("instances:passwordIssuesDesc")}
+        {t("instances.passwordIssuesDesc")}
       </AlertDescription>
     </Alert>
   )

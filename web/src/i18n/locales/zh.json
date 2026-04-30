@@ -1477,5 +1477,26 @@
     "torrentDeleted": "种子已删除",
     "failedUpdatePriorities": "更新文件优先级失败",
     "close": "关闭"
+  },
+  "filterSidebar": {
+    "filters": "筛选",
+    "filterTips": "筛选选择提示",
+    "fullTorrentCards": "完整种子卡片",
+    "compactCards": "紧凑卡片",
+    "ultraCompactCards": "超紧凑卡片",
+    "normal": "标准",
+    "compact": "紧凑",
+    "ultra": "超紧凑",
+    "status": "状态",
+    "categories": "分类",
+    "tags": "标签",
+    "trackers": "Trackers",
+    "uncategorized": "未分类",
+    "untagged": "未标记",
+    "addCategory": "添加分类",
+    "addTag": "添加标签",
+    "unavailableUnifiedView": "统一视图中不可用",
+    "failedUpdateTracker": "更新 Tracker 失败",
+    "noTrackerSelected": "未选择要转换的 Tracker"
   }
 }

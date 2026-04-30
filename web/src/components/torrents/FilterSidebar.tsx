@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -158,22 +158,22 @@ const arraysEqual = (a?: string[], b?: string[]) => {
 
 // Define torrent states based on qBittorrent
 const getTorrentStates = (t: (key: string) => string): Array<{ value: string; label: string; icon: LucideIcon }> => [
-  { value: "downloading", label: t("filters:downloading"), icon: Download },
-  { value: "uploading", label: t("filters:seeding"), icon: Upload },
-  { value: "completed", label: t("filters:completed"), icon: CheckCircle2 },
-  { value: "stopped", label: t("filters:stopped"), icon: StopCircle },
-  { value: "active", label: t("filters:active"), icon: PlayCircle },
-  { value: "inactive", label: t("filters:inactive"), icon: StopCircle },
-  { value: "running", label: t("filters:running"), icon: PlayCircle },
-  { value: "stalled", label: t("filters:stalled"), icon: AlertCircle },
-  { value: "stalled_uploading", label: t("filters:stalledUp"), icon: AlertCircle },
-  { value: "stalled_downloading", label: t("filters:stalledDown"), icon: AlertCircle },
-  { value: "errored", label: t("filters:errored"), icon: XCircle },
-  { value: "checking", label: t("filters:checking"), icon: RotateCw },
-  { value: "moving", label: t("filters:moving"), icon: MoveRight },
-  { value: "unregistered", label: t("filters:unregistered"), icon: XCircle },
-  { value: "tracker_down", label: t("filters:trackerDown"), icon: AlertCircle },
-  { value: "cross-seeds", label: t("filters:crossSeeds"), icon: GitBranch },
+  { value: "downloading", label: t("filters.downloading"), icon: Download },
+  { value: "uploading", label: t("filters.seeding"), icon: Upload },
+  { value: "completed", label: t("filters.completed"), icon: CheckCircle2 },
+  { value: "stopped", label: t("filters.stopped"), icon: StopCircle },
+  { value: "active", label: t("filters.active"), icon: PlayCircle },
+  { value: "inactive", label: t("filters.inactive"), icon: StopCircle },
+  { value: "running", label: t("filters.running"), icon: PlayCircle },
+  { value: "stalled", label: t("filters.stalled"), icon: AlertCircle },
+  { value: "stalled_uploading", label: t("filters.stalledUp"), icon: AlertCircle },
+  { value: "stalled_downloading", label: t("filters.stalledDown"), icon: AlertCircle },
+  { value: "errored", label: t("filters.errored"), icon: XCircle },
+  { value: "checking", label: t("filters.checking"), icon: RotateCw },
+  { value: "moving", label: t("filters.moving"), icon: MoveRight },
+  { value: "unregistered", label: t("filters.unregistered"), icon: XCircle },
+  { value: "tracker_down", label: t("filters.trackerDown"), icon: AlertCircle },
+  { value: "cross-seeds", label: t("filters.crossSeeds"), icon: GitBranch },
 ]
 
 
@@ -434,7 +434,7 @@ const FilterSidebarComponent = ({
       setTrackerFullURLs([])
     },
     onError: (error: Error) => {
-      toast.error("Failed to update tracker", {
+      toast.error(t("filterSidebar.failedUpdateTracker"), {
         description: error.message,
       })
     },
@@ -446,7 +446,7 @@ const FilterSidebarComponent = ({
     if (httpUrls.length === 0) return
 
     if (!trackerToEdit) {
-      toast.error("No tracker selected for conversion")
+      toast.error(t("filterSidebar.noTrackerSelected"))
       return
     }
 
@@ -1853,13 +1853,13 @@ const FilterSidebarComponent = ({
         <div className={viewMode === "dense" ? "px-3 py-2" : "p-4"}>
           <div className={cn("flex items-center justify-between", viewMode === "dense" ? "mb-2" : "mb-4")}>
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="font-semibold">Filters</h3>
+              <h3 className="font-semibold">{t("filterSidebar.filters")}</h3>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
                     className="text-muted-foreground hover:text-foreground"
-                    aria-label="Filter selection tips"
+                    aria-label={t("filterSidebar.filterTips")}
                   >
                     <Info className="h-4 w-4" />
                   </button>
@@ -1888,14 +1888,14 @@ const FilterSidebarComponent = ({
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium">View Mode</span>
                 <span className="text-xs text-muted-foreground">
-                  {viewMode === "normal" ? "Full torrent cards" : viewMode === "compact" ? "Compact cards" : "Ultra compact"}
+                  {viewMode === "normal" ? t("filterSidebar.fullTorrentCards") : viewMode === "compact" ? t("filterSidebar.compactCards") : t("filterSidebar.ultraCompactCards")}
                 </span>
               </div>
               <button
                 onClick={cycleViewMode}
                 className="px-3 py-1 text-xs font-medium rounded border bg-background hover:bg-muted"
               >
-                {viewMode === "normal" ? "Normal" : viewMode === "compact" ? "Compact" : "Ultra"}
+                {viewMode === "normal" ? t("filterSidebar.normal") : viewMode === "compact" ? t("filterSidebar.compact") : t("filterSidebar.ultra")}
               </button>
             </div>
           )}
@@ -1936,7 +1936,7 @@ const FilterSidebarComponent = ({
             <AccordionItem value="status" className="border rounded-lg">
               <AccordionTrigger className={cn(accordionTriggerClass, "hover:no-underline")}>
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-sm font-medium">Status</span>
+                  <span className="text-sm font-medium">{t("filterSidebar.status")}</span>
                   {selectedFilters.status.length + selectedFilters.excludeStatus.length > 0 && (
                     <FilterBadge
                       count={selectedFilters.status.length + selectedFilters.excludeStatus.length}
@@ -2039,7 +2039,7 @@ const FilterSidebarComponent = ({
             <AccordionItem value="categories" className="border rounded-lg">
               <AccordionTrigger className={cn(accordionTriggerClass, "hover:no-underline")}>
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-sm font-medium">Categories</span>
+                  <span className="text-sm font-medium">{t("filterSidebar.categories")}</span>
                   {selectedFilters.categories.length + selectedFilters.excludeCategories.length > 0 && (
                     <FilterBadge
                       count={selectedFilters.categories.length + selectedFilters.excludeCategories.length}
@@ -2055,7 +2055,7 @@ const FilterSidebarComponent = ({
                     <button
                       className={cn("flex items-center gap-1.5 transition-colors", isReadOnly ? "cursor-not-allowed opacity-60" : "hover:text-foreground")}
                       disabled={isReadOnly}
-                      title={isReadOnly ? "Unavailable in unified view" : undefined}
+                      title={isReadOnly ? t("filterSidebar.unavailableUnifiedView") : undefined}
                       onClick={() => {
                         if (isReadOnly) {
                           return
@@ -2065,7 +2065,7 @@ const FilterSidebarComponent = ({
                       }}
                     >
                       <Plus className="h-3 w-3" />
-                      <span>Add category</span>
+                      <span>{t("filterSidebar.addCategory")}</span>
                     </button>
                     {hiddenCategoryCount > 0 && (
                       <>
@@ -2125,7 +2125,7 @@ const FilterSidebarComponent = ({
                           uncategorizedState === "exclude" ? "text-destructive" : "text-muted-foreground"
                         )}
                       >
-                        Uncategorized
+                        {t("filterSidebar.uncategorized")}
                       </span>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -2450,7 +2450,7 @@ const FilterSidebarComponent = ({
             <AccordionItem value="tags" className="border rounded-lg">
               <AccordionTrigger className={cn(accordionTriggerClass, "hover:no-underline")}>
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-sm font-medium">Tags</span>
+                  <span className="text-sm font-medium">{t("filterSidebar.tags")}</span>
                   {selectedFilters.tags.length + selectedFilters.excludeTags.length > 0 && (
                     <FilterBadge
                       count={selectedFilters.tags.length + selectedFilters.excludeTags.length}
@@ -2466,7 +2466,7 @@ const FilterSidebarComponent = ({
                     <button
                       className={cn("flex items-center gap-1.5 transition-colors", isReadOnly ? "cursor-not-allowed opacity-60" : "hover:text-foreground")}
                       disabled={isReadOnly}
-                      title={isReadOnly ? "Unavailable in unified view" : undefined}
+                      title={isReadOnly ? t("filterSidebar.unavailableUnifiedView") : undefined}
                       onClick={() => {
                         if (isReadOnly) {
                           return
@@ -2475,7 +2475,7 @@ const FilterSidebarComponent = ({
                       }}
                     >
                       <Plus className="h-3 w-3" />
-                      <span>Add tag</span>
+                      <span>{t("filterSidebar.addTag")}</span>
                     </button>
                     {hiddenTagCount > 0 && (
                       <>
@@ -2535,7 +2535,7 @@ const FilterSidebarComponent = ({
                           untaggedState === "exclude" ? "text-destructive" : "text-muted-foreground"
                         )}
                       >
-                        Untagged
+                        {t("filterSidebar.untagged")}
                       </span>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -2778,7 +2778,7 @@ const FilterSidebarComponent = ({
             <AccordionItem value="trackers" className="border rounded-lg last:border-b">
               <AccordionTrigger className={cn(accordionTriggerClass, "hover:no-underline")}>
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-sm font-medium">Trackers</span>
+                  <span className="text-sm font-medium">{t("filterSidebar.trackers")}</span>
                   {selectedFilters.trackers.length + selectedFilters.excludeTrackers.length > 0 && (
                     <FilterBadge
                       count={selectedFilters.trackers.length + selectedFilters.excludeTrackers.length}

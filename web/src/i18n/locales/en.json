@@ -1467,5 +1467,26 @@
     "torrentDeleted": "Torrent deleted",
     "failedUpdatePriorities": "Failed to update file priorities",
     "close": "Close"
+  },
+  "filterSidebar": {
+    "filters": "Filters",
+    "filterTips": "Filter selection tips",
+    "fullTorrentCards": "Full torrent cards",
+    "compactCards": "Compact cards",
+    "ultraCompactCards": "Ultra compact cards",
+    "normal": "Normal",
+    "compact": "Compact",
+    "ultra": "Ultra",
+    "status": "Status",
+    "categories": "Categories",
+    "tags": "Tags",
+    "trackers": "Trackers",
+    "uncategorized": "Uncategorized",
+    "untagged": "Untagged",
+    "addCategory": "Add category",
+    "addTag": "Add tag",
+    "unavailableUnifiedView": "Unavailable in unified view",
+    "failedUpdateTracker": "Failed to update tracker",
+    "noTrackerSelected": "No tracker selected for conversion"
   }
 }

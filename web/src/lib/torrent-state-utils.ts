@@ -6,32 +6,32 @@
 // Translation keys for qBittorrent torrent states
 const TORRENT_STATE_KEYS: Record<string, string> = {
   // Downloading related
-  downloading: "torrents:downloading",
-  metaDL: "torrents:fetchingMetadata",
-  allocating: "torrents:allocating",
-  stalledDL: "torrents:stalledDown",
-  queuedDL: "torrents:queued",
-  checkingDL: "torrents:checking",
-  forcedDL: "torrents:forcedDownloading",
+  downloading: "torrents.downloading",
+  metaDL: "torrents.fetchingMetadata",
+  allocating: "torrents.allocating",
+  stalledDL: "torrents.stalledDown",
+  queuedDL: "torrents.queued",
+  checkingDL: "torrents.checking",
+  forcedDL: "torrents.forcedDownloading",
 
   // Uploading / Seeding related
-  uploading: "torrents:seeding",
-  stalledUP: "torrents:stalledUp",
-  queuedUP: "torrents:queued",
-  checkingUP: "torrents:checking",
-  forcedUP: "torrents:forcedSeeding",
+  uploading: "torrents.seeding",
+  stalledUP: "torrents.stalledUp",
+  queuedUP: "torrents.queued",
+  checkingUP: "torrents.checking",
+  forcedUP: "torrents.forcedSeeding",
 
   // Paused / Stopped
-  pausedDL: "torrents:paused",
-  pausedUP: "torrents:completed",
-  stoppedDL: "torrents:stopped",
-  stoppedUP: "torrents:completed",
+  pausedDL: "torrents.paused",
+  pausedUP: "torrents.completed",
+  stoppedDL: "torrents.stopped",
+  stoppedUP: "torrents.completed",
 
   // Other
-  error: "torrents:errored",
-  missingFiles: "torrents:missingFiles",
-  checkingResumeData: "torrents:checkingResumeData",
-  moving: "torrents:moving",
+  error: "torrents.errored",
+  missingFiles: "torrents.missingFiles",
+  checkingResumeData: "torrents.checkingResumeData",
+  moving: "torrents.moving",
 }
 
 // Fallback labels for when translation is not available

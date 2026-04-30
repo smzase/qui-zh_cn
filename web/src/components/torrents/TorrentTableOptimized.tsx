@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -2470,14 +2470,14 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
                                 size="icon"
                               >
                                 <Columns3 className="h-4 w-4" />
-                                <span className="sr-only">{t("torrents:toggleColumns")}</span>
+                                <span className="sr-only">{t("torrents.toggleColumns")}</span>
                               </Button>
                             </DropdownMenuTrigger>
                           </TooltipTrigger>
-                          <TooltipContent>{t("torrents:toggleColumns")}</TooltipContent>
+                          <TooltipContent>{t("torrents.toggleColumns")}</TooltipContent>
                         </Tooltip>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel>{t("torrents:toggleColumns")}</DropdownMenuLabel>
+                          <DropdownMenuLabel>{t("torrents.toggleColumns")}</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           {table
                             .getAllColumns()
