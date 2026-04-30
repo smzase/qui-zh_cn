@@ -21,6 +21,7 @@ import type { TorrentCreationStatus, TorrentCreationTask } from "@/types"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2, Clock, Download, Loader2, Trash2, XCircle } from "lucide-react"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 interface TorrentCreationTasksProps {
   instanceId: number
@@ -41,6 +42,7 @@ const STATUS_ICONS: Record<TorrentCreationStatus, React.ReactNode> = {
 }
 
 export function TorrentCreationTasks({ instanceId }: TorrentCreationTasksProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { formatDate } = useDateTimeFormatters()
 
@@ -58,10 +60,10 @@ export function TorrentCreationTasks({ instanceId }: TorrentCreationTasksProps) 
   const downloadMutation = useMutation({
     mutationFn: (taskID: string) => api.downloadTorrentFile(instanceId, taskID),
     onSuccess: () => {
-      toast.success("Torrent file download started")
+      toast.success(t("torrentTasks.downloadStarted"))
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to download torrent file")
+      toast.error(error.message || t("torrentTasks.downloadFailed"))
     },
   })
 
@@ -70,17 +72,17 @@ export function TorrentCreationTasks({ instanceId }: TorrentCreationTasksProps) 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["torrent-creation-tasks", instanceId] })
       queryClient.invalidateQueries({ queryKey: ["active-task-count", instanceId] })
-      toast.success("Torrent creation task deleted")
+      toast.success(t("torrentTasks.taskDeleted"))
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to delete torrent creation task")
+      toast.error(error.message || t("torrentTasks.deleteFailed"))
     },
   })
 
   if (isLoading) {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        Loading tasks...
+        {t("torrentTasks.loading")}
       </div>
     )
   }
@@ -88,7 +90,7 @@ export function TorrentCreationTasks({ instanceId }: TorrentCreationTasksProps) 
   if (!tasks || tasks.length === 0) {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        No torrent creation tasks found
+        {t("torrentTasks.noTasks")}
       </div>
     )
   }
@@ -117,7 +119,7 @@ export function TorrentCreationTasks({ instanceId }: TorrentCreationTasksProps) 
                   </Badge>
                   {task.private && (
                     <Badge variant="outline" className="text-xs">
-                      Private
+                      {t("torrentTasks.private")}
                     </Badge>
                   )}
                 </div>
@@ -176,11 +178,11 @@ export function TorrentCreationTasks({ instanceId }: TorrentCreationTasksProps) 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Source</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead>Added</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("torrentTasks.source")}</TableHead>
+              <TableHead>{t("torrentTasks.status")}</TableHead>
+              <TableHead>{t("torrentTasks.progress")}</TableHead>
+              <TableHead>{t("torrentTasks.added")}</TableHead>
+              <TableHead className="text-right">{t("torrentTasks.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -193,7 +195,7 @@ export function TorrentCreationTasks({ instanceId }: TorrentCreationTasksProps) 
                     </div>
                     {task.private && (
                       <Badge variant="outline" className="text-xs">
-                        Private
+                        {t("torrentTasks.private")}
                       </Badge>
                     )}
                     {task.errorMessage && (
