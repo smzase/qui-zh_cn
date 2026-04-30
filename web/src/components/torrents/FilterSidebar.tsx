@@ -83,6 +83,7 @@ import { EditTrackerDialog } from "./TorrentDialogs"
 import { api } from "@/lib/api"
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 interface FilterBadgeProps {
   count: number
@@ -156,23 +157,23 @@ const arraysEqual = (a?: string[], b?: string[]) => {
 
 
 // Define torrent states based on qBittorrent
-const TORRENT_STATES: Array<{ value: string; label: string; icon: LucideIcon }> = [
-  { value: "downloading", label: "Downloading", icon: Download },
-  { value: "uploading", label: "Seeding", icon: Upload },
-  { value: "completed", label: "Completed", icon: CheckCircle2 },
-  { value: "stopped", label: "Stopped", icon: StopCircle },
-  { value: "active", label: "Active", icon: PlayCircle },
-  { value: "inactive", label: "Inactive", icon: StopCircle },
-  { value: "running", label: "Running", icon: PlayCircle },
-  { value: "stalled", label: "Stalled", icon: AlertCircle },
-  { value: "stalled_uploading", label: "Stalled Up", icon: AlertCircle },
-  { value: "stalled_downloading", label: "Stalled Down", icon: AlertCircle },
-  { value: "errored", label: "Error", icon: XCircle },
-  { value: "checking", label: "Checking", icon: RotateCw },
-  { value: "moving", label: "Moving", icon: MoveRight },
-  { value: "unregistered", label: "Unregistered", icon: XCircle },
-  { value: "tracker_down", label: "Tracker Down", icon: AlertCircle },
-  { value: "cross-seeds", label: "Cross Seeds", icon: GitBranch },
+const getTorrentStates = (t: (key: string) => string): Array<{ value: string; label: string; icon: LucideIcon }> => [
+  { value: "downloading", label: t("filters:downloading"), icon: Download },
+  { value: "uploading", label: t("filters:seeding"), icon: Upload },
+  { value: "completed", label: t("filters:completed"), icon: CheckCircle2 },
+  { value: "stopped", label: t("filters:stopped"), icon: StopCircle },
+  { value: "active", label: t("filters:active"), icon: PlayCircle },
+  { value: "inactive", label: t("filters:inactive"), icon: StopCircle },
+  { value: "running", label: t("filters:running"), icon: PlayCircle },
+  { value: "stalled", label: t("filters:stalled"), icon: AlertCircle },
+  { value: "stalled_uploading", label: t("filters:stalledUp"), icon: AlertCircle },
+  { value: "stalled_downloading", label: t("filters:stalledDown"), icon: AlertCircle },
+  { value: "errored", label: t("filters:errored"), icon: XCircle },
+  { value: "checking", label: t("filters:checking"), icon: RotateCw },
+  { value: "moving", label: t("filters:moving"), icon: MoveRight },
+  { value: "unregistered", label: t("filters:unregistered"), icon: XCircle },
+  { value: "tracker_down", label: t("filters:trackerDown"), icon: AlertCircle },
+  { value: "cross-seeds", label: t("filters:crossSeeds"), icon: GitBranch },
 ]
 
 
@@ -193,11 +194,13 @@ const FilterSidebarComponent = ({
   isLoading = false,
   isMobile = false,
 }: FilterSidebarProps) => {
+  const { t } = useTranslation()
   const isReadOnly = readOnly || instanceId <= 0
   const isConcreteInstanceScope = instanceId > 0
   const { instances } = useInstances()
   const instanceMeta = instances?.find(instance => instance.id === instanceId)
   const isInstanceActive = !isConcreteInstanceScope || (instanceMeta?.isActive ?? true)
+  const TORRENT_STATES = useMemo(() => getTorrentStates(t), [t])
 
   // Use incognito mode hook
   const [incognitoMode] = useIncognitoMode()
@@ -308,7 +311,7 @@ const FilterSidebarComponent = ({
     }
 
     return states
-  }, [supportsTrackerHealth, selectedFilters.expr])
+  }, [supportsTrackerHealth, selectedFilters.expr, TORRENT_STATES])
 
   // Get selected torrents from context (not used for tracker editing, but keeping for future use)
   // const { selectedHashes } = useTorrentSelection()
