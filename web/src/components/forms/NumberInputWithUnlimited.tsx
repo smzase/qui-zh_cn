@@ -6,6 +6,7 @@
 import React from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useTranslation } from "react-i18next"
 
 interface NumberInputWithUnlimitedProps {
   label: string
@@ -32,6 +33,7 @@ export function NumberInputWithUnlimited({
   placeholder,
   disabled = false,
 }: NumberInputWithUnlimitedProps) {
+  const { t } = useTranslation()
   // Display value: show empty string for -1 when unlimited is allowed
   const displayValue = allowUnlimited && value === -1 ? "" : value.toString()
 
@@ -75,7 +77,7 @@ export function NumberInputWithUnlimited({
         {description && (
           <p className="text-xs text-muted-foreground">
             {description}
-            {allowUnlimited && " (use -1 for unlimited)"}
+            {allowUnlimited && ` ${t("instances.useMinus1ForUnlimited")}`}
           </p>
         )}
       </div>
