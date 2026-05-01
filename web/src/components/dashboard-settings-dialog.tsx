@@ -5,6 +5,7 @@
 
 import { ChevronDown, ChevronUp, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -27,25 +28,30 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { DEFAULT_DASHBOARD_SETTINGS, useDashboardSettings, useUpdateDashboardSettings } from "@/hooks/useDashboardSettings"
 
-const SECTION_LABELS: Record<string, string> = {
-  "server-stats": "Server Statistics",
-  "tracker-breakdown": "Tracker Breakdown",
-  "global-stats": "Global Stats Cards",
-  "instances": "Instance Cards",
+function getSectionLabels(t: (key: string) => string): Record<string, string> {
+  return {
+    "server-stats": t("dashboard.serverStats"),
+    "tracker-breakdown": t("dashboard.trackerBreakdown"),
+    "global-stats": t("dashboard.globalStatsCards"),
+    "instances": t("dashboard.instanceCards"),
+  }
 }
 
-const SORT_COLUMN_LABELS: Record<string, string> = {
-  "tracker": "Tracker Name",
-  "uploaded": "Uploaded",
-  "downloaded": "Downloaded",
-  "ratio": "Ratio",
-  "buffer": "Buffer",
-  "count": "Torrents",
-  "size": "Size",
-  "performance": "Seeded",
+function getSortColumnLabels(t: (key: string) => string): Record<string, string> {
+  return {
+    "tracker": t("dashboard.trackerName"),
+    "uploaded": t("dashboard.uploaded"),
+    "downloaded": t("dashboard.downloaded"),
+    "ratio": t("dashboard.ratio"),
+    "buffer": t("dashboard.buffer"),
+    "count": t("dashboard.torrents"),
+    "size": t("dashboard.size"),
+    "performance": t("dashboard.seeded"),
+  }
 }
 
 export function DashboardSettingsDialog() {
+  const { t } = useTranslation()
   const { data: settings } = useDashboardSettings()
   const updateSettings = useUpdateDashboardSettings()
 
@@ -123,21 +129,21 @@ export function DashboardSettingsDialog() {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="w-full sm:w-auto">
           <Settings className="h-4 w-4 mr-2" />
-          Layout Settings
+          {t('dashboard.layoutSettings')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Dashboard Settings</DialogTitle>
+          <DialogTitle>{t('dashboard.dashboardSettings')}</DialogTitle>
           <DialogDescription>
-            Customize which sections are visible and their order.
+            {t('dashboard.dashboardSettingsDesc')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Section Visibility & Order */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Sections</Label>
+            <Label className="text-sm font-medium">{t('dashboard.sections')}</Label>
             <div className="space-y-2">
               {order.map((sectionId, index) => (
                 <div
@@ -153,7 +159,7 @@ export function DashboardSettingsDialog() {
                     htmlFor={`section-${sectionId}`}
                     className="flex-1 text-sm cursor-pointer"
                   >
-                    {SECTION_LABELS[sectionId] || sectionId}
+                    {(getSectionLabels(t)[sectionId] || sectionId)}
                   </Label>
                   <div className="flex items-center gap-1">
                     <Button
@@ -184,7 +190,7 @@ export function DashboardSettingsDialog() {
 
           {/* Tracker Breakdown Settings */}
           <div className="space-y-4">
-            <Label className="text-sm font-medium">Tracker Breakdown Defaults</Label>
+            <Label className="text-sm font-medium">{t('dashboard.trackerBreakdownDefaults')}</Label>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -196,7 +202,7 @@ export function DashboardSettingsDialog() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(SORT_COLUMN_LABELS).map(([value, label]) => (
+                    {Object.entries(getSortColumnLabels(t)).map(([value, label]) => (
                       <SelectItem key={value} value={value}>
                         {label}
                       </SelectItem>
@@ -214,8 +220,8 @@ export function DashboardSettingsDialog() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="desc">Descending</SelectItem>
-                    <SelectItem value="asc">Ascending</SelectItem>
+                    <SelectItem value="desc">{t('dashboard.descending')}</SelectItem>
+                    <SelectItem value="asc">{t('dashboard.ascending')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
