@@ -130,7 +130,9 @@
     "conflictsWith": "冲突对象",
     "importTrackerDesc": "粘贴 JSON 以导入 tracker 自定义（重命名和合并）。",
     "seededTooltip": "已上传 ÷ 内容大小 — 您已做种内容的次数",
-    "add": "添加"
+    "add": "添加",
+    "noInstancesConfigured": "未配置实例",
+    "addFirstInstance": "添加第一个实例"
   },
   "login": {
     "username": "用户名",
@@ -156,7 +158,8 @@
     "confirmYourPassword": "确认您的密码",
     "failedCreateUser": "创建用户失败",
     "creatingAccount": "创建账户中...",
-    "createAccount": "创建账户"
+    "createAccount": "创建账户",
+    "passwordsDoNotMatch": "两次输入的密码不一致"
   },
   "settings": {
     "title": "设置",
@@ -756,7 +759,12 @@
     "lsdDesc": "本地服务发现，用于在本地网络中发现 Peer",
     "announceAllTrackers": "向所有 Tracker 通告",
     "announceAllTrackersDesc": "向所有 Tracker 通告，而不仅仅是每个层级的一个",
-    "announceIp": "通告 IP"
+    "announceIp": "通告 IP",
+    "instanceCreated": "实例创建成功",
+    "instanceCreatedDesc": "新实例已成功创建并添加。",
+    "createFailed": "创建实例失败",
+    "createFailedDesc": "创建实例时发生错误。请检查您的设置。",
+    "usernamePlaceholder": "admin"
   },
   "arr": {
     "arrInstances": "ARR 实例",
@@ -818,7 +826,8 @@
     "deleteSuccess": "ARR 实例删除成功",
     "createError": "创建 ARR 实例失败：{{error}}",
     "updateError": "更新 ARR 实例失败：{{error}}",
-    "deleteError": "删除 ARR 实例失败：{{error}}"
+    "deleteError": "删除 ARR 实例失败：{{error}}",
+    "connectionSuccess": "连接成功"
   },
   "clientProxy": {
     "clientProxy": "客户端代理",
@@ -921,7 +930,11 @@
     "editName": "编辑 {{name}}",
     "deleteName": "删除 {{name}}",
     "proceedRemoveAction": "如果继续，外部程序操作将从这些自动化规则中移除。",
-    "deleteConfirm": "确定要删除 \"{{name}}\" 吗？此操作无法撤销。"
+    "deleteConfirm": "确定要删除 \"{{name}}\" 吗？此操作无法撤销。",
+    "loading": "加载中...",
+    "loadError": "加载外部程序失败",
+    "noPrograms": "未配置外部程序",
+    "argumentsTemplate": "参数模板"
   },
   "notifications": {
     "addNotificationTarget": "添加通知目标",
@@ -969,7 +982,10 @@
     "test": "测试",
     "urlRequired": "URL 必填",
     "nameRequired": "名称必填",
-    "selectAtLeastOneEvent": "请至少选择一个事件"
+    "selectAtLeastOneEvent": "请至少选择一个事件",
+    "urlPlaceholder": "discord://token@id 或 notifiarrapi://apikey",
+    "urlHelp": "使用任何 Shoutrrr 支持的 URL 方案",
+    "toggleDelivery": "切换投递"
   },
   "dateTime": {
     "timezone": "时区",
@@ -1502,7 +1518,20 @@
     "searchUrls": "搜索 URL...",
     "filteredCount": "{{filtered}} / {{total}}",
     "httpSourceCount": "{{count}} 个 HTTP 来源",
-    "copyUrl": "复制 URL"
+    "copyUrl": "复制 URL",
+    "instanceEnabled": "实例已启用",
+    "instanceDisabledToast": "实例已禁用",
+    "instanceEnabledDesc": "实例已成功启用。",
+    "instanceDisabledDesc": "实例已成功禁用。",
+    "statusUpdateFailed": "状态更新失败",
+    "statusUpdateFailedDesc": "更新实例状态时发生错误。",
+    "instanceDeleted": "实例已删除",
+    "instanceDeletedDesc": "实例已成功删除。",
+    "deleteFailed": "删除失败",
+    "deleteFailedDesc": "删除实例时发生错误。",
+    "tempPath": "临时路径",
+    "dl": "下载",
+    "ul": "上传"
   },
   "language": {
     "language": "语言",
@@ -1619,7 +1648,8 @@
     "freeleech25": "25%",
     "freeleech50": "50%",
     "freeleech75": "75%",
-    "freeleechNeutral": "Neutral"
+    "freeleechNeutral": "Neutral",
+    "noResults": "未找到结果"
   },
   "torrentCreator": {
     "title": "创建种子",
@@ -1723,7 +1753,34 @@
     "webSeeds": "HTTP 来源",
     "content": "内容",
     "crossSeed": "辅种",
-    "closeDetails": "关闭详情面板"
+    "closeDetails": "关闭详情面板",
+    "done": "完成",
+    "creating": "创建中...",
+    "errorOccurred": "发生错误",
+    "created": "已创建",
+    "lastUsed": "最后使用",
+    "host": "主机",
+    "updated": "已更新",
+    "selectAll": "全选",
+    "clear": "清除",
+    "select": "选择",
+    "saving": "保存中...",
+    "hide": "隐藏",
+    "show": "显示",
+    "copiedToClipboard": "已复制到剪贴板",
+    "copyFailed": "复制到剪贴板失败",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败",
+    "reset": "重置",
+    "apply": "应用",
+    "rename": "重命名",
+    "disable": "禁用",
+    "enable": "启用",
+    "minutes": "分钟",
+    "configuration": "配置",
+    "unavailable": "不可用",
+    "failedCopy": "复制失败",
+    "filters": "筛选"
   },
   "filters": {
     "status": "状态",
