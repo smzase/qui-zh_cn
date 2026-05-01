@@ -64,7 +64,7 @@ const navigation: NavItem[] = [
     icon: Search,
   },
   {
-    id: "cross-seed",
+    id: "crossSeed",
     title: "Cross-Seed",
     href: "/cross-seed",
     icon: GitBranch,

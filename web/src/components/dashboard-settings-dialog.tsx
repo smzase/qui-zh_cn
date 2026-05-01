@@ -195,7 +195,7 @@ export function DashboardSettingsDialog() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="sort-column" className="text-xs text-muted-foreground">
-                  Default Sort
+                  {t('dashboard.defaultSort')}
                 </Label>
                 <Select value={sortColumn} onValueChange={handleSortColumnChange}>
                   <SelectTrigger id="sort-column">
@@ -213,7 +213,7 @@ export function DashboardSettingsDialog() {
 
               <div className="space-y-2">
                 <Label htmlFor="sort-direction" className="text-xs text-muted-foreground">
-                  Direction
+                  {t('dashboard.direction')}
                 </Label>
                 <Select value={sortDirection} onValueChange={handleSortDirectionChange}>
                   <SelectTrigger id="sort-direction">
@@ -229,7 +229,7 @@ export function DashboardSettingsDialog() {
 
             <div className="space-y-2">
               <Label htmlFor="items-per-page" className="text-xs text-muted-foreground">
-                Items Per Page
+                {t('dashboard.itemsPerPage')}
               </Label>
               <Select value={String(itemsPerPage)} onValueChange={handleItemsPerPageChange}>
                 <SelectTrigger id="items-per-page" className="w-32">
