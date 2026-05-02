@@ -245,7 +245,7 @@ function InstanceCard({
   })()
 
   const listenPort = preferences?.listen_port
-  const connectionStatusTooltip = connectionStatusDisplay? `${isConnectable ? "Connectable" : connectionStatusDisplay}${listenPort ? `. Port: ${listenPort}` : ""}`: ""
+  const connectionStatusTooltip = connectionStatusDisplay? `${isConnectable ? t("dashboard.connectable") : connectionStatusDisplay}${listenPort ? `. ${t("dashboard.port")}: ${listenPort}` : ""}`: ""
 
   // Determine if settings button should show
   const showSettingsButton = instance.connected && !isFirstLoad && !hasDecryptionOrRecentErrors
@@ -1384,7 +1384,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
     }
 
     const exportData = {
-      comment: "qui tracker customizations for Dashboard",
+      comment: t("dashboard.exportComment"),
       trackerCustomizations: customizations.map(c => {
         const entry: { displayName: string; domains: string[]; includedInStats?: string[] } = {
           displayName: c.displayName,
@@ -1434,16 +1434,16 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
       const entries = parsed.trackerCustomizations
 
       if (!Array.isArray(entries)) {
-        return { valid: false, entries: [], error: "Invalid format: expected trackerCustomizations array" }
+        return { valid: false, entries: [], error: t("dashboard.invalidFormat") }
       }
 
       // Validate each entry
       for (const entry of entries) {
         if (!entry.displayName || typeof entry.displayName !== "string") {
-          return { valid: false, entries: [], error: "Invalid entry: missing displayName" }
+          return { valid: false, entries: [], error: t("dashboard.invalidEntryMissingName") }
         }
         if (!Array.isArray(entry.domains) || entry.domains.length === 0) {
-          return { valid: false, entries: [], error: "Invalid entry: domains must be a non-empty array" }
+          return { valid: false, entries: [], error: t("dashboard.invalidEntryDomains") }
         }
       }
 
@@ -1482,7 +1482,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
 
       return { valid: true, entries: entriesWithConflicts, error: null }
     } catch {
-      return { valid: false, entries: [], error: "Invalid JSON" }
+      return { valid: false, entries: [], error: t("dashboard.invalidJson") }
     }
   }, [importJson, customizations])
 
@@ -1543,13 +1543,13 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
     setImportConflicts(new Map())
 
     if (failed.length > 0) {
-      toast.error(`Failed to import: ${failed.join(", ")}`)
+      toast.error(t("dashboard.failedToImport", { failed: failed.join(", ") }))
     } else if (imported > 0 && skipped > 0) {
-      toast.success(`Imported ${imported}, skipped ${skipped}`)
+      toast.success(t("dashboard.importedAndSkipped", { imported, skipped }))
     } else if (imported > 0) {
-      toast.success(`Imported ${imported} customization${imported !== 1 ? "s" : ""}`)
+      toast.success(t("dashboard.importedCount", { count: imported }))
     } else {
-      toast.info("No customizations imported")
+      toast.info(t("dashboard.noCustomizationsImported"))
     }
   }
 
@@ -1743,7 +1743,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                             {(isMerged || (hasCustomization && displayName !== domain)) && (
                               <TooltipContent>
                                 <p className="text-xs">
-                                  {isMerged ? `Merged from: ${originalDomains.join(", ")}` : `Original: ${domain}`}
+                                  {isMerged ? t("dashboard.mergedFrom", { domains: originalDomains.join(", ") }) : t("dashboard.original", { domain })}
                                 </p>
                               </TooltipContent>
                             )}
@@ -1998,7 +1998,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                             {(isMerged || (hasCustomization && displayName !== domain)) && (
                               <TooltipContent>
                                 <p className="text-xs">
-                                  {isMerged ? `Merged from: ${originalDomains.join(", ")}` : `Original: ${domain}`}
+                                  {isMerged ? t("dashboard.mergedFrom", { domains: originalDomains.join(", ") }) : t("dashboard.original", { domain })}
                                 </p>
                               </TooltipContent>
                             )}
@@ -2153,7 +2153,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                 id="customize-name"
                 value={customizeDisplayName}
                 onChange={(e) => setCustomizeDisplayName(e.target.value)}
-                placeholder="e.g., TorrentLeech"
+                placeholder={t("dashboard.displayNamePlaceholder")}
               />
             </div>
             <div className="space-y-2 min-h-0 flex-1 flex flex-col overflow-hidden">
