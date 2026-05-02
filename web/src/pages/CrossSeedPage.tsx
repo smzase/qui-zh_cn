@@ -1607,7 +1607,7 @@ export function CrossSeedPage({ activeTab, onTabChange }: CrossSeedPageProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant={automationEnabled ? "default" : "secondary"}>
-            {t("crossSeed.automation", { state: automationEnabled ? t("crossSeed.on") : t("crossSeed.off") })}
+            {t("crossSeed.automation", { state: automationEnabled ? t("common.on") : t("common.off") })}
           </Badge>
         </div>
       </div>
