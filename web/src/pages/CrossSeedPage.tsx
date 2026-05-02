@@ -241,6 +241,7 @@ interface RSSRunItemProps {
 
 /** Single RSS run item - used for scheduled, manual, and other run lists */
 function RSSRunItem({ run, formatDateValue }: RSSRunItemProps) {
+  const { t } = useTranslation()
   const hasResults = run.results && run.results.length > 0
   const successResults = run.results?.filter(r => r.success) ?? []
   const failedResults = run.results?.filter(r => !r.success && r.message) ?? []
