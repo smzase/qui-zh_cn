@@ -243,8 +243,7 @@ export function Header({
   const [columnFilterVisible, setColumnFilterVisible] = usePersistedColumnFilterVisibility(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFilterToggleRef = useRef(0)
-  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const hoverTriggeredRef = useRef(false)
+  const filterHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const handleToggleFilters = useCallback(() => {
     const now = Date.now()
@@ -253,48 +252,25 @@ export function Header({
     }
 
     lastFilterToggleRef.current = now
-    hoverTriggeredRef.current = false
-    clearTimeout(hoverTimeoutRef.current)
+    clearTimeout(filterHoverTimeoutRef.current)
+    window.dispatchEvent(new CustomEvent("qui-filter-hover-hide"))
     setFilterSidebarCollapsed((prev) => !prev)
   }, [setFilterSidebarCollapsed])
 
   const handleFilterMouseEnter = useCallback(() => {
-    clearTimeout(hoverTimeoutRef.current)
-    if (filterSidebarCollapsed) {
-      hoverTriggeredRef.current = true
-      setFilterSidebarCollapsed(false)
-    }
-  }, [filterSidebarCollapsed, setFilterSidebarCollapsed])
+    clearTimeout(filterHoverTimeoutRef.current)
+    const btn = document.querySelector("[data-filter-toggle-btn]")
+    const rect = btn?.getBoundingClientRect()
+    window.dispatchEvent(new CustomEvent("qui-filter-hover-show", {
+      detail: { x: rect?.left ?? 0, y: rect?.bottom ?? 0 }
+    }))
+  }, [])
 
   const handleFilterMouseLeave = useCallback(() => {
-    if (hoverTriggeredRef.current) {
-      hoverTimeoutRef.current = setTimeout(() => {
-        hoverTriggeredRef.current = false
-        setFilterSidebarCollapsed(true)
-      }, 400)
-    }
-  }, [setFilterSidebarCollapsed])
-
-  useEffect(() => {
-    const handleSidebarEnter = () => {
-      clearTimeout(hoverTimeoutRef.current)
-    }
-    const handleSidebarLeave = () => {
-      if (hoverTriggeredRef.current) {
-        hoverTimeoutRef.current = setTimeout(() => {
-          hoverTriggeredRef.current = false
-          setFilterSidebarCollapsed(true)
-        }, 400)
-      }
-    }
-    window.addEventListener("qui-filter-sidebar-enter", handleSidebarEnter)
-    window.addEventListener("qui-filter-sidebar-leave", handleSidebarLeave)
-    return () => {
-      window.removeEventListener("qui-filter-sidebar-enter", handleSidebarEnter)
-      window.removeEventListener("qui-filter-sidebar-leave", handleSidebarLeave)
-      clearTimeout(hoverTimeoutRef.current)
-    }
-  }, [setFilterSidebarCollapsed])
+    filterHoverTimeoutRef.current = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("qui-filter-hover-hide"))
+    }, 300)
+  }, [])
 
   // Detect platform for appropriate key display
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
@@ -486,6 +462,7 @@ export function Header({
                   variant="outline"
                   size="icon"
                   className="hidden md:inline-flex"
+                  data-filter-toggle-btn
                   onClick={handleToggleFilters}
                   onMouseEnter={handleFilterMouseEnter}
                   onMouseLeave={handleFilterMouseLeave}

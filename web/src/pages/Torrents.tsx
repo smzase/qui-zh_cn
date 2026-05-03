@@ -27,7 +27,7 @@ import { isAllInstancesScope, normalizeUnifiedInstanceIds } from "@/lib/instance
 import { cn } from "@/lib/utils"
 import type { Category, CrossInstanceTorrent, ServerState, Torrent, TorrentCounts } from "@/types"
 import { useNavigate } from "@tanstack/react-router"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels"
 import { useTranslation } from "react-i18next"
 
@@ -98,6 +98,9 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   const [selectedTorrent, setSelectedTorrent] = useState<Torrent | null>(null)
   const [initialDetailsTab, setInitialDetailsTab] = useState<string | undefined>(undefined)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [filterHoverOpen, setFilterHoverOpen] = useState(false)
+  const [filterHoverPosition, setFilterHoverPosition] = useState({ x: 0, y: 0 })
+  const filterHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const handleInitialTabConsumed = useCallback(() => setInitialDetailsTab(undefined), [])
   const navigate = useNavigate()
   const getTorrentInstanceId = useCallback((torrent: Torrent | null | undefined) => {
@@ -389,6 +392,28 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
     return () => window.removeEventListener("qui-open-mobile-filters", handler)
   }, [])
 
+  // Listen for header filter hover events
+  useEffect(() => {
+    const handleShow = (e: Event) => {
+      const custom = e as CustomEvent<{ x: number; y: number }>
+      clearTimeout(filterHoverTimeoutRef.current)
+      setFilterHoverPosition({ x: custom.detail?.x ?? 0, y: custom.detail?.y ?? 0 })
+      setFilterHoverOpen(true)
+    }
+    const handleHide = () => {
+      filterHoverTimeoutRef.current = setTimeout(() => {
+        setFilterHoverOpen(false)
+      }, 300)
+    }
+    window.addEventListener("qui-filter-hover-show", handleShow)
+    window.addEventListener("qui-filter-hover-hide", handleHide)
+    return () => {
+      window.removeEventListener("qui-filter-hover-show", handleShow)
+      window.removeEventListener("qui-filter-hover-hide", handleHide)
+      clearTimeout(filterHoverTimeoutRef.current)
+    }
+  }, [])
+
   useEffect(() => {
     if (!selectedTorrent || isMobile) {
       setDetailsPanelReady(false)
@@ -439,8 +464,6 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
         )}
         style={{ flexBasis: filterSidebarCollapsed ? 0 : sidebarWidth }}
         aria-hidden={filterSidebarCollapsed}
-        onMouseEnter={() => window.dispatchEvent(new CustomEvent("qui-filter-sidebar-enter"))}
-        onMouseLeave={() => window.dispatchEvent(new CustomEvent("qui-filter-sidebar-leave"))}
       >
         <div
           className={cn(
@@ -468,6 +491,43 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
           />
         </div>
       </div>
+
+      {/* Desktop Filter Hover Popover */}
+      {filterHoverOpen && !isMobile && (
+        <div
+          className="fixed z-50 hidden md:block"
+          style={{
+            top: filterHoverPosition.y + 4,
+            left: filterHoverPosition.x,
+          }}
+          onMouseEnter={() => clearTimeout(filterHoverTimeoutRef.current)}
+          onMouseLeave={() => {
+            filterHoverTimeoutRef.current = setTimeout(() => {
+              setFilterHoverOpen(false)
+            }, 300)
+          }}
+        >
+          <div className="w-[300px] max-h-[70vh] overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
+            <FilterSidebar
+              key={`filter-hover-${instanceId}`}
+              instanceId={instanceId}
+              readOnly={isAllInstances}
+              supportsTrackerHealth={isAllInstances ? supportsTrackerHealth : undefined}
+              selectedFilters={filters}
+              onFilterChange={setFilters}
+              torrentCounts={torrentCounts}
+              categorySizes={categorySizes}
+              tagSizes={tagSizes}
+              categories={categories}
+              tags={tags}
+              useSubcategories={useSubcategories}
+              isStaleData={lastInstanceId !== null && lastInstanceId !== instanceId}
+              isLoading={lastInstanceId !== null && lastInstanceId !== instanceId}
+              isMobile={false}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Mobile Filter Sheet */}
       <Sheet open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
