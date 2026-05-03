@@ -2037,6 +2037,11 @@
     "description": "Instance-level automation services managed by qui.",
     "noInstances": "No instances configured yet. Add one in Settings to use services."
   },
+  "statusBar": {
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Reset zoom"
+  },
   "reannounce": {
     "title": "Reannounce",
     "noInstances": "No instances configured. Add one in Settings to use this service.",

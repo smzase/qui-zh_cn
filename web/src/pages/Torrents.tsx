@@ -21,6 +21,7 @@ import { usePersistedFilters } from "@/hooks/usePersistedFilters"
 import { usePersistedFilterSidebarState } from "@/hooks/usePersistedFilterSidebarState"
 import { usePersistedTitleBarSpeeds } from "@/hooks/usePersistedTitleBarSpeeds"
 import { usePersistedUnifiedInstanceFilter } from "@/hooks/usePersistedUnifiedInstanceFilter"
+import { usePersistedZoomLevel } from "@/hooks/usePersistedZoomLevel"
 import { useTitleBarSpeeds } from "@/hooks/useTitleBarSpeeds"
 import { api } from "@/lib/api"
 import { isAllInstancesScope, normalizeUnifiedInstanceIds } from "@/lib/instances"
@@ -45,6 +46,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   const [filters, setFilters] = usePersistedFilters(instanceId)
   const [filterSidebarCollapsed] = usePersistedFilterSidebarState(false)
   const { viewMode } = usePersistedCompactViewState("normal")
+  const { zoomLevel } = usePersistedZoomLevel(100)
   const { clearSelection } = useTorrentSelection()
   const { instances } = useInstances()
   const [persistedUnifiedFilter] = usePersistedUnifiedInstanceFilter()
@@ -599,7 +601,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                 id="torrent-list"
                 defaultSize={selectedTorrent ? "60%" : "100%"}
               >
-                <div className="h-full">
+                <div className="h-full" style={{ zoom: zoomLevel !== 100 ? zoomLevel / 100 : undefined }}>
                   <TorrentTableResponsive
                     instanceId={instanceId}
                     instanceIds={unifiedScopeInstanceIds}

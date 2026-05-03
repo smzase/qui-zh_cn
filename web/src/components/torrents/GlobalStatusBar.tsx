@@ -18,6 +18,8 @@ import {
   HardDrive,
   LayoutGrid,
   Loader2,
+  Minus,
+  Plus,
   Rabbit,
   RefreshCcw,
   Rows3,
@@ -25,6 +27,7 @@ import {
   Turtle,
 } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,6 +37,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { usePersistedCompactViewState } from "@/hooks/usePersistedCompactViewState"
+import { usePersistedZoomLevel } from "@/hooks/usePersistedZoomLevel"
 import { api } from "@/lib/api"
 import { useIncognitoMode } from "@/lib/incognito"
 import { isAllInstancesScope } from "@/lib/instances"
@@ -115,9 +119,11 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
 }: GlobalStatusBarProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
   const [incognitoMode, setIncognitoMode] = useIncognitoMode()
   const [speedUnit, setSpeedUnit] = useSpeedUnits()
   const { viewMode: desktopViewMode, cycleViewMode } = usePersistedCompactViewState("normal", TABLE_ALLOWED_VIEW_MODES)
+  const { zoomLevel, zoomIn, zoomOut, resetZoom, minZoom, maxZoom } = usePersistedZoomLevel(100)
   const isUnifiedScope = isAllInstancesScope(instanceId)
   const combinedDownloadSpeed = selectionInfo?.totalDownloadSpeed ?? 0
   const combinedUploadSpeed = selectionInfo?.totalUploadSpeed ?? 0
@@ -363,6 +369,55 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
               {incognitoMode ? "Incognito on" : "Incognito off"}
             </span>
           </Button>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1 pr-2 border-r last:border-r-0 last:pr-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={zoomOut}
+                disabled={zoomLevel <= minZoom}
+                className="h-6 w-6 text-muted-foreground hover:text-accent-foreground disabled:opacity-40"
+              >
+                <Minus className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("statusBar.zoomOut")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetZoom}
+                disabled={zoomLevel === 100}
+                className={cn(
+                  "h-6 px-1.5 text-xs hover:text-accent-foreground",
+                  zoomLevel === 100 ? "text-muted-foreground" : "text-foreground font-medium"
+                )}
+              >
+                {zoomLevel}%
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("statusBar.zoomReset")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={zoomIn}
+                disabled={zoomLevel >= maxZoom}
+                className="h-6 w-6 text-muted-foreground hover:text-accent-foreground disabled:opacity-40"
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("statusBar.zoomIn")}</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Free Space */}

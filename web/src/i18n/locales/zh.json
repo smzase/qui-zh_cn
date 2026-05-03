@@ -2037,6 +2037,11 @@
     "description": "由 qui 管理的实例级自动化服务。",
     "noInstances": "尚未配置实例。请在设置中添加实例以使用服务。"
   },
+  "statusBar": {
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "zoomReset": "重置缩放"
+  },
   "reannounce": {
     "title": "重新通告",
     "noInstances": "未配置实例。请在设置中添加实例以使用此服务。",
