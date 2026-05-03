@@ -99,6 +99,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   const [initialDetailsTab, setInitialDetailsTab] = useState<string | undefined>(undefined)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [filterHoverOpen, setFilterHoverOpen] = useState(false)
+  const [filterHoverClosing, setFilterHoverClosing] = useState(false)
   const [filterHoverPosition, setFilterHoverPosition] = useState({ x: 0, y: 0 })
   const filterHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const handleInitialTabConsumed = useCallback(() => setInitialDetailsTab(undefined), [])
@@ -397,12 +398,18 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
     const handleShow = (e: Event) => {
       const custom = e as CustomEvent<{ x: number; y: number }>
       clearTimeout(filterHoverTimeoutRef.current)
+      setFilterHoverClosing(false)
       setFilterHoverPosition({ x: custom.detail?.x ?? 0, y: custom.detail?.y ?? 0 })
       setFilterHoverOpen(true)
     }
     const handleHide = () => {
+      clearTimeout(filterHoverTimeoutRef.current)
       filterHoverTimeoutRef.current = setTimeout(() => {
-        setFilterHoverOpen(false)
+        setFilterHoverClosing(true)
+        filterHoverTimeoutRef.current = setTimeout(() => {
+          setFilterHoverOpen(false)
+          setFilterHoverClosing(false)
+        }, 150)
       }, 300)
     }
     window.addEventListener("qui-filter-hover-show", handleShow)
@@ -502,12 +509,22 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
           }}
           onMouseEnter={() => clearTimeout(filterHoverTimeoutRef.current)}
           onMouseLeave={() => {
+            clearTimeout(filterHoverTimeoutRef.current)
             filterHoverTimeoutRef.current = setTimeout(() => {
-              setFilterHoverOpen(false)
+              setFilterHoverClosing(true)
+              filterHoverTimeoutRef.current = setTimeout(() => {
+                setFilterHoverOpen(false)
+                setFilterHoverClosing(false)
+              }, 150)
             }, 300)
           }}
         >
-          <div className="w-[300px] max-h-[70vh] overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
+          <div className={cn(
+            "w-[300px] max-h-[70vh] overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg",
+            filterHoverClosing
+              ? "animate-out fade-out-0 zoom-out-95 duration-150"
+              : "animate-in fade-in-0 zoom-in-95 duration-150"
+          )}>
             <FilterSidebar
               key={`filter-hover-${instanceId}`}
               instanceId={instanceId}

@@ -243,7 +243,6 @@ export function Header({
   const [columnFilterVisible, setColumnFilterVisible] = usePersistedColumnFilterVisibility(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFilterToggleRef = useRef(0)
-  const filterHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const handleToggleFilters = useCallback(() => {
     const now = Date.now()
@@ -252,24 +251,23 @@ export function Header({
     }
 
     lastFilterToggleRef.current = now
-    clearTimeout(filterHoverTimeoutRef.current)
     window.dispatchEvent(new CustomEvent("qui-filter-hover-hide"))
     setFilterSidebarCollapsed((prev) => !prev)
   }, [setFilterSidebarCollapsed])
 
   const handleFilterMouseEnter = useCallback(() => {
-    clearTimeout(filterHoverTimeoutRef.current)
+    if (!filterSidebarCollapsed) {
+      return
+    }
     const btn = document.querySelector("[data-filter-toggle-btn]")
     const rect = btn?.getBoundingClientRect()
     window.dispatchEvent(new CustomEvent("qui-filter-hover-show", {
       detail: { x: rect?.left ?? 0, y: rect?.bottom ?? 0 }
     }))
-  }, [])
+  }, [filterSidebarCollapsed])
 
   const handleFilterMouseLeave = useCallback(() => {
-    filterHoverTimeoutRef.current = setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("qui-filter-hover-hide"))
-    }, 300)
+    window.dispatchEvent(new CustomEvent("qui-filter-hover-hide"))
   }, [])
 
   // Detect platform for appropriate key display
