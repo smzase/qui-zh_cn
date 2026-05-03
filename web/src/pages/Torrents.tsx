@@ -439,6 +439,8 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
         )}
         style={{ flexBasis: filterSidebarCollapsed ? 0 : sidebarWidth }}
         aria-hidden={filterSidebarCollapsed}
+        onMouseEnter={() => window.dispatchEvent(new CustomEvent("qui-filter-sidebar-enter"))}
+        onMouseLeave={() => window.dispatchEvent(new CustomEvent("qui-filter-sidebar-leave"))}
       >
         <div
           className={cn(

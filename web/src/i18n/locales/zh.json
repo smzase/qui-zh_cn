@@ -24,6 +24,8 @@
     "fuzzyMatching": "模糊匹配：",
     "showFilters": "显示筛选",
     "hideFilters": "隐藏筛选",
+    "showColumnFilters": "显示列筛选",
+    "hideColumnFilters": "隐藏列筛选",
     "addTorrent": "添加种子",
     "createTorrent": "创建种子",
     "torrentTasks": "种子创建任务",

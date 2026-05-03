@@ -24,6 +24,8 @@
     "fuzzyMatching": "Fuzzy matching:",
     "showFilters": "Show filters",
     "hideFilters": "Hide filters",
+    "showColumnFilters": "Show column filters",
+    "hideColumnFilters": "Hide column filters",
     "addTorrent": "Add torrent",
     "createTorrent": "Create torrent",
     "torrentTasks": "Torrent creation tasks",

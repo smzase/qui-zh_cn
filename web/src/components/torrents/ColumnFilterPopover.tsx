@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { usePersistedColumnFilterVisibility } from "@/hooks/usePersistedColumnFilterVisibility"
 import type { ColumnType, DurationUnit, FilterOperation, SizeUnit, SpeedUnit } from "@/lib/column-constants"
 import { type ColumnFilter, getDefaultOperation, getOperations } from "@/lib/column-filter-utils"
 import { cn } from "@/lib/utils"
@@ -381,6 +382,7 @@ export function ColumnFilterPopover({
   multiSelect,
 }: ColumnFilterPopoverProps) {
   const { t } = useTranslation()
+  const [columnFilterVisible] = usePersistedColumnFilterVisibility(true)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const lastScrollPosition = useRef({ left: 0, top: 0 })
 
@@ -526,6 +528,10 @@ export function ColumnFilterPopover({
   }, [open])
 
   const hasActiveFilter = currentFilter !== undefined && currentFilter !== null
+
+  if (!columnFilterVisible) {
+    return null
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

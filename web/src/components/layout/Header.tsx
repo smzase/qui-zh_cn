@@ -43,6 +43,7 @@ import { useCrossSeedInstanceState } from "@/hooks/useCrossSeedInstanceState"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useInstances } from "@/hooks/useInstances"
 import { usePersistedCompactViewState } from "@/hooks/usePersistedCompactViewState"
+import { usePersistedColumnFilterVisibility } from "@/hooks/usePersistedColumnFilterVisibility"
 import { usePersistedFilterSidebarState } from "@/hooks/usePersistedFilterSidebarState"
 import { usePersistedUnifiedInstanceFilter } from "@/hooks/usePersistedUnifiedInstanceFilter"
 import { useTheme } from "@/hooks/useTheme"
@@ -57,7 +58,7 @@ import { cn } from "@/lib/utils"
 import type { InstanceCapabilities } from "@/types"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { Archive, ChevronsUpDown, Cog, Download, FileEdit, FileText, FunnelPlus, FunnelX, GitBranch, HardDrive, Home, Info, ListTodo, Loader2, LogOut, Menu, Plus, Rss, Search, SearchCode, Server, Settings, X, Zap } from "lucide-react"
+import { Archive, ChevronsUpDown, Cog, Download, Eye, EyeOff, FileEdit, FileText, FunnelPlus, FunnelX, GitBranch, HardDrive, Home, Info, ListTodo, Loader2, LogOut, Menu, Plus, Rss, Search, SearchCode, Server, Settings, X, Zap } from "lucide-react"
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 
@@ -239,8 +240,11 @@ export function Header({
 
   const isGlobSearch = !!searchValue && /[*?[\]]/.test(searchValue)
   const [filterSidebarCollapsed, setFilterSidebarCollapsed] = usePersistedFilterSidebarState(false)
+  const [columnFilterVisible, setColumnFilterVisible] = usePersistedColumnFilterVisibility(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFilterToggleRef = useRef(0)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hoverTriggeredRef = useRef(false)
 
   const handleToggleFilters = useCallback(() => {
     const now = Date.now()
@@ -249,7 +253,47 @@ export function Header({
     }
 
     lastFilterToggleRef.current = now
+    hoverTriggeredRef.current = false
+    clearTimeout(hoverTimeoutRef.current)
     setFilterSidebarCollapsed((prev) => !prev)
+  }, [setFilterSidebarCollapsed])
+
+  const handleFilterMouseEnter = useCallback(() => {
+    clearTimeout(hoverTimeoutRef.current)
+    if (filterSidebarCollapsed) {
+      hoverTriggeredRef.current = true
+      setFilterSidebarCollapsed(false)
+    }
+  }, [filterSidebarCollapsed, setFilterSidebarCollapsed])
+
+  const handleFilterMouseLeave = useCallback(() => {
+    if (hoverTriggeredRef.current) {
+      hoverTimeoutRef.current = setTimeout(() => {
+        hoverTriggeredRef.current = false
+        setFilterSidebarCollapsed(true)
+      }, 400)
+    }
+  }, [setFilterSidebarCollapsed])
+
+  useEffect(() => {
+    const handleSidebarEnter = () => {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    const handleSidebarLeave = () => {
+      if (hoverTriggeredRef.current) {
+        hoverTimeoutRef.current = setTimeout(() => {
+          hoverTriggeredRef.current = false
+          setFilterSidebarCollapsed(true)
+        }, 400)
+      }
+    }
+    window.addEventListener("qui-filter-sidebar-enter", handleSidebarEnter)
+    window.addEventListener("qui-filter-sidebar-leave", handleSidebarLeave)
+    return () => {
+      window.removeEventListener("qui-filter-sidebar-enter", handleSidebarEnter)
+      window.removeEventListener("qui-filter-sidebar-leave", handleSidebarLeave)
+      clearTimeout(hoverTimeoutRef.current)
+    }
   }, [setFilterSidebarCollapsed])
 
   // Detect platform for appropriate key display
@@ -443,6 +487,8 @@ export function Header({
                   size="icon"
                   className="hidden md:inline-flex"
                   onClick={handleToggleFilters}
+                  onMouseEnter={handleFilterMouseEnter}
+                  onMouseLeave={handleFilterMouseLeave}
                 >
                   {filterSidebarCollapsed ? (
                     <FunnelPlus className="h-4 w-4" />
@@ -452,6 +498,24 @@ export function Header({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{filterSidebarCollapsed ? t("header.showFilters") : t("header.hideFilters")}</TooltipContent>
+            </Tooltip>
+            {/* Column filter visibility toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="hidden md:inline-flex"
+                  onClick={() => setColumnFilterVisible((prev) => !prev)}
+                >
+                  {columnFilterVisible ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{columnFilterVisible ? t("header.hideColumnFilters") : t("header.showColumnFilters")}</TooltipContent>
             </Tooltip>
             {isAllInstancesRoute && unifiedManageableInstances.length > 0 && (
               <>
