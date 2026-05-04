@@ -3,7 +3,7 @@
 一个快速、现代化的 qBittorrent Web 界面。通过轻量级的单一应用，即可集中管理多个 qBittorrent 实例。
 
 <div align="center">
-  <img src=".github/assets/qui.png" alt="qui" width="100%" />
+  <img src=".github/assets/qui-new.png" alt="qui" width="100%" />
 </div>
 
 # Fork 说明
@@ -13,6 +13,7 @@
 - 添加了常用的中文翻译（太多了不想改，这个项目创建之初估计就不考虑支持多语言功能吧）
 - 为隐藏“筛选”后添加鼠标悬停显示筛选，并添加“隐藏列筛选”
 - 为 qbittorrent 页面的底栏添加了下载和上传总量，并将分开的 ipv4 & ipv6 合并（二合一会更好看吧）
+  - 还添加了列表大小缩放
 
 ## 文档
 
