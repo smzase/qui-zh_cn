@@ -261,9 +261,22 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
         {/* Speed & Controls */}
         <div className="flex items-center gap-2 pr-2 border-r last:border-r-0 last:pr-0">
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium">{formatSpeedWithUnit(downloadSpeed, speedUnit)}</span>
+          <span className="font-medium">
+            {formatSpeedWithUnit(downloadSpeed, speedUnit)}
+            {!isUnifiedScope && serverState?.alltime_dl !== undefined && (
+              <span className="text-muted-foreground font-normal"> ({formatBytes(serverState.alltime_dl)})</span>
+            )}
+          </span>
           <ChevronUp className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium">{formatSpeedWithUnit(uploadSpeed, speedUnit)}</span>
+          <span className="font-medium">
+            {formatSpeedWithUnit(uploadSpeed, speedUnit)}
+            {!isUnifiedScope && serverState?.up_rate_limit !== undefined && serverState.up_rate_limit > 0 && (
+              <span className="text-muted-foreground font-normal"> [{formatSpeedWithUnit(serverState.up_rate_limit, speedUnit)}]</span>
+            )}
+            {!isUnifiedScope && serverState?.alltime_ul !== undefined && (
+              <span className="text-muted-foreground font-normal"> ({formatBytes(serverState.alltime_ul)})</span>
+            )}
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
