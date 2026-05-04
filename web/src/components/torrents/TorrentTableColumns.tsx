@@ -622,7 +622,7 @@ export const createColumns = (
                 style={{ width: `${row.original.progress * 100}%` }}
               />
             </div>
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-medium text-[#999] whitespace-nowrap">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-medium text-white whitespace-nowrap">
               {pct}%
             </span>
           </div>
