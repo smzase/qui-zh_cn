@@ -17,6 +17,7 @@ import {
   Globe,
   HardDrive,
   LayoutGrid,
+  List,
   Loader2,
   Minus,
   Plus,
@@ -26,7 +27,7 @@ import {
   Table as TableIcon,
   Turtle,
 } from "lucide-react"
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
@@ -130,11 +131,6 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
   const downloadSpeed = isUnifiedScope ? combinedDownloadSpeed : (serverState?.dl_info_speed ?? 0)
   const uploadSpeed = isUnifiedScope ? combinedUploadSpeed : (serverState?.up_info_speed ?? 0)
 
-  // Detect platform for keyboard shortcuts
-  const isMac = useMemo(() => {
-    return typeof window !== "undefined" && /Mac|iPhone|iPad|iPod/.test(window.navigator.userAgent)
-  }, [])
-
   // Alt speed toggle state
   const [altSpeedOverride, setAltSpeedOverride] = useState<boolean | null>(null)
   const serverAltSpeedEnabled = serverState?.use_alt_speed_limits
@@ -203,59 +199,6 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5 border-t flex-shrink-0 select-none text-xs">
-      {/* Left: Selection/Count Info */}
-      <div className="text-muted-foreground min-w-[200px]">
-        {selectionInfo ? (
-          selectionInfo.effectiveSelectionCount > 0 ? (
-            <>
-              <span>
-                {selectionInfo.isAllSelected && selectionInfo.excludedFromSelectAllSize === 0 ? "All" : selectionInfo.effectiveSelectionCount} selected
-                {selectionInfo.selectedFormattedSize && <> • {selectionInfo.selectedFormattedSize}</>}
-              </span>
-              {/* Keyboard shortcuts helper - only show on desktop */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="hidden sm:inline-block ml-2 text-xs opacity-70 cursor-help">
-                    Selection shortcuts
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="text-xs">
-                    <div>Shift+click for range</div>
-                    <div>{isMac ? "Cmd" : "Ctrl"}+click for multiple</div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </>
-          ) : (
-            <>
-              {/* Show special loading message when fetching without cache (cold load) */}
-              {selectionInfo.isLoading && !selectionInfo.isCachedData && !selectionInfo.isStaleData && selectionInfo.torrentsLength === 0 ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                  Loading torrents...
-                </>
-              ) : selectionInfo.totalCount === 0 ? (
-                selectionInfo.emptyStateMessage
-              ) : (
-                <>
-                  {selectionInfo.hasLoadedAll ? (
-                    `${selectionInfo.torrentsLength} torrent${selectionInfo.torrentsLength !== 1 ? "s" : ""}`
-                  ) : selectionInfo.isLoadingMore ? (
-                    "Loading more torrents..."
-                  ) : (
-                    `${selectionInfo.torrentsLength} of ${selectionInfo.totalCount} torrents loaded`
-                  )}
-                  {selectionInfo.hasLoadedAll && selectionInfo.safeLoadedRows < selectionInfo.rowsLength && " (scroll for more)"}
-                </>
-              )}
-            </>
-          )
-        ) : (
-          <span className="opacity-50">Loading...</span>
-        )}
-      </div>
-
       {/* Right: Speed, controls, network info */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Speed & Controls */}
@@ -263,8 +206,8 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
           <span className="font-medium">
             {formatSpeedWithUnit(downloadSpeed, speedUnit)}
-            {!isUnifiedScope && serverState?.alltime_dl !== undefined && (
-              <span className="text-muted-foreground font-normal"> ({formatBytes(serverState.alltime_dl)})</span>
+            {!isUnifiedScope && serverState?.dl_info_data !== undefined && serverState.dl_info_data > 0 && (
+              <span className="text-muted-foreground font-normal"> ({formatBytes(serverState.dl_info_data)})</span>
             )}
           </span>
           <ChevronUp className="h-3 w-3 text-muted-foreground" />
@@ -273,8 +216,8 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
             {!isUnifiedScope && serverState?.up_rate_limit !== undefined && serverState.up_rate_limit > 0 && (
               <span className="text-muted-foreground font-normal"> [{formatSpeedWithUnit(serverState.up_rate_limit, speedUnit)}]</span>
             )}
-            {!isUnifiedScope && serverState?.alltime_ul !== undefined && (
-              <span className="text-muted-foreground font-normal"> ({formatBytes(serverState.alltime_ul)})</span>
+            {!isUnifiedScope && serverState?.up_info_data !== undefined && serverState.up_info_data > 0 && (
+              <span className="text-muted-foreground font-normal"> ({formatBytes(serverState.up_info_data)})</span>
             )}
           </span>
           <Tooltip>
@@ -433,20 +376,35 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
           </Tooltip>
         </div>
 
-        {/* Free Space */}
-        {!isUnifiedScope && serverState?.free_space_on_disk !== undefined && (
-          <div className="flex items-center gap-2 pr-2 border-r last:border-r-0 last:pr-0">
+        {/* Torrent Count & Free Space */}
+        <div className="flex items-center gap-2 pr-2 border-r last:border-r-0 last:pr-0">
+          {selectionInfo && selectionInfo.totalCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center h-6 px-2 text-xs text-muted-foreground">
+                  <List aria-hidden="true" className="h-3 w-3 mr-1" />
+                  <span className="font-medium">{selectionInfo.effectiveSelectionCount > 0 ? `${selectionInfo.effectiveSelectionCount}/${selectionInfo.totalCount}` : selectionInfo.totalCount}</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {selectionInfo.effectiveSelectionCount > 0
+                  ? `${selectionInfo.effectiveSelectionCount} selected of ${selectionInfo.totalCount} torrents`
+                  : `${selectionInfo.totalCount} torrents`}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {!isUnifiedScope && serverState?.free_space_on_disk !== undefined && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="flex items-center h-6 px-2 text-xs text-muted-foreground">
                   <HardDrive aria-hidden="true" className="h-3 w-3 mr-1" />
-                  <span className="ml-auto font-medium truncate">{formatBytes(serverState.free_space_on_disk)}</span>
+                  <span className="font-medium truncate">{formatBytes(serverState.free_space_on_disk)}</span>
                 </span>
               </TooltipTrigger>
               <TooltipContent>Free Space</TooltipContent>
             </Tooltip>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Network Status */}
         {!isUnifiedScope && (
