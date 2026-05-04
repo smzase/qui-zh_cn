@@ -2,9 +2,7 @@
 
 一个快速、现代化的 qBittorrent Web 界面。通过轻量级的单一应用，即可集中管理多个 qBittorrent 实例。
 
-<div align="center">
-  <img src=".github/assets/qui-new.png" alt="qui" width="100%" />
-</div>
+![img](https://github.com/smzase/qui-zh_cn/blob/develop/.github/assets/qui-new.png#gh-dark-mode-only)
 
 # Fork 说明
 
