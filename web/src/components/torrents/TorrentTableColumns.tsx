@@ -615,12 +615,14 @@ export const createColumns = (
           ? (Math.floor(row.original.progress * 1000) / 10).toFixed(1)
           : Math.round(row.original.progress * 100)
         return (
-          <div className="relative h-5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="absolute inset-y-0 left-0 bg-primary transition-all"
-              style={{ width: `${row.original.progress * 100}%` }}
-            />
-            <span className="absolute inset-0 flex items-center justify-center text-[11px] font-medium text-foreground">
+          <div className="relative w-full">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${row.original.progress * 100}%` }}
+              />
+            </div>
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-medium text-muted-foreground whitespace-nowrap">
               {pct}%
             </span>
           </div>
