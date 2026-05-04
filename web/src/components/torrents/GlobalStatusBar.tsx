@@ -67,42 +67,6 @@ export interface SelectionInfo {
   totalUploadSpeed?: number
 }
 
-interface ExternalIPAddressProps {
-  address?: string | null
-  incognitoMode: boolean
-  label: string
-}
-
-const ExternalIPAddress = memo(
-  ({ address, incognitoMode, label }: ExternalIPAddressProps) => {
-    if (!address) return null
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge
-            variant="outline"
-            className="gap-1 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
-            aria-label={`External ${label}`}
-          >
-            <EthernetPort className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{label}</span>
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="font-mono text-xs">
-            <span {...(incognitoMode && { style: { filter: "blur(4px)" } })}>{address}</span>
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    )
-  },
-  (prev, next) =>
-    prev.address === next.address &&
-    prev.incognitoMode === next.incognitoMode &&
-    prev.label === next.label
-)
-
 interface GlobalStatusBarProps {
   instanceId: number
   serverState: ServerState | null
@@ -409,16 +373,36 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
         {/* Network Status */}
         {!isUnifiedScope && (
           <div className="flex items-center gap-2">
-            <ExternalIPAddress
-              address={serverState?.last_external_address_v4}
-              incognitoMode={incognitoMode}
-              label="IPv4"
-            />
-            <ExternalIPAddress
-              address={serverState?.last_external_address_v6}
-              incognitoMode={incognitoMode}
-              label="IPv6"
-            />
+            {(serverState?.last_external_address_v4 || serverState?.last_external_address_v6) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className="gap-1 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
+                    aria-label="External IP addresses"
+                  >
+                    <EthernetPort className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>IPv4 & IPv6</span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="font-mono text-xs space-y-1">
+                    {serverState?.last_external_address_v4 && (
+                      <div>
+                        <span className="text-muted-foreground mr-1">IPv4</span>
+                        <span {...(incognitoMode && { style: { filter: "blur(4px)" } })}>{serverState.last_external_address_v4}</span>
+                      </div>
+                    )}
+                    {serverState?.last_external_address_v6 && (
+                      <div>
+                        <span className="text-muted-foreground mr-1">IPv6</span>
+                        <span {...(incognitoMode && { style: { filter: "blur(4px)" } })}>{serverState.last_external_address_v6}</span>
+                      </div>
+                    )}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
