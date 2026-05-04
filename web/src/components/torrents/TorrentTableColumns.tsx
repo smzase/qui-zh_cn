@@ -1,11 +1,10 @@
-﻿﻿﻿﻿/*
+﻿﻿﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Progress } from "@/components/ui/progress"
 import {
   Tooltip,
   TooltipContent,
@@ -611,19 +610,23 @@ export const createColumns = (
     {
       accessorKey: "progress",
       header: _t("torrents.progress"),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Progress value={row.original.progress * 100} className="w-20" />
-          <span className="text-xs text-muted-foreground">
-            {row.original.progress >= 0.99 && row.original.progress < 1 ? (
-              (Math.floor(row.original.progress * 1000) / 10).toFixed(1)
-            ) : (
-              Math.round(row.original.progress * 100)
-            )}%
-          </span>
-        </div>
-      ),
-      size: 120,
+      cell: ({ row }) => {
+        const pct = row.original.progress >= 0.99 && row.original.progress < 1
+          ? (Math.floor(row.original.progress * 1000) / 10).toFixed(1)
+          : Math.round(row.original.progress * 100)
+        return (
+          <div className="relative h-5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="absolute inset-y-0 left-0 bg-primary transition-all"
+              style={{ width: `${row.original.progress * 100}%` }}
+            />
+            <span className="absolute inset-0 flex items-center justify-center text-[11px] font-medium text-foreground">
+              {pct}%
+            </span>
+          </div>
+        )
+      },
+      size: 100,
     },
     {
       id: "status_icon",
