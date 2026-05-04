@@ -162,7 +162,7 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
   const connectionStatusAriaLabel = hasConnectionStatus ? `qBittorrent connection status: ${connectionStatusDisplay || formattedConnectionStatus}` : "qBittorrent connection status unknown"
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5 border-t flex-shrink-0 select-none text-xs">
+    <div className="flex flex-wrap items-center justify-end gap-2 px-2 py-1.5 border-t flex-shrink-0 select-none text-xs">
       {/* Right: Speed, controls, network info */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Speed & Controls */}
