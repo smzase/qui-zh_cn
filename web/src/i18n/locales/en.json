@@ -321,7 +321,25 @@
     "failedLoadAppInfo": "Failed to load application info",
     "magnetHandlerRequested": "Magnet handler registration requested",
     "magnetHandlerFailed": "Failed to register magnet handler",
-    "apiKeyNameRequired": "Name is required"
+    "apiKeyNameRequired": "Name is required",
+    "instanceUpdated": "Instance Updated",
+    "instanceUpdateFailed": "Update Failed",
+    "externalPrograms": {
+      "nameRequired": "Name is required",
+      "pathRequired": "Program path is required"
+    },
+    "arrInstances": {
+      "urlAndKeyRequired": "Base URL and API Key are required to test connection",
+      "basicAuthUserRequired": "Basic auth username is required",
+      "basicAuthPasswordRequired": "Enter the basic auth password to test connection",
+      "basicAuthPasswordRedacted": "Basic auth password is required (or keep <redacted>)",
+      "connectionSuccess": "Connection successful",
+      "connectionFailed": "Connection failed: {{error}}",
+      "connectionTestFailed": "Connection test failed: {{error}}",
+      "nameRequired": "Name is required",
+      "urlRequired": "Base URL is required",
+      "apiKeyRequired": "API Key is required"
+    }
   },
   "instances": {
     "disabled": "Disabled",
@@ -1930,7 +1948,9 @@
     "addTag": "Add tag",
     "unavailableUnifiedView": "Unavailable in unified view",
     "failedUpdateTracker": "Failed to update tracker",
-    "noTrackerSelected": "No tracker selected for conversion"
+    "noTrackerSelected": "No tracker selected for conversion",
+    "convertedToHttps": "Converted {{count}} tracker URL(s) to HTTPS",
+    "convertFailed": "Failed to convert {{count}} URL(s)"
   },
   "rss": {
     "rss": "RSS",
@@ -2807,29 +2827,5 @@
     "removeEmptySuccess": "Removed {{count}} empty categor{{suffix}}",
     "removeEmptyFailed": "Failed to remove empty categories",
     "savePathOptional": "Save Path (optional)"
-  },
-  "settings": {
-    "instanceUpdated": "Instance Updated",
-    "instanceUpdateFailed": "Update Failed",
-    "externalPrograms": {
-      "nameRequired": "Name is required",
-      "pathRequired": "Program path is required"
-    },
-    "arrInstances": {
-      "urlAndKeyRequired": "Base URL and API Key are required to test connection",
-      "basicAuthUserRequired": "Basic auth username is required",
-      "basicAuthPasswordRequired": "Enter the basic auth password to test connection",
-      "basicAuthPasswordRedacted": "Basic auth password is required (or keep <redacted>)",
-      "connectionSuccess": "Connection successful",
-      "connectionFailed": "Connection failed: {{error}}",
-      "connectionTestFailed": "Connection test failed: {{error}}",
-      "nameRequired": "Name is required",
-      "urlRequired": "Base URL is required",
-      "apiKeyRequired": "API Key is required"
-    }
-  },
-  "filterSidebar": {
-    "convertedToHttps": "Converted {{count}} tracker URL(s) to HTTPS",
-    "convertFailed": "Failed to convert {{count}} URL(s)"
   }
 }
