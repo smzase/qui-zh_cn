@@ -77,6 +77,7 @@ import {
   X
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { AddTorrentDialog } from "./AddTorrentDialog"
 import { DeleteTorrentDialog } from "./DeleteTorrentDialog"
 import { LocationWarningDialog, SetCategoryDialog, SetLocationDialog, TagEditorDialog, TmmConfirmDialog } from "./TorrentDialogs"
@@ -109,6 +110,7 @@ function MobileShareLimitsDialog({
   onConfirm: (ratioLimit: number, seedingTimeLimit: number, inactiveSeedingTimeLimit: number) => void
   isPending: boolean
 }) {
+  const { t } = useTranslation()
   const [ratioEnabled, setRatioEnabled] = useState(false)
   const [ratioLimit, setRatioLimit] = useState(1.5)
   const [seedingTimeEnabled, setSeedingTimeEnabled] = useState(false)
@@ -122,7 +124,6 @@ function MobileShareLimitsDialog({
       seedingTimeEnabled ? seedingTimeLimit : -1,
       inactiveSeedingTimeEnabled ? inactiveSeedingTimeLimit : -1
     )
-    // Reset form
     setRatioEnabled(false)
     setRatioLimit(1.5)
     setSeedingTimeEnabled(false)
@@ -135,9 +136,9 @@ function MobileShareLimitsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Share Limits for {hashCount} torrent(s)</DialogTitle>
+          <DialogTitle>{t("torrents.setShareLimitsFor", { hashCount })}</DialogTitle>
           <DialogDescription>
-            Configure seeding limits. Use -1 or disable to remove limits.
+            {t("torrents.shareLimitsDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -148,7 +149,7 @@ function MobileShareLimitsDialog({
                 checked={ratioEnabled}
                 onCheckedChange={setRatioEnabled}
               />
-              <Label htmlFor="ratioEnabled">Set ratio limit</Label>
+              <Label htmlFor="ratioEnabled">{t("torrents.setShareLimit")}</Label>
             </div>
             {ratioEnabled && (
               <Input
@@ -169,7 +170,7 @@ function MobileShareLimitsDialog({
                 checked={seedingTimeEnabled}
                 onCheckedChange={setSeedingTimeEnabled}
               />
-              <Label htmlFor="seedingTimeEnabled">Set seeding time limit (minutes)</Label>
+              <Label htmlFor="seedingTimeEnabled">{t("torrents.seedingTimeLimit")}</Label>
             </div>
             {seedingTimeEnabled && (
               <Input
@@ -189,7 +190,7 @@ function MobileShareLimitsDialog({
                 checked={inactiveSeedingTimeEnabled}
                 onCheckedChange={setInactiveSeedingTimeEnabled}
               />
-              <Label htmlFor="inactiveSeedingTimeEnabled">Set inactive seeding limit (minutes)</Label>
+              <Label htmlFor="inactiveSeedingTimeEnabled">{t("torrents.inactiveSeedingLimit")}</Label>
             </div>
             {inactiveSeedingTimeEnabled && (
               <Input
@@ -204,10 +205,10 @@ function MobileShareLimitsDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? "Setting..." : "Apply Limits"}
+            {isPending ? t("common.saving") : t("torrents.applyLimits")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -229,6 +230,7 @@ function MobileSpeedLimitsDialog({
   onConfirm: (uploadLimit: number, downloadLimit: number) => void
   isPending: boolean
 }) {
+  const { t } = useTranslation()
   const [uploadEnabled, setUploadEnabled] = useState(false)
   const [uploadLimit, setUploadLimit] = useState(1024)
   const [downloadEnabled, setDownloadEnabled] = useState(false)
@@ -239,7 +241,6 @@ function MobileSpeedLimitsDialog({
       uploadEnabled ? uploadLimit : -1,
       downloadEnabled ? downloadLimit : -1
     )
-    // Reset form
     setUploadEnabled(false)
     setUploadLimit(1024)
     setDownloadEnabled(false)
@@ -250,9 +251,9 @@ function MobileSpeedLimitsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Speed Limits for {hashCount} torrent(s)</DialogTitle>
+          <DialogTitle>{t("torrents.setSpeedLimitsFor", { hashCount })}</DialogTitle>
           <DialogDescription>
-            Set upload and download speed limits in KB/s. Use -1 or disable to remove limits.
+            {t("torrents.speedLimitsDesc")}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -263,7 +264,7 @@ function MobileSpeedLimitsDialog({
                 checked={uploadEnabled}
                 onCheckedChange={setUploadEnabled}
               />
-              <Label htmlFor="uploadEnabled">Set upload limit (KB/s)</Label>
+              <Label htmlFor="uploadEnabled">{t("torrents.setUploadLimit")}</Label>
             </div>
             {uploadEnabled && (
               <Input
@@ -283,7 +284,7 @@ function MobileSpeedLimitsDialog({
                 checked={downloadEnabled}
                 onCheckedChange={setDownloadEnabled}
               />
-              <Label htmlFor="downloadEnabled">Set download limit (KB/s)</Label>
+              <Label htmlFor="downloadEnabled">{t("torrents.setDownloadLimit")}</Label>
             </div>
             {downloadEnabled && (
               <Input
@@ -298,10 +299,10 @@ function MobileSpeedLimitsDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? "Setting..." : "Apply Limits"}
+            {isPending ? t("common.saving") : t("torrents.applyLimits")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1904,17 +1905,17 @@ export function TorrentCardsMobile({
         <div className="flex items-center justify-between text-xs mb-3">
           <div className="text-muted-foreground">
             {torrents.length === 0 && isLoading ? (
-              "Loading torrents..."
+              t("torrents.loadingTorrents")
             ) : totalCount === 0 ? (
-              "No torrents found"
+              t("torrents.noTorrentsFound")
             ) : (
               <>
                 {hasLoadedAll ? (
-                  `${torrents.length} torrent${torrents.length !== 1 ? "s" : ""}`
+                  t("torrents.torrentCount", { count: torrents.length })
                 ) : isLoadingMore ? (
-                  "Loading more torrents..."
+                  t("torrents.loadingMoreTorrents")
                 ) : (
-                  `${safeLoadedRows} of ${totalCount} torrents loaded`
+                  t("torrents.loadedOfTotal", { loaded: safeLoadedRows, total: totalCount })
                 )}
               </>
             )}
@@ -2086,7 +2087,7 @@ export function TorrentCardsMobile({
               disabled={isLoadingMoreRows}
               className="text-muted-foreground"
             >
-              {isLoadingMoreRows ? "Loading..." : "Load More"}
+              {isLoadingMoreRows ? t("common.loading") : t("torrents.loadMore")}
             </Button>
           </div>
         )}
@@ -2094,7 +2095,7 @@ export function TorrentCardsMobile({
         {isLoadingMore && (
           <div className="p-4 text-center text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-            <p className="text-sm">Loading more torrents...</p>
+            <p className="text-sm">{t("torrents.loadingMoreTorrents")}</p>
           </div>
         )}
       </div>

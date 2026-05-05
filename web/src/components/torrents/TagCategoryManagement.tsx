@@ -19,6 +19,7 @@ import { api } from "@/lib/api"
 import type { Category } from "@/types"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 interface CreateTagDialogProps {
@@ -28,21 +29,21 @@ interface CreateTagDialogProps {
 }
 
 export function CreateTagDialog({ open, onOpenChange, instanceId }: CreateTagDialogProps) {
+  const { t } = useTranslation()
   const [newTag, setNewTag] = useState("")
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: (tags: string[]) => api.createTags(instanceId, tags),
     onSuccess: () => {
-      // Refetch instead of invalidate to keep showing stale data
       queryClient.refetchQueries({ queryKey: ["tags", instanceId] })
       queryClient.refetchQueries({ queryKey: ["instance-metadata", instanceId] })
-      toast.success("Tag created successfully")
+      toast.success(t("tags.createSuccess"))
       setNewTag("")
       onOpenChange(false)
     },
     onError: (error: Error) => {
-      toast.error("Failed to create tag", {
+      toast.error(t("tags.createFailed"), {
         description: error.message,
       })
     },
@@ -58,18 +59,18 @@ export function CreateTagDialog({ open, onOpenChange, instanceId }: CreateTagDia
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Create New Tag</AlertDialogTitle>
+          <AlertDialogTitle>{t("tags.createTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Enter a name for the new tag
+            {t("tags.createDesc")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4 space-y-2">
-          <Label htmlFor="newTag">Tag Name</Label>
+          <Label htmlFor="newTag">{t("tags.tagName")}</Label>
           <Input
             id="newTag"
             value={newTag}
             onChange={(e) => setNewTag(e.target.value)}
-            placeholder="Enter tag name"
+            placeholder={t("tags.enterTagName")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 handleCreate()
@@ -78,12 +79,12 @@ export function CreateTagDialog({ open, onOpenChange, instanceId }: CreateTagDia
           />
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setNewTag("")}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setNewTag("")}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCreate}
             disabled={!newTag.trim() || mutation.isPending}
           >
-            Create
+            {t("common.create")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -99,19 +100,19 @@ interface DeleteTagDialogProps {
 }
 
 export function DeleteTagDialog({ open, onOpenChange, instanceId, tag }: DeleteTagDialogProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: () => api.deleteTags(instanceId, [tag]),
     onSuccess: () => {
-      // Refetch instead of invalidate to keep showing stale data
       queryClient.refetchQueries({ queryKey: ["tags", instanceId] })
       queryClient.refetchQueries({ queryKey: ["instance-metadata", instanceId] })
-      toast.success("Tag deleted successfully")
+      toast.success(t("tags.deletedSuccess"))
       onOpenChange(false)
     },
     onError: (error: Error) => {
-      toast.error("Failed to delete tag", {
+      toast.error(t("tags.deleteFailed"), {
         description: error.message,
       })
     },
@@ -121,19 +122,19 @@ export function DeleteTagDialog({ open, onOpenChange, instanceId, tag }: DeleteT
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Tag</AlertDialogTitle>
+          <AlertDialogTitle>{t("tags.deleteTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the tag "{tag}"? This action cannot be undone.
+            {t("tags.deleteDesc", { tag })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            Delete
+            {t("common.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -149,11 +150,11 @@ interface CreateCategoryDialogProps {
 }
 
 export function CreateCategoryDialog({ open, onOpenChange, instanceId, parent }: CreateCategoryDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState("")
   const [savePath, setSavePath] = useState("")
   const queryClient = useQueryClient()
 
-  // Pre-fill with parent path when dialog opens
   useEffect(() => {
     if (open) {
       if (parent) {
@@ -169,16 +170,15 @@ export function CreateCategoryDialog({ open, onOpenChange, instanceId, parent }:
     mutationFn: ({ name, savePath }: { name: string; savePath?: string }) =>
       api.createCategory(instanceId, name, savePath),
     onSuccess: () => {
-      // Refetch instead of invalidate to keep showing stale data
       queryClient.refetchQueries({ queryKey: ["categories", instanceId] })
       queryClient.refetchQueries({ queryKey: ["instance-metadata", instanceId] })
-      toast.success("Category created successfully")
+      toast.success(t("categories.createSuccess"))
       setName("")
       setSavePath("")
       onOpenChange(false)
     },
     onError: (error: Error) => {
-      toast.error("Failed to create category", {
+      toast.error(t("categories.createFailed"), {
         description: error.message,
       })
     },
@@ -194,23 +194,23 @@ export function CreateCategoryDialog({ open, onOpenChange, instanceId, parent }:
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{parent ? "Create Subcategory" : "Create New Category"}</AlertDialogTitle>
+          <AlertDialogTitle>{parent ? t("categories.createSubTitle") : t("categories.createTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {parent ? `Creating subcategory under "${parent}"` : "Enter details for the new category"}
+            {parent ? t("categories.createSubDesc", { parent }) : t("categories.createDesc")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="categoryName">{parent ? "Subcategory Name" : "Category Name"}</Label>
+            <Label htmlFor="categoryName">{parent ? t("categories.subCategoryName") : t("categories.categoryName")}</Label>
             <Input
               id="categoryName"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter category name"
+              placeholder={t("categories.enterName")}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="savePath">Save Path (optional)</Label>
+            <Label htmlFor="savePath">{t("categories.savePathOptional")}</Label>
             <Input
               id="savePath"
               value={savePath}
@@ -220,12 +220,12 @@ export function CreateCategoryDialog({ open, onOpenChange, instanceId, parent }:
           </div>
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCreate}
             disabled={!name.trim() || mutation.isPending}
           >
-            Create
+            {t("common.create")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -241,20 +241,20 @@ interface EditCategoryDialogProps {
 }
 
 export function EditCategoryDialog({ open, onOpenChange, instanceId, category }: EditCategoryDialogProps) {
+  const { t } = useTranslation()
   const [newSavePath, setNewSavePath] = useState("")
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: (savePath: string) => api.editCategory(instanceId, category.name, savePath),
     onSuccess: () => {
-      // Refetch instead of invalidate to keep showing stale data
       queryClient.refetchQueries({ queryKey: ["categories", instanceId] })
       queryClient.refetchQueries({ queryKey: ["instance-metadata", instanceId] })
-      toast.success("Category updated successfully")
+      toast.success(t("categories.updateSuccess"))
       onOpenChange(false)
     },
     onError: (error: Error) => {
-      toast.error("Failed to update category", {
+      toast.error(t("categories.updateFailed"), {
         description: error.message,
       })
     },
@@ -275,21 +275,21 @@ export function EditCategoryDialog({ open, onOpenChange, instanceId, category }:
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Edit Category: {category.name}</AlertDialogTitle>
+          <AlertDialogTitle>{t("categories.editTitle", { name: category.name })}</AlertDialogTitle>
           <AlertDialogDescription>
-            Update the save path for this category
+            {t("categories.editDesc")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4 space-y-2">
-          <Label htmlFor="oldSavePath">Current Save Path</Label>
+          <Label htmlFor="oldSavePath">{t("categories.currentPath")}</Label>
           <Input
             id="oldSavePath"
-            value={category.savePath || "No save path configured"}
+            value={category.savePath || t("categories.noPathConfigured")}
             className={!category.savePath ? "text-muted-foreground italic" : ""}
             disabled={!category.savePath}
             readOnly
           />
-          <Label htmlFor="editSavePath">New Save Path</Label>
+          <Label htmlFor="editSavePath">{t("categories.newPath")}</Label>
           <Input
             id="editSavePath"
             value={newSavePath}
@@ -303,12 +303,12 @@ export function EditCategoryDialog({ open, onOpenChange, instanceId, category }:
           />
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleSave}
             disabled={mutation.isPending}
           >
-            Save
+            {t("common.save")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -324,19 +324,19 @@ interface DeleteCategoryDialogProps {
 }
 
 export function DeleteCategoryDialog({ open, onOpenChange, instanceId, categoryName }: DeleteCategoryDialogProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: () => api.removeCategories(instanceId, [categoryName]),
     onSuccess: () => {
-      // Refetch instead of invalidate to keep showing stale data
       queryClient.refetchQueries({ queryKey: ["categories", instanceId] })
       queryClient.refetchQueries({ queryKey: ["instance-metadata", instanceId] })
-      toast.success("Category deleted successfully")
+      toast.success(t("categories.deletedSuccess"))
       onOpenChange(false)
     },
     onError: (error: Error) => {
-      toast.error("Failed to delete category", {
+      toast.error(t("categories.deleteFailed"), {
         description: error.message,
       })
     },
@@ -346,20 +346,19 @@ export function DeleteCategoryDialog({ open, onOpenChange, instanceId, categoryN
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Category</AlertDialogTitle>
+          <AlertDialogTitle>{t("categories.deleteTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete the category "{categoryName}"?
-            Torrents in this category will become uncategorized.
+            {t("categories.deleteDesc", { name: categoryName })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            Delete
+            {t("common.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -382,6 +381,7 @@ export function DeleteEmptyCategoriesDialog({
   categories,
   torrentCounts = {},
 }: DeleteEmptyCategoriesDialogProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const emptyCategories = Object.keys(categories).filter(categoryName => {
@@ -394,11 +394,11 @@ export function DeleteEmptyCategoriesDialog({
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: ["categories", instanceId] })
       queryClient.refetchQueries({ queryKey: ["instance-metadata", instanceId] })
-      toast.success(`Removed ${emptyCategories.length} empty categor${emptyCategories.length === 1 ? "y" : "ies"}`)
+      toast.success(t("categories.removeEmptySuccess", { count: emptyCategories.length, suffix: emptyCategories.length === 1 ? "y" : "ies" }))
       onOpenChange(false)
     },
     onError: (error: Error) => {
-      toast.error("Failed to remove empty categories", {
+      toast.error(t("categories.removeEmptyFailed"), {
         description: error.message,
       })
     },
@@ -408,14 +408,13 @@ export function DeleteEmptyCategoriesDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove Empty Categories</AlertDialogTitle>
+          <AlertDialogTitle>{t("categories.removeEmptyTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
             {emptyCategories.length === 0 ? (
-              "There are no empty categories to remove."
+              t("categories.removeEmptyDescNone")
             ) : (
               <>
-                Are you sure you want to remove {emptyCategories.length} empty categor{emptyCategories.length === 1 ? "y" : "ies"}?
-                This action cannot be undone.
+                {t("categories.removeEmptyDesc", { count: emptyCategories.length, suffix: emptyCategories.length === 1 ? "y" : "ies" })}
                 <div className="mt-3 max-h-40 overflow-y-auto">
                   <div className="text-sm space-y-1">
                     {emptyCategories.map(categoryName => (
@@ -430,14 +429,14 @@ export function DeleteEmptyCategoriesDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           {emptyCategories.length > 0 && (
             <AlertDialogAction
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Remove {emptyCategories.length} Categor{emptyCategories.length === 1 ? "y" : "ies"}
+              {t("categories.removeEmptyButton", { count: emptyCategories.length, suffix: emptyCategories.length === 1 ? "y" : "ies" })}
             </AlertDialogAction>
           )}
         </AlertDialogFooter>
@@ -461,9 +460,9 @@ export function DeleteUnusedTagsDialog({
   tags,
   torrentCounts = {},
 }: DeleteUnusedTagsDialogProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
-  // Find unused tags (tags with 0 torrents)
   const unusedTags = tags.filter(tag => {
     const count = torrentCounts[`tag:${tag}`] || 0
     return count === 0
@@ -472,14 +471,13 @@ export function DeleteUnusedTagsDialog({
   const mutation = useMutation({
     mutationFn: () => api.deleteTags(instanceId, unusedTags),
     onSuccess: () => {
-      // Refetch instead of invalidate to keep showing stale data
       queryClient.refetchQueries({ queryKey: ["tags", instanceId] })
       queryClient.refetchQueries({ queryKey: ["instance-metadata", instanceId] })
-      toast.success(`Deleted ${unusedTags.length} unused tag${unusedTags.length !== 1 ? "s" : ""}`)
+      toast.success(t("tags.deleteUnusedSuccess", { count: unusedTags.length }))
       onOpenChange(false)
     },
     onError: (error: Error) => {
-      toast.error("Failed to delete unused tags", {
+      toast.error(t("tags.deleteUnusedFailed"), {
         description: error.message,
       })
     },
@@ -489,14 +487,13 @@ export function DeleteUnusedTagsDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Unused Tags</AlertDialogTitle>
+          <AlertDialogTitle>{t("tags.deleteUnusedTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
             {unusedTags.length === 0 ? (
-              "There are no unused tags to delete."
+              t("tags.deleteUnusedDescNone")
             ) : (
               <>
-                Are you sure you want to delete {unusedTags.length} unused tag{unusedTags.length !== 1 ? "s" : ""}?
-                This action cannot be undone.
+                {t("tags.deleteUnusedDesc", { count: unusedTags.length })}
                 <div className="mt-3 max-h-40 overflow-y-auto">
                   <div className="text-sm space-y-1">
                     {unusedTags.map(tag => (
@@ -511,14 +508,14 @@ export function DeleteUnusedTagsDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           {unusedTags.length > 0 && (
             <AlertDialogAction
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete {unusedTags.length} Tag{unusedTags.length !== 1 ? "s" : ""}
+              {t("tags.deleteUnusedButton", { count: unusedTags.length })}
             </AlertDialogAction>
           )}
         </AlertDialogFooter>
