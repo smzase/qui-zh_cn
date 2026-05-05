@@ -73,13 +73,13 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
 
     updateInstance({ id: instance.id, data: submitData }, {
       onSuccess: () => {
-        toast.success("Instance Updated", {
+        toast.success(t("settings.instanceUpdated"), {
           description: "Instance settings updated successfully.",
         })
         onSuccess?.()
       },
       onError: (error) => {
-        toast.error("Update Failed", {
+        toast.error(t("settings.instanceUpdateFailed"), {
           description: error instanceof Error ? formatErrorMessage(error.message) : "Failed to update instance",
         })
       },

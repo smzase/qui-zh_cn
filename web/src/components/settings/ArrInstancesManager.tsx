@@ -320,6 +320,7 @@ interface ArrInstanceFormProps {
 }
 
 function ArrInstanceForm({ instance, onSubmit, onCancel, isPending }: ArrInstanceFormProps) {
+  const { t } = useTranslation()
   const [type, setType] = useState<ArrInstanceType>(instance?.type || "sonarr")
   const [name, setName] = useState(instance?.name || "")
   const [baseUrl, setBaseUrl] = useState(instance?.base_url || "")
@@ -337,7 +338,7 @@ function ArrInstanceForm({ instance, onSubmit, onCancel, isPending }: ArrInstanc
 
   const handleTestConnection = async () => {
     if (!baseUrl.trim() || !apiKey.trim()) {
-      toast.error("Base URL and API Key are required to test connection")
+      toast.error(t("settings.arrInstances.urlAndKeyRequired"))
       return
     }
 
@@ -345,11 +346,11 @@ function ArrInstanceForm({ instance, onSubmit, onCancel, isPending }: ArrInstanc
     const trimmedBasicPass = basicPassword
     if (showBasicAuth) {
       if (!trimmedBasicUser) {
-        toast.error("Basic auth username is required")
+        toast.error(t("settings.arrInstances.basicAuthUserRequired"))
         return
       }
       if (!trimmedBasicPass || trimmedBasicPass === "<redacted>") {
-        toast.error("Enter the basic auth password to test connection")
+        toast.error(t("settings.arrInstances.basicAuthPasswordRequired"))
         return
       }
     }
@@ -367,14 +368,14 @@ function ArrInstanceForm({ instance, onSubmit, onCancel, isPending }: ArrInstanc
       })
       setTestResult(result)
       if (result.success) {
-        toast.success("Connection successful")
+        toast.success(t("settings.arrInstances.connectionSuccess"))
       } else {
-        toast.error(`Connection failed: ${result.error || "Unknown error"}`)
+        toast.error(t("settings.arrInstances.connectionFailed", { error: result.error || "Unknown error" }))
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error"
       setTestResult({ success: false, error: message })
-      toast.error(`Connection test failed: ${message}`)
+      toast.error(t("settings.arrInstances.connectionTestFailed", { error: message }))
     } finally {
       setIsTesting(false)
     }
@@ -384,12 +385,12 @@ function ArrInstanceForm({ instance, onSubmit, onCancel, isPending }: ArrInstanc
     e.preventDefault()
 
     if (!name.trim()) {
-      toast.error("Name is required")
+      toast.error(t("settings.arrInstances.nameRequired"))
       return
     }
 
     if (!baseUrl.trim()) {
-      toast.error("Base URL is required")
+      toast.error(t("settings.arrInstances.urlRequired"))
       return
     }
 
@@ -397,21 +398,21 @@ function ArrInstanceForm({ instance, onSubmit, onCancel, isPending }: ArrInstanc
     const trimmedBasicPass = basicPassword
     if (showBasicAuth) {
       if (!trimmedBasicUser) {
-        toast.error("Basic auth username is required")
+        toast.error(t("settings.arrInstances.basicAuthUserRequired"))
         return
       }
       if (!isEdit && !trimmedBasicPass) {
-        toast.error("Basic auth password is required")
+        toast.error(t("settings.arrInstances.basicAuthPasswordRequired"))
         return
       }
       if (isEdit && trimmedBasicPass === "") {
-        toast.error("Basic auth password is required (or keep <redacted>)")
+        toast.error(t("settings.arrInstances.basicAuthPasswordRedacted"))
         return
       }
     }
 
     if (!isEdit && !apiKey.trim()) {
-      toast.error("API Key is required")
+      toast.error(t("settings.arrInstances.apiKeyRequired"))
       return
     }
 

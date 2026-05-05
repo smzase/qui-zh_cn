@@ -300,6 +300,7 @@ interface ProgramFormProps {
 }
 
 function ProgramForm({ program, onSubmit, onCancel, isPending }: ProgramFormProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState(program?.name || "")
   const [path, setPath] = useState(program?.path || "")
   const [argsTemplate, setArgsTemplate] = useState(program?.args_template || "")
@@ -311,12 +312,12 @@ function ProgramForm({ program, onSubmit, onCancel, isPending }: ProgramFormProp
     e.preventDefault()
 
     if (!name.trim()) {
-      toast.error("Name is required")
+      toast.error(t("settings.externalPrograms.nameRequired"))
       return
     }
 
     if (!path.trim()) {
-      toast.error("Program path is required")
+      toast.error(t("settings.externalPrograms.pathRequired"))
       return
     }
 

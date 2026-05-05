@@ -525,12 +525,11 @@ const FilterSidebarComponent = ({
     setIsConvertingScheme(false)
 
     if (successCount > 0) {
-      toast.success(`Converted ${successCount} tracker URL${successCount > 1 ? "s" : ""} to HTTPS`)
-      // Refresh the tracker URLs to show updated state
+      toast.success(t("filterSidebar.convertedToHttps", { count: successCount }))
       await fetchTrackerURLs(trackerToEdit)
     }
     if (failCount > 0) {
-      toast.error(`Failed to convert ${failCount} URL${failCount > 1 ? "s" : ""}`, {
+      toast.error(t("filterSidebar.convertFailed", { count: failCount }), {
         description: firstError ?? undefined,
       })
     }

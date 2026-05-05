@@ -1,4 +1,4 @@
-﻿﻿﻿﻿/*
+﻿﻿﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -1479,7 +1479,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                                 onClick={() => {
                                   if (!incognitoMode) {
                                     copyTextToClipboard(webseed.url)
-                                    toast.success("URL copied to clipboard")
+                                  toast.success("URL " + t("common.copiedToClipboard"))
                                   }
                                 }}
                                 disabled={incognitoMode}

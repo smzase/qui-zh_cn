@@ -29,6 +29,7 @@ import {
 import { Copy, Loader2, Trash2 } from "lucide-react"
 import { memo, useMemo, useState } from "react"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 interface CrossSeedTableProps {
   matches: CrossSeedTorrent[]
@@ -102,6 +103,7 @@ export const CrossSeedTable = memo(function CrossSeedTable({
   instanceById,
   onNavigateToTorrent,
 }: CrossSeedTableProps) {
+  const { t } = useTranslation()
   const [sorting, setSorting] = useState<SortingState>([])
   const { data: trackerIcons } = useTrackerIcons()
   const { data: trackerCustomizations } = useTrackerCustomizations()
@@ -283,9 +285,9 @@ export const CrossSeedTable = memo(function CrossSeedTable({
               onClick={(e) => {
                 e.stopPropagation()
                 copyTextToClipboard(path).then(() => {
-                  toast.success("Save path copied")
+                  toast.success(t("crossSeed.savePathCopied"))
                 }).catch(() => {
-                  toast.error("Failed to copy")
+                  toast.error(t("crossSeed.copyFailed"))
                 })
               }}
             >

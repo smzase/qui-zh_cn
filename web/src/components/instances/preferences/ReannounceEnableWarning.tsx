@@ -15,15 +15,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { AlertTriangle } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 export function ReannounceEnableWarningAlert() {
+  const { t } = useTranslation()
   return (
     <Alert variant="warning" className="border-yellow-500/40 bg-yellow-500/10 text-yellow-950 dark:text-yellow-100">
       <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-      <AlertTitle>Leave this off unless you need it</AlertTitle>
+      <AlertTitle>{t("reannounce.warningTitle")}</AlertTitle>
       <AlertDescription className="space-y-1">
-        <p>This only helps with a small subset of trackers that are slow to register new uploads.</p>
-        <p>If you are not seeing stalled torrents, do not enable it.</p>
+        <p>{t("reannounce.warningDesc1")}</p>
+        <p>{t("reannounce.warningDesc2")}</p>
       </AlertDescription>
     </Alert>
   )
@@ -42,23 +44,24 @@ export function ReannounceEnableWarningDialog({
   onConfirm,
   confirming = false,
 }: ReannounceEnableWarningDialogProps) {
+  const { t } = useTranslation()
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Enable automatic reannounce?</AlertDialogTitle>
+          <AlertDialogTitle>{t("reannounce.enableConfirmTitle")}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3">
-              <p>Use this only if stalled torrents are a real problem on this instance.</p>
-              <p>It helps with only a handful of trackers that are slow to register new uploads.</p>
-              <p>If torrents are behaving normally, leave it off.</p>
+              <p>{t("reannounce.enableConfirmDesc1")}</p>
+              <p>{t("reannounce.enableConfirmDesc2")}</p>
+              <p>{t("reannounce.enableConfirmDesc3")}</p>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={confirming}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={confirming}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm} disabled={confirming}>
-            {confirming ? "Enabling..." : "Enable"}
+            {confirming ? t("reannounce.enabling") : t("reannounce.enable")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

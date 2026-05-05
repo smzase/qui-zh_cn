@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -52,6 +53,7 @@ function isValidInfoHash(value: string): boolean {
 }
 
 export function BlocklistTab({ instances }: BlocklistTabProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { formatDate } = useDateTimeFormatters()
 
@@ -83,7 +85,7 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
   const addMutation = useMutation({
     mutationFn: (payload: { instanceId: number; infoHash: string; note?: string }) => api.addCrossSeedBlocklist(payload),
     onSuccess: () => {
-      toast.success("Added to blocklist")
+      toast.success(t("crossSeed.addedToBlocklist"))
       setInfoHash("")
       setNote("")
       queryClient.invalidateQueries({ queryKey: ["cross-seed", "blocklist"] })
@@ -96,7 +98,7 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
   const deleteMutation = useMutation({
     mutationFn: (entry: CrossSeedBlocklistEntry) => api.deleteCrossSeedBlocklist(entry.instanceId, entry.infoHash),
     onSuccess: () => {
-      toast.success("Removed from blocklist")
+      toast.success(t("crossSeed.removedFromBlocklist"))
       queryClient.invalidateQueries({ queryKey: ["cross-seed", "blocklist"] })
     },
     onError: (error: Error) => {
@@ -106,13 +108,13 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
 
   const handleAdd = useCallback(() => {
     if (!instanceId) {
-      toast.error("Select an instance")
+      toast.error(t("crossSeed.selectInstanceForBlocklist"))
       return
     }
 
     const normalized = normalizeInfoHash(infoHash)
     if (!isValidInfoHash(normalized)) {
-      toast.error("Infohash must be 40 or 64 hex characters")
+      toast.error(t("crossSeed.invalidInfohash"))
       return
     }
 
