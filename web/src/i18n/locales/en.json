@@ -324,10 +324,6 @@
     "apiKeyNameRequired": "Name is required",
     "instanceUpdated": "Instance Updated",
     "instanceUpdateFailed": "Update Failed",
-    "externalPrograms": {
-      "nameRequired": "Name is required",
-      "pathRequired": "Program path is required"
-    },
     "arrInstances": {
       "urlAndKeyRequired": "Base URL and API Key are required to test connection",
       "basicAuthUserRequired": "Basic auth username is required",

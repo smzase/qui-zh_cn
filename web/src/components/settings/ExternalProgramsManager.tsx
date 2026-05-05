@@ -312,12 +312,12 @@ function ProgramForm({ program, onSubmit, onCancel, isPending }: ProgramFormProp
     e.preventDefault()
 
     if (!name.trim()) {
-      toast.error(t("settings.externalPrograms.nameRequired"))
+      toast.error(t("externalPrograms.nameRequired"))
       return
     }
 
     if (!path.trim()) {
-      toast.error(t("settings.externalPrograms.pathRequired"))
+      toast.error(t("externalPrograms.programPathRequired"))
       return
     }
 

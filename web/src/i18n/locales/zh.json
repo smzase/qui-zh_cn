@@ -201,10 +201,7 @@
     "integrations": "集成",
     "clientProxy": "客户端代理",
     "apiKeys": "API 密钥",
-    "externalPrograms": {
-      "nameRequired": "名称为必填项",
-      "pathRequired": "程序路径为必填项"
-    },
+    "externalPrograms": "外部程序",
     "notifications": "通知",
     "dateTime": "日期和时间",
     "premiumThemes": "高级主题",
