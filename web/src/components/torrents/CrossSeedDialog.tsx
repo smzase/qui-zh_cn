@@ -676,6 +676,7 @@ const CrossSeedScopeSelector = memo(({
   onScopeSearch,
   isSearching,
 }: CrossSeedScopeSelectorProps) => {
+  const { t } = useTranslation()
   const total = indexerOptions.length
   const selectedCount = selectedIndexerIds.length
   const excludedCount = excludedIndexerIds.length
