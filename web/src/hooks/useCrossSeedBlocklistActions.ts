@@ -4,6 +4,7 @@
  */
 
 import { useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { api } from "@/lib/api"
@@ -73,6 +74,7 @@ function resolveBlocklistTargets(
 }
 
 export function useCrossSeedBlocklistActions(instanceId: number) {
+  const { t } = useTranslation()
   const blockCrossSeedHashes = useCallback(async (hashes: string[], targets?: TorrentActionTarget[]) => {
     if (hashes.length === 0) return
 
@@ -81,7 +83,7 @@ export function useCrossSeedBlocklistActions(instanceId: number) {
 
     const resolvedTargets = resolveBlocklistTargets(instanceId, uniqueHashes, targets)
     if (resolvedTargets.length === 0) {
-      toast.error("Unable to block cross-seed torrents for this selection")
+      toast.error(t("blocklist.unableToBlock"))
       return
     }
 

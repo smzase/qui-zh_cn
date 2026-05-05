@@ -732,6 +732,13 @@
     "inactiveSeedingLimitDesc": "分钟（1440 = 24 小时）",
     "setUploadLimit": "设置上传限制（KB/s）",
     "setDownloadLimit": "设置下载限制（KB/s）",
+    "exportNoResults": "未找到可导出的种子",
+    "exportNoneExported": "未导出任何种子",
+    "torrentNameEmpty": "种子名称不能为空",
+    "filePathsRequired": "需要提供原始路径和新文件路径",
+    "fileNameUnchanged": "文件名未更改",
+    "folderPathsRequired": "需要提供原始路径和新文件夹路径",
+    "folderNameUnchanged": "文件夹名未更改",
     "enableSequential": "启用顺序下载",
     "disableSequential": "禁用顺序下载",
     "sequentialDownloadEnabled": "顺序下载已启用",
@@ -2116,7 +2123,17 @@
   },
   "trackers": {
     "fetchFailed": "获取 Tracker URL 失败",
-    "updatedAll": "已更新所有受影响种子的 Tracker URL"
+    "updatedAll": "已更新所有受影响种子的 Tracker URL",
+    "customizationCreateFailed": "创建 Tracker 自定义失败",
+    "customizationUpdateFailed": "更新 Tracker 自定义失败",
+    "customizationDeleteFailed": "删除 Tracker 自定义失败"
+  },
+  "blocklist": {
+    "unableToBlock": "无法阻止此选择的辅种种子"
+  },
+  "license": {
+    "removed": "许可已从本机移除",
+    "refreshed": "所有许可已刷新成功"
   },
   "reannounce": {
     "title": "重新汇报",
@@ -2649,7 +2666,19 @@
     "noNonOpsRedTorznabNote": "没有非 OPS/RED Torznab 索引器。Gazelle 仍会为每个源种子检查 RED/OPS。",
     "noTorznabConfiguredShort": "未配置 Torznab 索引器。",
     "allNonOpsRedTorznabWillBeQueried": "将查询所有已启用的非 OPS/RED Torznab 索引器。Gazelle 也会检查 RED/OPS。",
-    "allEnabledTorznabWillBeQueried": "将查询所有已启用的 Torznab 索引器以查找匹配。"
+    "allEnabledTorznabWillBeQueried": "将查询所有已启用的 Torznab 索引器以查找匹配。",
+    "noMatchesFound": "未找到辅种匹配",
+    "noIndexerConfigured": "请配置至少一个 Torznab 索引器以搜索辅种",
+    "onlyCompleted": "只有已完成的种子才能进行辅种",
+    "selectTrackerToSearch": "请至少选择一个 tracker 来运行自定义搜索",
+    "selectResultToAdd": "请至少选择一个结果来添加",
+    "requestCompleted": "辅种请求已完成（详情不可用）",
+    "noneAdded": "未添加任何辅种",
+    "filterUnavailable": "此视图下筛选不可用",
+    "filterSingleOnly": "辅种筛选仅适用于单个选中的种子",
+    "identifyingCrossSeeds": "正在识别辅种种子...",
+    "noCrossSeedsFound": "未找到辅种种子",
+    "filterFailed": "识别辅种种子失败"
   },
   "mediaInfo": {
     "title": "MediaInfo",

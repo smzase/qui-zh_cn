@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { api } from "@/lib/api"
 import { getLinuxIsoName } from "@/lib/incognito"
 import type { Torrent, TorrentFilters } from "@/types"
@@ -27,6 +28,7 @@ interface ExportSelection {
 }
 
 export function useTorrentExporter({ instanceId, incognitoMode }: UseTorrentExporterOptions) {
+  const { t } = useTranslation()
   const [isExporting, setIsExporting] = useState(false)
 
   const exportTorrents = useCallback(async (selection: ExportSelection) => {
@@ -68,7 +70,7 @@ export function useTorrentExporter({ instanceId, incognitoMode }: UseTorrentExpo
       }
 
       if (targets.length === 0) {
-        toast.info("No torrents found to export")
+        toast.info(t("torrents.exportNoResults"))
         return
       }
 
@@ -90,7 +92,7 @@ export function useTorrentExporter({ instanceId, incognitoMode }: UseTorrentExpo
       }
 
       if (exportedCount === 0) {
-        toast.info("No torrents exported")
+        toast.info(t("torrents.exportNoneExported"))
       } else {
         toast.success(exportedCount === 1 ? "Torrent exported" : `${exportedCount} torrents exported`)
       }

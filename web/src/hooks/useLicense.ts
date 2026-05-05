@@ -8,6 +8,7 @@ import { getLicenseErrorMessage } from "@/lib/license-errors.ts"
 import { clearLicenseEntitlement, setLicenseEntitlement } from "@/lib/license-entitlement"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 // Hook to check premium access status
@@ -73,12 +74,13 @@ export const useValidateLicense = () => {
 
 // Hook to delete a license
 export const useDeleteLicense = () => {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (licenseKey: string) => api.deleteLicense(licenseKey),
     onSuccess: () => {
-      toast.success("License removed from this machine")
+      toast.success(t("license.removed"))
       clearLicenseEntitlement()
       // Invalidate license queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["licenses"] })
@@ -91,12 +93,13 @@ export const useDeleteLicense = () => {
 
 // Hook to refresh all licenses
 export const useRefreshLicenses = () => {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: () => api.refreshLicenses(),
     onSuccess: () => {
-      toast.success("All licenses refreshed successfully")
+      toast.success(t("license.refreshed"))
       // Invalidate license queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["licenses"] })
     },

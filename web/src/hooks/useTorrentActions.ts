@@ -10,6 +10,7 @@ import type { TagUpdatePlan } from "@/lib/tag-editor"
 import type { Torrent, TorrentFilters } from "@/types"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 // Const object for better developer experience and refactoring safety
@@ -107,6 +108,7 @@ class TagBulkActionError extends Error {
 }
 
 export function useTorrentActions({ instanceId, instanceIds, onActionComplete }: UseTorrentActionsProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const invalidateTorrentCaches = useCallback(async () => {
     await Promise.all([
@@ -807,7 +809,7 @@ export function useTorrentActions({ instanceId, instanceIds, onActionComplete }:
   const handleRenameTorrent = useCallback(async (hash: string, name: string) => {
     const trimmed = name.trim()
     if (!trimmed) {
-      toast.error("Torrent name cannot be empty")
+      toast.error(t("torrents.torrentNameEmpty"))
       return
     }
     await renameTorrentMutation.mutateAsync({ hash, name: trimmed })
@@ -817,11 +819,11 @@ export function useTorrentActions({ instanceId, instanceIds, onActionComplete }:
     const trimmedOldPath = oldPath.trim()
     const trimmedNewPath = newPath.trim()
     if (!trimmedOldPath || !trimmedNewPath) {
-      toast.error("Both original and new file paths are required")
+      toast.error(t("torrents.filePathsRequired"))
       return
     }
     if (trimmedOldPath === trimmedNewPath) {
-      toast.success("File name unchanged")
+      toast.success(t("torrents.fileNameUnchanged"))
       setShowRenameFileDialog(false)
       setContextHashes([])
       setContextTorrents([])
@@ -834,11 +836,11 @@ export function useTorrentActions({ instanceId, instanceIds, onActionComplete }:
     const trimmedOldPath = oldPath.trim()
     const trimmedNewPath = newPath.trim()
     if (!trimmedOldPath || !trimmedNewPath) {
-      toast.error("Both original and new folder paths are required")
+      toast.error(t("torrents.folderPathsRequired"))
       return
     }
     if (trimmedOldPath === trimmedNewPath) {
-      toast.success("Folder name unchanged")
+      toast.success(t("torrents.folderNameUnchanged"))
       setShowRenameFolderDialog(false)
       setContextHashes([])
       setContextTorrents([])

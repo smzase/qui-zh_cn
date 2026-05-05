@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -20,6 +21,7 @@ import type {
 const CROSS_SEED_REFRESH_COOLDOWN_MS = 30_000
 
 export function useCrossSeedSearch(instanceId: number) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const { data: torznabIndexers } = useQuery({
@@ -204,7 +206,7 @@ export function useCrossSeedSearch(instanceId: number) {
           setCrossSeedSelectedKeys(defaultSelection)
 
           if (response.results.length === 0) {
-            toast.info("No cross-seed matches found")
+            toast.info(t("crossSeed.noMatchesFound"))
           }
         })
         .catch((error: unknown) => {
@@ -253,12 +255,12 @@ export function useCrossSeedSearch(instanceId: number) {
   const handleCrossSeedSearch = useCallback(
     (torrent: Torrent) => {
       if (!hasEnabledCrossSeedIndexers) {
-        toast.error("Configure at least one Torznab indexer to search for cross-seeds")
+        toast.error(t("crossSeed.noIndexerConfigured"))
         return
       }
 
       if (typeof torrent.progress === "number" && torrent.progress < 1) {
-        toast.info("Only completed torrents can be cross-seeded")
+        toast.info(t("crossSeed.onlyCompleted"))
         return
       }
 
@@ -309,7 +311,7 @@ export function useCrossSeedSearch(instanceId: number) {
     }
 
     if (crossSeedIndexerMode === "custom" && crossSeedIndexerSelection.length === 0) {
-      toast.warning("Select at least one tracker to run a custom search")
+      toast.warning(t("crossSeed.selectTrackerToSearch"))
       return
     }
 
@@ -390,7 +392,7 @@ export function useCrossSeedSearch(instanceId: number) {
     })
 
     if (selections.length === 0) {
-      toast.warning("Select at least one result to add")
+      toast.warning(t("crossSeed.selectResultToAdd"))
       return
     }
 
@@ -445,9 +447,9 @@ export function useCrossSeedSearch(instanceId: number) {
         const completedPrefix = hasCompleted ? `${completedWithoutDetails} completed, ` : ""
         toast.error(`${completedPrefix}${failedCount} failed - check results for details`)
       } else if (hasCompleted) {
-        toast.success("Cross-seed request completed (details unavailable)")
+        toast.success(t("crossSeed.requestCompleted"))
       } else {
-        toast.info("No cross-seeds were added")
+        toast.info(t("crossSeed.noneAdded"))
       }
 
       queryClient.invalidateQueries({ queryKey: ["torrents-list", instanceId], exact: false })
