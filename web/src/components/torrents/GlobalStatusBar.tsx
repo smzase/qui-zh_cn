@@ -143,8 +143,8 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
     }
   }, [altSpeedOverride, serverAltSpeedEnabled, toggleAltSpeedLimits, isTogglingAltSpeed])
 
-  const altSpeedTooltip = isAltSpeedKnown ? altSpeedEnabled ? "Alternative speed limits: On" : "Alternative speed limits: Off" : "Alternative speed limits status unknown"
-  const altSpeedAriaLabel = isAltSpeedKnown ? altSpeedEnabled ? "Disable alternative speed limits" : "Enable alternative speed limits" : "Alternative speed limits status unknown"
+  const altSpeedTooltip = isAltSpeedKnown ? altSpeedEnabled ? t("statusBar.altSpeedOn") : t("statusBar.altSpeedOff") : t("statusBar.altSpeedUnknown")
+  const altSpeedAriaLabel = isAltSpeedKnown ? altSpeedEnabled ? t("statusBar.altSpeedDisable") : t("statusBar.altSpeedEnable") : t("statusBar.altSpeedUnknown")
 
   // Connection status
   const rawConnectionStatus = serverState?.connection_status ?? ""
@@ -156,10 +156,10 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
   const isFirewalled = normalizedConnectionStatus === "firewalled"
   const ConnectionStatusIcon = isConnectable ? Globe : isFirewalled ? BrickWallFire : hasConnectionStatus ? Ban : Globe
   const connectionStatusTooltip = hasConnectionStatus
-    ? `${isConnectable ? "Connectable" : connectionStatusDisplay}${listenPort ? `. Port: ${listenPort}` : ""}`
-    : "Connection status unknown"
+    ? `${isConnectable ? t("statusBar.connectionConnected") : connectionStatusDisplay}${listenPort ? `. Port: ${listenPort}` : ""}`
+    : t("statusBar.connectionUnknown")
   const connectionStatusIconClass = hasConnectionStatus ? isConnectable ? "text-green-500" : isFirewalled ? "text-amber-500" : "text-destructive" : "text-muted-foreground"
-  const connectionStatusAriaLabel = hasConnectionStatus ? `qBittorrent connection status: ${connectionStatusDisplay || formattedConnectionStatus}` : "qBittorrent connection status unknown"
+  const connectionStatusAriaLabel = hasConnectionStatus ? t("statusBar.connectionStatusLabel", { status: connectionStatusDisplay || formattedConnectionStatus }) : t("statusBar.connectionStatusUnknownAria")
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2 px-2 py-1.5 border-t flex-shrink-0 select-none text-xs">
@@ -197,7 +197,7 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {speedUnit === "bytes" ? "Switch to bits per second (bps)" : "Switch to bytes per second (B/s)"}
+              {speedUnit === "bytes" ? t("statusBar.switchToBps") : t("statusBar.switchToBs")}
             </TooltipContent>
           </Tooltip>
           {!isUnifiedScope && (
@@ -244,7 +244,7 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
                   <RefreshCcw className="h-4 w-4 text-green-500" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Automatic tracker reannounce enabled - Click to configure</TooltipContent>
+              <TooltipContent>{t("statusBar.reannounceEnabled")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -268,7 +268,7 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
               <LayoutGrid className="h-3 w-3" />
             )}
             <span className="hidden sm:inline">
-              {desktopViewMode === "normal" ? "Table" : desktopViewMode === "dense" ? "Dense" : "Stacked"}
+              {desktopViewMode === "normal" ? t("statusBar.viewTable") : desktopViewMode === "dense" ? t("statusBar.viewDense") : t("statusBar.viewStacked")}
             </span>
           </Button>
           <Button
@@ -286,7 +286,7 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
               <Eye className="h-3 w-3" />
             )}
             <span className="hidden sm:inline">
-              {incognitoMode ? "Incognito on" : "Incognito off"}
+              {incognitoMode ? t("statusBar.incognitoOn") : t("statusBar.incognitoOff")}
             </span>
           </Button>
         </div>
@@ -352,8 +352,8 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
               </TooltipTrigger>
               <TooltipContent>
                 {selectionInfo.effectiveSelectionCount > 0
-                  ? `${selectionInfo.effectiveSelectionCount} selected of ${selectionInfo.totalCount} torrents`
-                  : `${selectionInfo.totalCount} torrents`}
+                  ? t("statusBar.selectedCount", { selected: selectionInfo.effectiveSelectionCount, total: selectionInfo.totalCount })
+                  : t("statusBar.totalTorrents", { total: selectionInfo.totalCount })}
               </TooltipContent>
             </Tooltip>
           )}
@@ -365,7 +365,7 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
                   <span className="font-medium truncate">{formatBytes(serverState.free_space_on_disk)}</span>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Free Space</TooltipContent>
+              <TooltipContent>{t("statusBar.freeSpace")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -379,7 +379,7 @@ export const GlobalStatusBar = memo(function GlobalStatusBar({
                   <Badge
                     variant="outline"
                     className="gap-1 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
-                    aria-label="External IP addresses"
+                    aria-label={t("statusBar.externalIpAddresses")}
                   >
                     <EthernetPort className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>IPv4 & IPv6</span>

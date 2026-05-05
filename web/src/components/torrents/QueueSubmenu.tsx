@@ -4,6 +4,7 @@
  */
 
 import { memo } from "react"
+import { useTranslation } from "react-i18next"
 import {
   ContextMenuSub,
   ContextMenuSubTrigger,
@@ -31,6 +32,7 @@ export const QueueSubmenu = memo(function QueueSubmenu({
   onQueueAction,
   isPending = false,
 }: QueueSubmenuProps) {
+  const { t } = useTranslation()
   const SubTrigger = type === "context" ? ContextMenuSubTrigger : DropdownMenuSubTrigger
   const Sub = type === "context" ? ContextMenuSub : DropdownMenuSub
   const SubContent = type === "context" ? ContextMenuSubContent : DropdownMenuSubContent
@@ -40,7 +42,7 @@ export const QueueSubmenu = memo(function QueueSubmenu({
     <Sub>
       <SubTrigger disabled={isPending}>
         <List className="mr-4 h-4 w-4" />
-        Queue
+        {t("torrents.queue")}
       </SubTrigger>
       <SubContent>
         <MenuItem
@@ -48,28 +50,28 @@ export const QueueSubmenu = memo(function QueueSubmenu({
           disabled={isPending}
         >
           <ChevronsUp className="mr-2 h-4 w-4" />
-          Top Priority {hashCount > 1 ? `(${hashCount})` : ""}
+          {t("torrents.topPriority")} {hashCount > 1 ? `(${hashCount})` : ""}
         </MenuItem>
         <MenuItem
           onClick={() => onQueueAction("increasePriority")}
           disabled={isPending}
         >
           <ArrowUp className="mr-2 h-4 w-4" />
-          Increase Priority {hashCount > 1 ? `(${hashCount})` : ""}
+          {t("torrents.increasePriority")} {hashCount > 1 ? `(${hashCount})` : ""}
         </MenuItem>
         <MenuItem
           onClick={() => onQueueAction("decreasePriority")}
           disabled={isPending}
         >
           <ArrowDown className="mr-2 h-4 w-4" />
-          Decrease Priority {hashCount > 1 ? `(${hashCount})` : ""}
+          {t("torrents.decreasePriority")} {hashCount > 1 ? `(${hashCount})` : ""}
         </MenuItem>
         <MenuItem
           onClick={() => onQueueAction("bottomPriority")}
           disabled={isPending}
         >
           <ChevronsDown className="mr-2 h-4 w-4" />
-          Bottom Priority {hashCount > 1 ? `(${hashCount})` : ""}
+          {t("torrents.bottomPriority")} {hashCount > 1 ? `(${hashCount})` : ""}
         </MenuItem>
       </SubContent>
     </Sub>

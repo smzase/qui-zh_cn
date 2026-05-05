@@ -111,7 +111,7 @@ export function TorrentCreatorDialog({ instanceId, open, onOpenChange }: Torrent
 
   const { versionInfo } = useQBittorrentAppInfo(instanceId)
   const supportsFormatSelection = versionInfo.isLibtorrent2 !== false
-  const libtorrentVersionLabel = versionInfo.libtorrentMajorVersion? `libtorrent ${versionInfo.libtorrentMajorVersion}.x`: "libtorrent 1.x"
+  const libtorrentVersionLabel = versionInfo.libtorrentMajorVersion? `libtorrent ${versionInfo.libtorrentMajorVersion}.x`: t("torrents.libtorrent1x")
 
   // Fetch active trackers for the select dropdown
   const { data: activeTrackers } = useInstanceTrackers(instanceId, { enabled: open })

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿/*
+﻿﻿﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -399,7 +399,7 @@ const FilterSidebarComponent = ({
       }
     } catch (error) {
       console.error("Failed to fetch tracker URLs:", error)
-      toast.error("Failed to fetch tracker URLs")
+      toast.error(t("trackers.fetchFailed"))
     } finally {
       setLoadingTrackerURLs(false)
     }
@@ -429,7 +429,7 @@ const FilterSidebarComponent = ({
       })
     },
     onSuccess: () => {
-      toast.success("Updated tracker URL across all affected torrents")
+      toast.success(t("trackers.updatedAll"))
       setShowEditTrackerDialog(false)
       setTrackerFullURLs([])
     },
