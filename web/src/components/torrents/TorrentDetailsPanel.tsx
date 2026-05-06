@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿/*
+﻿﻿﻿﻿﻿﻿﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -751,7 +751,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className={cn("flex flex-col", isCollapsed ? "h-auto" : "h-full")}>
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b flex items-center">
           <Button
