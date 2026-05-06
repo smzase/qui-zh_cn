@@ -1,4 +1,4 @@
-﻿﻿﻿/*
+﻿﻿﻿﻿﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -32,7 +32,7 @@ import { cn, copyTextToClipboard, formatBytes, formatDuration } from "@/lib/util
 import type { SortedPeersResponse, Torrent, TorrentFile, TorrentPeer, TorrentTracker } from "@/types"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import "flag-icons/css/flag-icons.min.css"
-import { Ban, Copy, Loader2, Trash2, UserPlus, X } from "lucide-react"
+import { Ban, ChevronDown, ChevronUp, Copy, Loader2, Trash2, UserPlus, X } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
@@ -83,6 +83,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   const [peersToAdd, setPeersToAdd] = useState("")
   const [peerToBan, setPeerToBan] = useState<TorrentPeer | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const { data: metadata } = useInstanceMetadata(instanceId)
   const { data: capabilities } = useInstanceCapabilities(instanceId)
   const queryClient = useQueryClient()
@@ -753,26 +754,35 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
     <div className="h-full flex flex-col">
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-none"
+            onClick={() => setIsCollapsed(prev => !prev)}
+            aria-label={isCollapsed ? t("common.expand") : t("common.collapse")}
+          >
+            {isCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          </Button>
           <div className="flex-1 overflow-x-auto scroll-smooth">
             <TabsList className="w-full justify-start rounded-none h-8 bg-background px-4 sm:px-2 flex-nowrap">
-              <TabsTrigger value="general" className="text-xs shrink-0">
+              <TabsTrigger value="general" className="text-xs shrink-0 flex-none w-16">
                 {t("common.general")}
               </TabsTrigger>
-              <TabsTrigger value="trackers" className="text-xs shrink-0">
+              <TabsTrigger value="trackers" className="text-xs shrink-0 flex-none w-16">
                 {t("common.trackers")}
               </TabsTrigger>
-              <TabsTrigger value="peers" className="text-xs shrink-0">
+              <TabsTrigger value="peers" className="text-xs shrink-0 flex-none w-16">
                 {t("common.peers")}
               </TabsTrigger>
               {hasWebseeds && (
-                <TabsTrigger value="webseeds" className="text-xs shrink-0">
+                <TabsTrigger value="webseeds" className="text-xs shrink-0 flex-none w-16">
                   {t("common.webSeeds")}
                 </TabsTrigger>
               )}
-              <TabsTrigger value="content" className="text-xs shrink-0">
+              <TabsTrigger value="content" className="text-xs shrink-0 flex-none w-16">
                 {t("common.content")}
               </TabsTrigger>
-              <TabsTrigger value="crossseed" className="text-xs shrink-0">
+              <TabsTrigger value="crossseed" className="text-xs shrink-0 flex-none w-16">
                 {t("common.crossSeed")}
               </TabsTrigger>
             </TabsList>
@@ -791,7 +801,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
         </div>
 
 
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className={cn("flex-1 min-h-0 overflow-hidden", isCollapsed && "hidden")}>
           <TabsContent value="general" className="m-0 h-full">
             {isHorizontal ? (
               <GeneralTabHorizontal
