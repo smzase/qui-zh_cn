@@ -231,6 +231,11 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   const isMobile = useIsMobile()
 
   const [detailsPanelReady, setDetailsPanelReady] = useState(false)
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false)
+
+  useEffect(() => {
+    setDetailsCollapsed(false)
+  }, [selectedTorrent?.hash])
 
   const panelIds = useMemo(
     () => (selectedTorrent ? ["torrent-list", "torrent-details"] : ["torrent-list"]),
@@ -643,7 +648,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                       }
                     }}
                   >
-                    <div className="h-full border-t bg-background">
+                    <div className={cn("border-t bg-background", detailsCollapsed ? "h-auto" : "h-full")}>
                       <TorrentDetailsPanel
                         instanceId={selectedTorrentInstanceId}
                         torrent={selectedTorrent}
@@ -652,6 +657,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                         layout="horizontal"
                         onClose={() => setSelectedTorrent(null)}
                         onNavigateToTorrent={handleNavigateToTorrent}
+                        onCollapsedChange={setDetailsCollapsed}
                       />
                     </div>
                   </ResizablePanel>

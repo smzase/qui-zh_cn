@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿/*
+﻿﻿﻿﻿﻿﻿﻿﻿/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -49,6 +49,7 @@ interface TorrentDetailsPanelProps {
   layout?: "horizontal" | "vertical";
   onClose?: () => void;
   onNavigateToTorrent?: (instanceId: number, torrentHash: string) => void;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 const TAB_VALUES = ["general", "trackers", "peers", "webseeds", "content", "crossseed"] as const
@@ -62,7 +63,7 @@ function isTabValue(value: string): value is TabValue {
 
 
 
-export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceId, torrent, initialTab, onInitialTabConsumed, layout = "vertical", onClose, onNavigateToTorrent }: TorrentDetailsPanelProps) {
+export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceId, torrent, initialTab, onInitialTabConsumed, layout = "vertical", onClose, onNavigateToTorrent, onCollapsedChange }: TorrentDetailsPanelProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = usePersistedTabState<TabValue>(TAB_STORAGE_KEY, DEFAULT_TAB, isTabValue)
 
@@ -758,7 +759,11 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
             variant="ghost"
             size="icon"
             className="h-8 w-8 shrink-0 rounded-none"
-            onClick={() => setIsCollapsed(prev => !prev)}
+            onClick={() => {
+              const next = !isCollapsed
+              setIsCollapsed(next)
+              onCollapsedChange?.(next)
+            }}
             aria-label={isCollapsed ? t("common.expand") : t("common.collapse")}
           >
             {isCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
