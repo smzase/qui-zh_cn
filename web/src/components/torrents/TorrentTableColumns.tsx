@@ -622,7 +622,7 @@ export const createColumns = (
                 style={{ width: `${row.original.progress * 100}%` }}
               />
             </div>
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-medium text-white dark:text-[oklch(0.1450_0_0)] whitespace-nowrap progress-pct-stroke">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-medium text-white dark:text-[oklch(0.1450_0_0)] whitespace-nowrap [-webkit-text-stroke:0.5px_oklch(0.145_0_0)] dark:[-webkit-text-stroke:0.5px_oklch(0.855_0_0)] [paint-order:stroke_fill]">
               {pct}%
             </span>
           </div>
