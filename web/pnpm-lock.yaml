@@ -1,4 +1,4 @@
-lockfileVersion: '9.0'
+﻿lockfileVersion: '9.0'
 
 settings:
   autoInstallPeers: true
@@ -6920,10 +6920,6 @@ snapshots:
       minimalistic-assert: 1.0.1
       minimalistic-crypto-utils: 1.0.1
 
-  html-parse-stringify@3.0.1:
-    dependencies:
-      void-elements: 3.1.0
-
   https-browserify@1.0.0: {}
 
   i18next-browser-languagedetector@8.2.1:
@@ -6931,6 +6927,10 @@ snapshots:
       '@babel/runtime': 7.29.2
 
   i18next@26.0.8: {}
+
+  html-parse-stringify@3.0.1:
+    dependencies:
+      void-elements: 3.1.0
 
   idb@7.1.1: {}
 
@@ -7505,7 +7505,7 @@ snapshots:
       i18next: 26.0.8
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
-      use-sync-external-store: 1.6.0
+      use-sync-external-store: 1.6.0(react@19.2.5)
 
   react-hotkeys-hook@5.2.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:
