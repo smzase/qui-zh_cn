@@ -56,7 +56,6 @@ const getModernAutorunPlaceholders = (t: (key: string) => string): Array<{ token
 
 const LEGACY_AUTORUN_PROGRAM_PLACEHOLDER = "/path/to/script \"%N\" \"%I\""
 const MODERN_AUTORUN_PROGRAM_PLACEHOLDER = "/path/to/script \"%N\" \"%K\""
-const AUTORUN_PROGRAM_TIP = "Tip: wrap placeholders in quotes, e.g. \"%N\", to preserve spaces."
 const AUTORUN_ON_ADDED_MIN_WEBAPI_VERSION = "2.8.18" // qBittorrent 4.5.0+
 const DEFAULT_WATCH_FOLDER_MODE = 0
 const OVERRIDE_WATCH_FOLDER_SAVE_MODE = 1
@@ -445,9 +444,9 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <Label className="text-sm font-medium">Watch Folders</Label>
+                    <Label className="text-sm font-medium">{t("instances.watchFolders")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Add one or more monitored folders and choose where discovered torrents should be saved.
+                      {t("instances.watchFoldersDesc")}
                     </p>
                   </div>
                   <Button
@@ -458,13 +457,13 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                       { path: "", destination: "default-save-location", otherPath: "" },
                     ])}
                   >
-                    Add Folder
+                    {t("instances.addFolder")}
                   </Button>
                 </div>
 
                 {watchFolders.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No watch folders configured.
+                    {t("instances.noWatchFolders")}
                   </p>
                 )}
 
@@ -472,7 +471,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                   <div key={`watch-folder-${index}`} className="rounded-md border p-3 space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Monitored Folder</Label>
+                        <Label className="text-sm font-medium">{t("instances.monitoredFolder")}</Label>
                         <Input
                           value={watchFolder.path}
                           onChange={(e) => {
@@ -486,7 +485,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Torrent Destination</Label>
+                        <Label className="text-sm font-medium">{t("instances.torrentDestination")}</Label>
                         <Select
                           value={watchFolder.destination}
                           onValueChange={(value) => {
@@ -497,12 +496,12 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                           disabled={!watchFolder.path}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select destination" />
+                            <SelectValue placeholder={t("instances.selectDestination")} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="monitored-folder">Monitored folder</SelectItem>
-                            <SelectItem value="default-save-location">Default save location</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
+                            <SelectItem value="monitored-folder">{t("instances.destinationMonitoredFolder")}</SelectItem>
+                            <SelectItem value="default-save-location">{t("instances.destinationDefaultSaveLocation")}</SelectItem>
+                            <SelectItem value="other">{t("instances.destinationOther")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -510,7 +509,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
 
                     {watchFolder.destination === "other" && (
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Custom Save Path</Label>
+                        <Label className="text-sm font-medium">{t("instances.customSavePath")}</Label>
                         <Input
                           value={watchFolder.otherPath}
                           onChange={(e) => {
