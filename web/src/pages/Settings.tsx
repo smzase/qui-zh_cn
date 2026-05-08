@@ -51,13 +51,13 @@ import { Switch } from "@/components/ui/switch"
 import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
 import { useInstances } from "@/hooks/useInstances"
 import { usePersistedTitleBarSpeeds } from "@/hooks/usePersistedTitleBarSpeeds"
-import { api } from "@/lib/api"
+import { APIError, api } from "@/lib/api"
 
 import { withBasePath } from "@/lib/base-url"
 import { canRegisterProtocolHandler, getMagnetHandlerRegistrationGuidance, registerMagnetHandler } from "@/lib/protocol-handler"
 import { copyTextToClipboard, formatBytes, formatDuration } from "@/lib/utils"
 import type { SettingsSearch } from "@/routes/_authenticated/settings"
-import type { Instance, TorznabSearchCacheStats, User } from "@/types"
+import type { ApplicationInfo, Instance, TorznabSearchCacheStats, User } from "@/types"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Bell, Clock, Copy, Database, ExternalLink, FileText, Info, Key, Layers, Link2, Loader2, Palette, Plus, RefreshCw, Server, Share2, Shield, Terminal, Trash2 } from "lucide-react"
@@ -69,6 +69,18 @@ import { useTranslation } from "react-i18next"
 type SettingsTab = NonNullable<SettingsSearch["tab"]>
 
 const TORZNAB_CACHE_MIN_TTL_MINUTES = 1440
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof APIError && error.message) {
+    return error.message
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return fallback
+}
 
 function ChangePasswordForm() {
   const { t } = useTranslation()
@@ -201,18 +213,25 @@ function ChangePasswordForm() {
   )
 }
 
-function ApiKeysManager() {
+interface ApiKeysManagerProps {
+  authMode?: ApplicationInfo["authMode"]
+  authModeLoading: boolean
+}
+
+function ApiKeysManager({ authMode, authModeLoading }: ApiKeysManagerProps) {
   const { t } = useTranslation()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [deleteKeyId, setDeleteKeyId] = useState<number | null>(null)
   const [newKey, setNewKey] = useState<{ name: string; key: string } | null>(null)
   const queryClient = useQueryClient()
   const { formatDate } = useDateTimeFormatters()
+  const authDisabled = authMode === "disabled"
 
   // Fetch API keys from backend
   const { data: apiKeys, isLoading } = useQuery({
     queryKey: ["apiKeys"],
     queryFn: () => api.getApiKeys(),
+    enabled: !authModeLoading && !authDisabled,
     staleTime: 30 * 1000, // 30 seconds
   })
 
@@ -228,8 +247,8 @@ function ApiKeysManager() {
       queryClient.invalidateQueries({ queryKey: ["apiKeys"] })
       toast.success(t("settings.apiKeyCreated"))
     },
-    onError: () => {
-      toast.error(t("settings.failedCreateApiKey"))
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, t("settings.failedCreateApiKey")))
     },
   })
 
@@ -242,8 +261,8 @@ function ApiKeysManager() {
       setDeleteKeyId(null)
       toast.success(t("settings.apiKeyDeleted"))
     },
-    onError: () => {
-      toast.error(t("settings.failedDeleteApiKey"))
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, t("settings.failedDeleteApiKey")))
     },
   })
 
@@ -256,6 +275,25 @@ function ApiKeysManager() {
       form.reset()
     },
   })
+
+  if (authModeLoading) {
+    return (
+      <div className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+        Loading authentication mode...
+      </div>
+    )
+  }
+
+  if (authDisabled) {
+    return (
+      <div className="rounded-md border border-border bg-muted/30 p-4">
+        <h3 className="text-sm font-medium">API keys are unavailable while built-in auth is disabled</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Requests that pass your reverse proxy and CIDR allowlist can use the qui API directly.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -941,7 +979,7 @@ function ApplicationInfoPanel() {
     }
   }, [info])
 
-  let currentSessionAuth = t("common.unknown")
+  let currentSessionAuth: string
   if (currentUserQuery.isLoading) {
     currentSessionAuth = t("common.loading")
   } else if (currentUserQuery.isError) {
@@ -1163,6 +1201,11 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
   const { t } = useTranslation()
   const activeTab: SettingsTab = search.tab ?? "application"
   const scrollPanelContentClassName = "space-y-4"
+  const appInfoQuery = useQuery({
+    queryKey: ["application-info"],
+    queryFn: () => api.getApplicationInfo(),
+    staleTime: 30 * 1000,
+  })
 
   const handleTabChange = (tab: SettingsTab) => {
     onSearchChange({ tab })
@@ -1485,7 +1528,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <ApiKeysManager />
+                  <ApiKeysManager authMode={appInfoQuery.data?.authMode} authModeLoading={appInfoQuery.isLoading} />
                 </CardContent>
               </Card>
             </SettingsScrollPanel>
