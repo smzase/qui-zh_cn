@@ -35,18 +35,20 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useInstanceCapabilities } from "@/hooks/useInstanceCapabilities.ts"
 import { useInstanceMetadata } from "@/hooks/useInstanceMetadata"
 import { usePathAutocomplete } from "@/hooks/usePathAutocomplete"
+import { usePersistedBulkAddTorrentInstances } from "@/hooks/usePersistedBulkAddTorrentInstances"
 import { usePersistedStartPaused } from "@/hooks/usePersistedStartPaused"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import type { AddTorrentResponse, Torrent } from "@/types"
+import type { AddTorrentResponse, AppPreferences, Category, InstanceResponse, Torrent } from "@/types"
 import { useForm } from "@tanstack/react-form"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, Link, Loader2, Plus, Upload, X } from "lucide-react"
 import parseTorrent from "parse-torrent"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
@@ -106,6 +108,26 @@ export type AddTorrentDropPayload =
   | { type: "file"; files: File[] }
   | { type: "url"; urls: string[]; indexerId?: number }
 
+interface InstanceMetadata {
+  categories: Record<string, Category>
+  tags: string[]
+  preferences: AppPreferences
+}
+
+interface BulkAddTorrentResult {
+  instanceId: number
+  instanceName: string
+  response?: AddTorrentResponse
+  error?: unknown
+}
+
+interface BulkAddTorrentResponse {
+  mode: "bulk"
+  results: BulkAddTorrentResult[]
+}
+
+type AddTorrentMutationResponse = AddTorrentResponse | BulkAddTorrentResponse
+
 interface AddTorrentDialogProps {
   instanceId: number
   open?: boolean
@@ -113,6 +135,8 @@ interface AddTorrentDialogProps {
   dropPayload?: AddTorrentDropPayload | null
   onDropPayloadConsumed?: () => void
   torrents?: Torrent[]
+  mode?: "single" | "bulk"
+  instances?: InstanceResponse[]
 }
 
 type TabValue = "file" | "url"
@@ -162,8 +186,71 @@ function createFileKey(file: File): string {
   return `${file.name}__${file.size}__${file.lastModified}`
 }
 
-export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChange, dropPayload, onDropPayloadConsumed, torrents = [] }: AddTorrentDialogProps) {
+async function fetchInstanceMetadata(instanceId: number): Promise<InstanceMetadata> {
+  const [categories, tags, preferences] = await Promise.all([
+    api.getCategories(instanceId),
+    api.getTags(instanceId),
+    api.getInstancePreferences(instanceId),
+  ])
+
+  return { categories, tags, preferences }
+}
+
+function getCommonCategories(metadataList: InstanceMetadata[]): Record<string, Category> {
+  if (metadataList.length === 0) {
+    return {}
+  }
+
+  const [firstMetadata, ...remainingMetadata] = metadataList
+  const commonCategories: Record<string, Category> = {}
+
+  Object.values(firstMetadata.categories).forEach((category) => {
+    const existsEverywhere = remainingMetadata.every((metadata) =>
+      Object.values(metadata.categories).some((candidate) => candidate.name === category.name)
+    )
+
+    if (existsEverywhere) {
+      commonCategories[category.name] = category
+    }
+  })
+
+  return commonCategories
+}
+
+function getAvailableTags(metadataList: InstanceMetadata[]): string[] {
+  const tags = new Set<string>()
+  metadataList.forEach((metadata) => {
+    metadata.tags.forEach((tag) => tags.add(tag))
+  })
+  return Array.from(tags).sort((left, right) => left.localeCompare(right))
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  if (typeof error === "string" && error.trim()) {
+    return error
+  }
+  return "Unknown error"
+}
+
+function areNumberArraysEqual(left: number[], right: number[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index])
+}
+
+export function AddTorrentDialog({
+  instanceId,
+  open: controlledOpen,
+  onOpenChange,
+  dropPayload,
+  onDropPayloadConsumed,
+  torrents = [],
+  mode = "single",
+  instances = [],
+}: AddTorrentDialogProps) {
   const { t } = useTranslation()
+  const isBulkMode = mode === "bulk"
   const [internalOpen, setInternalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabValue>("file")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -171,29 +258,119 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
   const [showFileList, setShowFileList] = useState(false)
   const [categorySearch, setCategorySearch] = useState("")
   const [tagSearch, setTagSearch] = useState("")
+  const [bulkSelectedInstanceIds, setBulkSelectedInstanceIds] = useState<number[]>([])
   const [duplicateSummary, setDuplicateSummary] = useState<DuplicateSummary>(() => createEmptyDuplicateSummary())
   const [duplicateCheckStatus, setDuplicateCheckStatus] = useState<"idle" | "pending" | "visible">("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bulkSelectionInitializedRef = useRef(false)
   const duplicateCheckRequestRef = useRef(0)
   const duplicateCheckIndicatorTimeoutRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
+  const [persistedBulkInstanceIds, saveBulkInstanceIds] = usePersistedBulkAddTorrentInstances()
+  const selectableInstances = useMemo(
+    () => instances.filter((instance) => instance.connected && instance.isActive),
+    [instances]
+  )
+  const selectableInstanceIds = useMemo(
+    () => selectableInstances.map((instance) => instance.id),
+    [selectableInstances]
+  )
+  const selectedBulkInstances = useMemo(() => {
+    const selectedIdSet = new Set(bulkSelectedInstanceIds)
+    return selectableInstances.filter((instance) => selectedIdSet.has(instance.id))
+  }, [bulkSelectedInstanceIds, selectableInstances])
+  const primaryInstanceId = isBulkMode ? selectableInstances[0]?.id ?? instanceId : instanceId
   // NOTE: Use localStorage-persisted preference instead of qBittorrent's preference
   // This works around qBittorrent API not supporting start_paused_enabled setting
-  const [startPausedEnabled] = usePersistedStartPaused(instanceId, false)
+  const [startPausedEnabled] = usePersistedStartPaused(primaryInstanceId, false)
 
   // Use controlled state if provided, otherwise use internal state
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const setOpen = onOpenChange || setInternalOpen
 
   // Fetch metadata (categories, tags, preferences) with single API call
-  const { data: metadata } = useInstanceMetadata(instanceId)
-  const categories = metadata?.categories
-  const availableTags = metadata?.tags
+  const { data: singleMetadata } = useInstanceMetadata(primaryInstanceId)
+  const bulkMetadataQueries = useQueries({
+    queries: selectedBulkInstances.map((instance) => ({
+      queryKey: ["instance-metadata", instance.id],
+      enabled: isBulkMode && open,
+      queryFn: () => fetchInstanceMetadata(instance.id),
+      staleTime: 60000,
+      gcTime: 1800000,
+      refetchInterval: 30000,
+      refetchIntervalInBackground: false,
+    })),
+  })
+  const loadedBulkMetadata = useMemo(
+    () => bulkMetadataQueries
+      .map((query) => query.data)
+      .filter((metadata): metadata is InstanceMetadata => Boolean(metadata)),
+    [bulkMetadataQueries]
+  )
+  const bulkMetadataReady = !isBulkMode ||
+    (selectedBulkInstances.length > 0 && loadedBulkMetadata.length === selectedBulkInstances.length)
+  const bulkCategories = useMemo(
+    () => bulkMetadataReady ? getCommonCategories(loadedBulkMetadata) : {},
+    [bulkMetadataReady, loadedBulkMetadata]
+  )
+  const metadata = isBulkMode ? loadedBulkMetadata[0] ?? singleMetadata : singleMetadata
+  const categories = isBulkMode ? bulkCategories : metadata?.categories
+  const availableTags = isBulkMode && loadedBulkMetadata.length > 0 ? getAvailableTags(loadedBulkMetadata) : metadata?.tags
   const preferences = metadata?.preferences
 
-  const { data: capabilities } = useInstanceCapabilities(instanceId)
+  const { data: capabilities } = useInstanceCapabilities(primaryInstanceId)
   const supportsTorrentTmpPath = capabilities?.supportsTorrentTmpPath ?? false
   const supportsPathAutocomplete = capabilities?.supportsPathAutocomplete ?? false
+
+  useEffect(() => {
+    if (!isBulkMode) {
+      return
+    }
+
+    if (selectableInstanceIds.length === 0) {
+      bulkSelectionInitializedRef.current = false
+      setBulkSelectedInstanceIds([])
+      return
+    }
+
+    const selectableIdSet = new Set(selectableInstanceIds)
+    setBulkSelectedInstanceIds((currentIds) => {
+      const filteredCurrentIds = currentIds.filter((id) => selectableIdSet.has(id))
+      if (bulkSelectionInitializedRef.current) {
+        return areNumberArraysEqual(filteredCurrentIds, currentIds) ? currentIds : filteredCurrentIds
+      }
+
+      bulkSelectionInitializedRef.current = true
+      const filteredPersistedIds = persistedBulkInstanceIds.filter((id) => selectableIdSet.has(id))
+      const nextIds = filteredPersistedIds.length > 0 ? filteredPersistedIds : selectableInstanceIds
+      return areNumberArraysEqual(nextIds, currentIds) ? currentIds : nextIds
+    })
+  }, [isBulkMode, persistedBulkInstanceIds, selectableInstanceIds])
+
+  const updateBulkSelectedInstanceIds = useCallback((nextIds: number[]) => {
+    const selectedIdSet = new Set(nextIds)
+    const orderedIds = selectableInstanceIds.filter((id) => selectedIdSet.has(id))
+    setBulkSelectedInstanceIds(orderedIds)
+    saveBulkInstanceIds(orderedIds)
+  }, [saveBulkInstanceIds, selectableInstanceIds])
+
+  const handleBulkInstanceChange = useCallback((instanceId: number, checked: boolean) => {
+    const selectedIdSet = new Set(bulkSelectedInstanceIds)
+    if (checked) {
+      selectedIdSet.add(instanceId)
+    } else {
+      selectedIdSet.delete(instanceId)
+    }
+    updateBulkSelectedInstanceIds(Array.from(selectedIdSet))
+  }, [bulkSelectedInstanceIds, updateBulkSelectedInstanceIds])
+
+  const handleBulkSelectAllToggle = useCallback(() => {
+    if (bulkSelectedInstanceIds.length === selectableInstanceIds.length) {
+      updateBulkSelectedInstanceIds([])
+      return
+    }
+    updateBulkSelectedInstanceIds(selectableInstanceIds)
+  }, [bulkSelectedInstanceIds.length, selectableInstanceIds, updateBulkSelectedInstanceIds])
 
   // Reset tag state when dialog closes
   useEffect(() => {
@@ -219,6 +396,11 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
       }
     }
   }, [])
+
+  const duplicateCheckInstanceIds = useMemo(
+    () => isBulkMode ? selectedBulkInstances.map((instance) => instance.id) : [instanceId],
+    [instanceId, isBulkMode, selectedBulkInstances]
+  )
 
   // Check for duplicate torrents when files or URLs are loaded
   const checkForDuplicates = useCallback(async (files: File[] | null, urls: string) => {
@@ -428,52 +610,61 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
 
     try {
       const hashList = Array.from(hashesForApi).slice(0, 512)
-      const response = await api.checkTorrentDuplicates(instanceId, hashList)
+      const duplicateResponses = await Promise.all(
+        duplicateCheckInstanceIds.map((targetInstanceId) =>
+          api.checkTorrentDuplicates(targetInstanceId, hashList).catch((error) => {
+            console.error("[checkForDuplicates] Failed to check duplicates via API:", error)
+            return null
+          })
+        )
+      )
       if (!isLatest()) {
         return
       }
 
-      for (const duplicate of response.duplicates ?? []) {
-        const displayName =
-          duplicate.name ||
-          duplicate.hash ||
-          duplicate.infohash_v1 ||
-          duplicate.infohash_v2 ||
-          t("torrents.existingTorrent")
-        if (displayName) {
-          duplicateNameSet.add(displayName)
-        }
-
-        const candidateHashes = new Set<string>()
-        if (duplicate.hash) {
-          candidateHashes.add(duplicate.hash.toLowerCase())
-        }
-        if (duplicate.infohash_v1) {
-          candidateHashes.add(duplicate.infohash_v1.toLowerCase())
-        }
-        if (duplicate.infohash_v2) {
-          candidateHashes.add(duplicate.infohash_v2.toLowerCase())
-        }
-        if (duplicate.matched_hashes) {
-          duplicate.matched_hashes.forEach((matched) => {
-            candidateHashes.add(matched.toLowerCase())
-          })
-        }
-
-        candidateHashes.forEach((candidateHash) => {
-          const sources = hashSources.get(candidateHash)
-          if (!sources) {
-            return
+      for (const response of duplicateResponses) {
+        for (const duplicate of response?.duplicates ?? []) {
+          const displayName =
+            duplicate.name ||
+            duplicate.hash ||
+            duplicate.infohash_v1 ||
+            duplicate.infohash_v2 ||
+            t("torrents.existingTorrent")
+          if (displayName) {
+            duplicateNameSet.add(displayName)
           }
 
-          sources.forEach((source) => {
-            if (source.type === "file") {
-              recordFileMatch(source.key, displayName, candidateHash)
-            } else {
-              recordUrlMatch(source.key, displayName, candidateHash)
+          const candidateHashes = new Set<string>()
+          if (duplicate.hash) {
+            candidateHashes.add(duplicate.hash.toLowerCase())
+          }
+          if (duplicate.infohash_v1) {
+            candidateHashes.add(duplicate.infohash_v1.toLowerCase())
+          }
+          if (duplicate.infohash_v2) {
+            candidateHashes.add(duplicate.infohash_v2.toLowerCase())
+          }
+          if (duplicate.matched_hashes) {
+            duplicate.matched_hashes.forEach((matched) => {
+              candidateHashes.add(matched.toLowerCase())
+            })
+          }
+
+          candidateHashes.forEach((candidateHash) => {
+            const sources = hashSources.get(candidateHash)
+            if (!sources) {
+              return
             }
+
+            sources.forEach((source) => {
+              if (source.type === "file") {
+                recordFileMatch(source.key, displayName, candidateHash)
+              } else {
+                recordUrlMatch(source.key, displayName, candidateHash)
+              }
+            })
           })
-        })
+        }
       }
     } catch (error) {
       console.error("[checkForDuplicates] Failed to check duplicates via API:", error)
@@ -481,7 +672,7 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
 
     publishResults()
     finalizeCheck()
-  }, [instanceId, torrents])
+  }, [duplicateCheckInstanceIds, torrents, t])
 
 
   // Combine API tags with temporarily added new tags and sort alphabetically
@@ -496,7 +687,7 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
   const duplicatePreviewRemaining = Math.max(duplicateSummary.existingNames.length - duplicatePreviewNames.length, 0)
   const showDuplicateCheckIndicator = duplicateCheckStatus === "visible"
 
-  const mutation = useMutation({
+  const mutation = useMutation<AddTorrentMutationResponse, Error, FormData>({
     retry: false, // Don't retry - could cause duplicate torrent additions
     mutationFn: async (data: FormData) => {
       // Use the user's explicit TMM choice
@@ -534,6 +725,25 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
         }
       }
 
+      if (isBulkMode) {
+        if (selectedBulkInstances.length === 0) {
+          throw new Error(t("torrents.selectAtLeastOneInstance"))
+        }
+
+        const results = await Promise.all(
+          selectedBulkInstances.map(async (instance): Promise<BulkAddTorrentResult> => {
+            try {
+              const response = await api.addTorrent(instance.id, submitData)
+              return { instanceId: instance.id, instanceName: instance.name, response }
+            } catch (error) {
+              return { instanceId: instance.id, instanceName: instance.name, error }
+            }
+          })
+        )
+
+        return { mode: "bulk", results }
+      }
+
       return api.addTorrent(instanceId, submitData)
     },
     onError: (error) => {
@@ -547,7 +757,73 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
         duration: 5000,
       })
     },
-    onSuccess: (response: AddTorrentResponse) => {
+    onSuccess: (response) => {
+      if ("mode" in response) {
+        const results = response.results
+        const successfulResults = results.filter((result) => result.response)
+        const totalAdded = successfulResults.reduce((sum, result) => sum + (result.response?.added ?? 0), 0)
+        const responseFailures = successfulResults.reduce((sum, result) => sum + (result.response?.failed ?? 0), 0)
+        const requestFailures = results.filter((result) => result.error).length
+        const totalFailed = responseFailures + requestFailures
+        const failedDetails = results.flatMap((result) => {
+          if (result.error) {
+            return [`${result.instanceName}: ${getErrorMessage(result.error)}`]
+          }
+
+          const addResponse = result.response
+          if (!addResponse || addResponse.failed === 0) {
+            return []
+          }
+
+          return [
+            ...(addResponse.failedURLs?.map(f => `${result.instanceName}: ${f.url}: ${f.error}`) ?? []),
+            ...(addResponse.failedFiles?.map(f => `${result.instanceName}: ${f.filename}: ${f.error}`) ?? []),
+          ]
+        })
+
+        if (successfulResults.length > 0) {
+          setTimeout(() => {
+            successfulResults.forEach((result) => {
+              queryClient.refetchQueries({
+                queryKey: ["torrents-list", result.instanceId],
+                exact: false,
+                type: "active",
+              })
+              queryClient.refetchQueries({
+                queryKey: ["instance-metadata", result.instanceId],
+                exact: false,
+                type: "active",
+              })
+            })
+          }, 500)
+        }
+
+        if (totalAdded > 0 && totalFailed === 0) {
+          toast.success(t("torrents.bulkAddTorrentSuccess", { count: totalAdded }))
+        } else if (totalAdded > 0) {
+          toast.warning(t("torrents.bulkAddTorrentPartialSuccess", { added: totalAdded, failed: totalFailed }), {
+            description: failedDetails.length > 0 ? failedDetails.slice(0, 3).join("\n") : undefined,
+            duration: 5000,
+          })
+        } else {
+          toast.error(t("torrents.bulkAddTorrentFailed"), {
+            description: failedDetails.length > 0 ? failedDetails.slice(0, 3).join("\n") : undefined,
+            duration: 5000,
+          })
+        }
+
+        if (successfulResults.length === 0) {
+          return
+        }
+
+        setOpen(false)
+        form.reset()
+        setSelectedTags([])
+        setNewTag("")
+        setTagSearch("")
+        return
+      }
+
       // Add small delay to allow qBittorrent to process the new torrent
       setTimeout(() => {
         // Use refetch instead of invalidate to avoid loading state
@@ -626,6 +902,37 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
     },
   })
 
+  useEffect(() => {
+    if (!isBulkMode) {
+      return
+    }
+
+    const selectedCategory = form.getFieldValue("category")
+    if (!selectedCategory || selectedCategory === "__none__") {
+      return
+    }
+
+    const categoryExists = Object.values(categories ?? {}).some((category) => category.name === selectedCategory)
+    if (!categoryExists) {
+      form.setFieldValue("category", "__none__")
+    }
+  }, [categories, form, isBulkMode])
+
+  useEffect(() => {
+    if (!isBulkMode || !open) {
+      return
+    }
+
+    const rawFiles = form.getFieldValue("torrentFiles")
+    const currentFiles = Array.isArray(rawFiles) ? (rawFiles as File[]) : null
+    const currentUrls = form.getFieldValue("urls") || ""
+    if ((!currentFiles || currentFiles.length === 0) && !currentUrls) {
+      return
+    }
+
+    checkForDuplicates(currentFiles, currentUrls)
+  }, [bulkSelectedInstanceIds, checkForDuplicates, form, isBulkMode, open])
+
   const setSavePath = useCallback((path: string) => {
     form.setFieldValue("savePath", path)
   }, [form])
@@ -642,7 +949,7 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
     highlightedIndex: saveHighlightedIndex,
     showSuggestions: showSaveSuggestions,
     inputRef: savePathInputRef,
-  } = usePathAutocomplete(setSavePath, instanceId);
+  } = usePathAutocomplete(setSavePath, primaryInstanceId);
 
   const {
     suggestions: tempSuggestions,
@@ -652,7 +959,7 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
     highlightedIndex: tempHighlightedIndex,
     showSuggestions: showTempSuggestions,
     inputRef: tempPathInputRef,
-  } = usePathAutocomplete(setTempPath, instanceId);
+  } = usePathAutocomplete(setTempPath, primaryInstanceId);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     // Filter to .torrent files only (iOS Safari may bypass accept attribute filtering)
@@ -799,17 +1106,17 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
     <Dialog open={open} onOpenChange={setOpen}>
       {controlledOpen === undefined && (
         <DialogTrigger asChild>
-          <Button>
+          <Button variant={isBulkMode ? "outline" : "default"} size={isBulkMode ? "sm" : "default"} className={isBulkMode ? "w-full sm:w-auto" : undefined}>
             <Plus className="mr-2 h-4 w-4 transition-transform duration-200" />
-            {t("torrents.addTorrent")}
+            {isBulkMode ? t("torrents.bulkAddTorrent") : t("torrents.addTorrent")}
           </Button>
         </DialogTrigger>
       )}
       <DialogContent className="flex flex-col w-full max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] sm:max-h-[85vh] p-0 !translate-y-0 !top-[5vh] sm:!top-[7.5vh]">
         <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-          <DialogTitle>{t("torrents.addNewTorrent")}</DialogTitle>
+          <DialogTitle>{isBulkMode ? t("torrents.bulkAddTorrent") : t("torrents.addNewTorrent")}</DialogTitle>
           <DialogDescription>
-            {t("torrents.addTorrentDesc")}
+            {isBulkMode ? t("torrents.bulkAddTorrentDesc") : t("torrents.addTorrentDesc")}
           </DialogDescription>
         </DialogHeader>
 
@@ -834,6 +1141,55 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
                 </TabsTrigger>
               </TabsList>
             </Tabs>
+
+            {isBulkMode && (
+              <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label>{t("torrents.targetInstances")}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t("torrents.selectedInstancesCount", { count: selectedBulkInstances.length })}
+                    </p>
+                  </div>
+                  {selectableInstances.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={handleBulkSelectAllToggle}
+                    >
+                      {bulkSelectedInstanceIds.length === selectableInstanceIds.length ? t("torrents.clearAll") : t("torrents.selectAllInstances")}
+                    </Button>
+                  )}
+                </div>
+
+                {selectableInstances.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                    {selectableInstances.map((instance) => {
+                      const checkboxId = `bulk-add-instance-${instance.id}`
+                      const checked = bulkSelectedInstanceIds.includes(instance.id)
+                      return (
+                        <label
+                          key={instance.id}
+                          htmlFor={checkboxId}
+                          className="flex items-center gap-2 rounded-md border bg-background/60 px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+                        >
+                          <Checkbox
+                            id={checkboxId}
+                            checked={checked}
+                            onCheckedChange={(value) => handleBulkInstanceChange(instance.id, value === true)}
+                          />
+                          <span className="truncate">{instance.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t("torrents.noConnectedInstances")}</p>
+                )}
+              </div>
+            )}
 
             {showDuplicateCheckIndicator && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1130,7 +1486,7 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
                         {categories && Object.entries(categories).length > 0 && (
                           <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">
-                              {t("torrents.availableCategoriesHint")} {categorySearch && `- filtering: "${categorySearch}"`}
+                              {isBulkMode ? t("torrents.availableCommonCategoriesHint") : t("torrents.availableCategoriesHint")} {categorySearch && `- filtering: "${categorySearch}"`}
                             </Label>
                             <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
                               {[
@@ -1161,6 +1517,12 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
                               <p className="text-xs text-muted-foreground">{t("torrents.noCategoriesMatch")} "{categorySearch}"</p>
                             )}
                           </div>
+                        )}
+                        {isBulkMode && selectedBulkInstances.length > 0 && !bulkMetadataReady && (
+                          <p className="text-xs text-muted-foreground">{t("torrents.loadingCommonCategories")}</p>
+                        )}
+                        {isBulkMode && selectedBulkInstances.length > 0 && bulkMetadataReady && Object.entries(categories || {}).length === 0 && (
+                          <p className="text-xs text-muted-foreground">{t("torrents.noCommonCategories")}</p>
                         )}
                       </>
                     )}
@@ -1632,7 +1994,8 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
               {({ canSubmit, isSubmitting, torrentFiles }) => {
                 const hasSelectedFiles = Array.isArray(torrentFiles) && torrentFiles.length > 0
                 const requiresFileSelection = activeTab === "file" && !hasSelectedFiles
-                const isDisabled = !canSubmit || isSubmitting || mutation.isPending || requiresFileSelection
+                const requiresInstanceSelection = isBulkMode && selectedBulkInstances.length === 0
+                const isDisabled = !canSubmit || isSubmitting || mutation.isPending || requiresFileSelection || requiresInstanceSelection
                 return (
                   <Button
                     type="submit"
@@ -1640,7 +2003,7 @@ export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChang
                     className="w-full sm:flex-1 h-11 sm:h-10 order-1 sm:order-2"
                     onClick={() => form.handleSubmit()}
                   >
-                    {isSubmitting || mutation.isPending ? t("torrents.adding") : t("torrents.addTorrent")}
+                    {isSubmitting || mutation.isPending ? t("torrents.adding") : isBulkMode ? t("torrents.bulkAddTorrent") : t("torrents.addTorrent")}
                   </Button>
                 )
               }}
