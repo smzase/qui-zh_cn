@@ -193,7 +193,11 @@ async function fetchInstanceMetadata(instanceId: number): Promise<InstanceMetada
     api.getInstancePreferences(instanceId),
   ])
 
-  return { categories, tags, preferences }
+  return {
+    categories: categories ?? {},
+    tags: Array.isArray(tags) ? tags : [],
+    preferences,
+  }
 }
 
 function getCommonCategories(metadataList: InstanceMetadata[]): Record<string, Category> {
@@ -204,9 +208,9 @@ function getCommonCategories(metadataList: InstanceMetadata[]): Record<string, C
   const [firstMetadata, ...remainingMetadata] = metadataList
   const commonCategories: Record<string, Category> = {}
 
-  Object.values(firstMetadata.categories).forEach((category) => {
+  Object.values(firstMetadata.categories ?? {}).forEach((category) => {
     const existsEverywhere = remainingMetadata.every((metadata) =>
-      Object.values(metadata.categories).some((candidate) => candidate.name === category.name)
+      Object.values(metadata.categories ?? {}).some((candidate) => candidate.name === category.name)
     )
 
     if (existsEverywhere) {
@@ -220,6 +224,9 @@ function getCommonCategories(metadataList: InstanceMetadata[]): Record<string, C
 function getAvailableTags(metadataList: InstanceMetadata[]): string[] {
   const tags = new Set<string>()
   metadataList.forEach((metadata) => {
+    if (!Array.isArray(metadata.tags)) {
+      return
+    }
     metadata.tags.forEach((tag) => tags.add(tag))
   })
   return Array.from(tags).sort((left, right) => left.localeCompare(right))
