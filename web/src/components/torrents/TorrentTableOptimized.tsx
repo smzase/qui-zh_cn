@@ -15,6 +15,7 @@ import { usePersistedColumnSizing } from "@/hooks/usePersistedColumnSizing"
 import { usePersistedColumnSorting } from "@/hooks/usePersistedColumnSorting"
 import { usePersistedColumnVisibility } from "@/hooks/usePersistedColumnVisibility"
 import { usePersistedCompactViewState } from "@/hooks/usePersistedCompactViewState"
+import { SYNCED_TORRENT_LAYOUT_KEY, usePersistedTorrentLayoutSync } from "@/hooks/usePersistedTorrentLayoutSync"
 import { TORRENT_ACTIONS, useTorrentActions } from "@/hooks/useTorrentActions"
 import { useTorrentExporter } from "@/hooks/useTorrentExporter"
 import { useTorrentsList } from "@/hooks/useTorrentsList"
@@ -44,6 +45,10 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  type ColumnOrderState,
+  type ColumnSizingState,
+  type SortingState,
+  type VisibilityState,
   useReactTable
 } from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -108,6 +113,7 @@ import {
   ChevronUp,
   Columns3,
   Folder,
+  Link2,
   Tag,
   X
 } from "lucide-react"
@@ -179,6 +185,35 @@ const DEFAULT_COLUMN_VISIBILITY = {
   instance: true,
 }
 const DEFAULT_COLUMN_SIZING = {}
+
+interface PersistedTorrentLayout {
+  sorting: SortingState
+  columnVisibility: VisibilityState
+  columnOrder: ColumnOrderState
+  columnSizing: ColumnSizingState
+}
+
+function persistTorrentLayout(layoutKey: string | number, layout: PersistedTorrentLayout) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  const keySuffix = String(layoutKey)
+  const entries: Array<[string, unknown]> = [
+    [`qui-column-sorting:${keySuffix}`, layout.sorting],
+    [`qui-column-visibility:${keySuffix}`, layout.columnVisibility],
+    [`qui-column-order:${keySuffix}`, layout.columnOrder],
+    [`qui-column-sizing:${keySuffix}`, layout.columnSizing],
+  ]
+
+  try {
+    entries.forEach(([storageKey, value]) => {
+      localStorage.setItem(storageKey, JSON.stringify(value))
+    })
+  } catch (error) {
+    console.error("Failed to persist torrent layout:", error)
+  }
+}
 
 // Helper function to get default column order (module scope for stable reference)
 function getDefaultColumnOrder(): string[] {
@@ -602,10 +637,12 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   const { t } = useTranslation()
   const isReadOnly = readOnly
   const isUnifiedView = isAllInstancesScope(instanceId)
+  const [torrentLayoutSyncEnabled, setTorrentLayoutSyncEnabled] = usePersistedTorrentLayoutSync()
+  const torrentLayoutKey = torrentLayoutSyncEnabled ? SYNCED_TORRENT_LAYOUT_KEY : instanceId
   // State management
   // Move default values outside the component for stable references
   // (This should be at module scope, not inside the component)
-  const [sorting, setSorting] = usePersistedColumnSorting([], instanceId)
+  const [sorting, setSorting] = usePersistedColumnSorting([], torrentLayoutKey)
   const [globalFilter, setGlobalFilter] = useState("")
   const [immediateSearch] = useState("")
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
@@ -732,13 +769,24 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   // const DEFAULT_COLUMN_VISIBILITY, DEFAULT_COLUMN_ORDER, DEFAULT_COLUMN_SIZING
 
   // Column visibility with persistence
-  const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(DEFAULT_COLUMN_VISIBILITY, instanceId)
+  const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(DEFAULT_COLUMN_VISIBILITY, torrentLayoutKey)
   // Column order with persistence (get default order at runtime to avoid initialization order issues)
-  const [columnOrder, setColumnOrder] = usePersistedColumnOrder(getDefaultColumnOrder(), instanceId)
+  const [columnOrder, setColumnOrder] = usePersistedColumnOrder(getDefaultColumnOrder(), torrentLayoutKey)
   // Column sizing with persistence
-  const [columnSizing, setColumnSizing] = usePersistedColumnSizing(DEFAULT_COLUMN_SIZING, instanceId)
+  const [columnSizing, setColumnSizing] = usePersistedColumnSizing(DEFAULT_COLUMN_SIZING, torrentLayoutKey)
   // Column filters with persistence
   const [columnFilters, setColumnFilters] = usePersistedColumnFilters(instanceId)
+
+  const handleTorrentLayoutSyncToggle = useCallback(() => {
+    const nextEnabled = !torrentLayoutSyncEnabled
+    persistTorrentLayout(nextEnabled ? SYNCED_TORRENT_LAYOUT_KEY : instanceId, {
+      sorting,
+      columnVisibility,
+      columnOrder,
+      columnSizing,
+    })
+    setTorrentLayoutSyncEnabled(nextEnabled)
+  }, [columnOrder, columnSizing, columnVisibility, instanceId, setTorrentLayoutSyncEnabled, sorting, torrentLayoutSyncEnabled])
 
   // Remove filters for columns that are no longer visible
   useEffect(() => {
@@ -2362,6 +2410,30 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
                 const container = typeof document !== "undefined" ? document.getElementById("header-search-actions") : null
                 const actions = (
                   <>
+                    <Tooltip disableHoverableContent={true}>
+                      <TooltipTrigger
+                        asChild
+                        onFocus={(e) => {
+                          e.preventDefault()
+                        }}
+                      >
+                        <Button
+                          variant={torrentLayoutSyncEnabled ? "secondary" : "outline"}
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={handleTorrentLayoutSyncToggle}
+                          aria-label={t("torrents.syncLayout")}
+                          aria-pressed={torrentLayoutSyncEnabled}
+                        >
+                          <Link2 className="h-4 w-4" />
+                          <span className="sr-only">{t("torrents.syncLayout")}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {torrentLayoutSyncEnabled ? t("torrents.layoutSyncEnabled") : t("torrents.layoutSyncDisabled")}
+                      </TooltipContent>
+                    </Tooltip>
+
                     {desktopViewMode === "compact" && compactSortOptions.length > 0 && (
                       <div className="flex items-center">
                         <DropdownMenu>
