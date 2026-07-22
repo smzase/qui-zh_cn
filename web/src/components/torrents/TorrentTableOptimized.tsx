@@ -220,44 +220,6 @@ function persistTorrentLayout(layoutKey: string | number, layout: PersistedTorre
   }
 }
 
-interface ExternalIPAddressProps {
-  address?: string | null
-  incognitoMode: boolean
-  label: string
-}
-
-const ExternalIPAddress = memo(
-  ({ address, incognitoMode, label }: ExternalIPAddressProps) => {
-    const { t } = useTranslation("torrents")
-
-    if (!address) return null
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge
-            variant="outline"
-            className="gap-1 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
-            aria-label={`${t("statusBar.external")} ${label}`}
-          >
-            <EthernetPort className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{label}</span>
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="font-mono text-xs">
-            <span {...(incognitoMode && { style: { filter: "blur(4px)" } })}>{address}</span>
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    )
-  },
-  (prev, next) =>
-    prev.address === next.address &&
-    prev.incognitoMode === next.incognitoMode &&
-    prev.label === next.label
-)
-
 interface TorrentTableOptimizedProps {
   instanceId: number
   instanceIds?: number[]
@@ -1908,9 +1870,22 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
                 <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
                   <div className="flex items-center gap-2 pr-2 border-r last:border-r-0 last:pr-0">
                     <ChevronDown className="h-3 w-3 text-muted-foreground"/>
-                    <span className="font-medium">{formatSpeedWithUnit(footerSpeeds.downloadSpeed, speedUnit)}</span>
+                    <span className="font-medium">
+                      {formatSpeedWithUnit(footerSpeeds.downloadSpeed, speedUnit)}
+                      {!isAllInstancesView && effectiveServerState?.dl_info_data !== undefined && effectiveServerState.dl_info_data > 0 && (
+                        <span className="text-muted-foreground font-normal"> ({formatBytes(effectiveServerState.dl_info_data)})</span>
+                      )}
+                    </span>
                     <ChevronUp className="h-3 w-3 text-muted-foreground"/>
-                    <span className="font-medium">{formatSpeedWithUnit(footerSpeeds.uploadSpeed, speedUnit)}</span>
+                    <span className="font-medium">
+                      {formatSpeedWithUnit(footerSpeeds.uploadSpeed, speedUnit)}
+                      {!isAllInstancesView && effectiveServerState?.up_rate_limit !== undefined && effectiveServerState.up_rate_limit > 0 && (
+                        <span className="text-muted-foreground font-normal"> [{formatSpeedWithUnit(effectiveServerState.up_rate_limit, speedUnit)}]</span>
+                      )}
+                      {!isAllInstancesView && effectiveServerState?.up_info_data !== undefined && effectiveServerState.up_info_data > 0 && (
+                        <span className="text-muted-foreground font-normal"> ({formatBytes(effectiveServerState.up_info_data)})</span>
+                      )}
+                    </span>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -2075,16 +2050,38 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
                     </div>
                   )}
                   <div className="flex items-center gap-2">
-                    <ExternalIPAddress
-                      address={effectiveServerState?.last_external_address_v4}
-                      incognitoMode={incognitoMode}
-                      label="IPv4"
-                    />
-                    <ExternalIPAddress
-                      address={effectiveServerState?.last_external_address_v6}
-                      incognitoMode={incognitoMode}
-                      label="IPv6"
-                    />
+                    {(effectiveServerState?.last_external_address_v4 || effectiveServerState?.last_external_address_v6) && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className="gap-1 px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
+                            aria-label={t("statusBar.externalIpAddresses")}
+                          >
+                            <EthernetPort className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>
+                              {effectiveServerState?.last_external_address_v4 && effectiveServerState?.last_external_address_v6? "IPv4 & IPv6": effectiveServerState?.last_external_address_v4? "IPv4": "IPv6"}
+                            </span>
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="font-mono text-xs space-y-1">
+                            {effectiveServerState?.last_external_address_v4 && (
+                              <div>
+                                <span className="text-muted-foreground mr-1">IPv4</span>
+                                <span {...(incognitoMode && { style: { filter: "blur(4px)" } })}>{effectiveServerState.last_external_address_v4}</span>
+                              </div>
+                            )}
+                            {effectiveServerState?.last_external_address_v6 && (
+                              <div>
+                                <span className="text-muted-foreground mr-1">IPv6</span>
+                                <span {...(incognitoMode && { style: { filter: "blur(4px)" } })}>{effectiveServerState.last_external_address_v6}</span>
+                              </div>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span

@@ -15,7 +15,6 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useSyncStream } from "@/contexts/SyncStreamContext"
 import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
 import { useInstanceCapabilities } from "@/hooks/useInstanceCapabilities"
 import { useInstanceMetadata } from "@/hooks/useInstanceMetadata"
@@ -31,7 +30,7 @@ import { getStateLabel } from "@/lib/torrent-state-utils"
 import { resolveTorrentHashes } from "@/lib/torrent-utils"
 import { getTrackerStatusBadge } from "@/lib/tracker-utils"
 import { cn, copyTextToClipboard, formatBytes, formatDuration } from "@/lib/utils"
-import type { SortedPeersResponse, Torrent, TorrentFile, TorrentFilters, TorrentStreamPayload, TorrentTracker, TorrentPeer } from "@/types"
+import type { SortedPeersResponse, Torrent, TorrentFile, TorrentFilters, TorrentTracker, TorrentPeer } from "@/types"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import "flag-icons/css/flag-icons.min.css"
 import { Ban, ChevronDown, ChevronUp, Copy, Loader2, Trash2, UserPlus, X } from "lucide-react"
@@ -151,55 +150,6 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       excludeTrackers: [],
     }
   }, [torrent?.hash])
-  const streamParams = useMemo(() => {
-    if (!hashFilter || !isReady) {
-      return null
-    }
-
-    return {
-      instanceId,
-      page: 0,
-      limit: 1,
-      sort: "added_on",
-      order: "desc" as const,
-      filters: hashFilter,
-    }
-  }, [hashFilter, instanceId, isReady])
-  const [streamTorrent, setStreamTorrent] = useState<Torrent | null>(null)
-  const handleStreamPayload = useCallback(
-    (payload: TorrentStreamPayload) => {
-      if (!payload?.data || !torrent?.hash) {
-        return
-      }
-
-      const nextTorrent = payload.data.torrents?.find(item => item.hash === torrent.hash) ?? null
-      if (!nextTorrent && payload.data.total === 0) {
-        setStreamTorrent(null)
-        return
-      }
-      if (nextTorrent) {
-        setStreamTorrent(nextTorrent)
-      }
-    },
-    [torrent?.hash]
-  )
-  const streamState = useSyncStream(streamParams, {
-    enabled: Boolean(streamParams),
-    onMessage: handleStreamPayload,
-  })
-
-  useEffect(() => {
-    setStreamTorrent(null)
-  }, [torrent?.hash])
-
-  // Drop the streamed snapshot when the stream is not live so the merge below falls
-  // back to fresh poll data instead of freezing on a stale pre-disconnect snapshot.
-  useEffect(() => {
-    if (!streamState.connected || streamState.error) {
-      setStreamTorrent(null)
-    }
-  }, [streamState.connected, streamState.error])
-
   // Fetch torrent properties
   const { data: properties, isLoading: loadingProperties } = useQuery({
     queryKey: ["torrent-properties", instanceId, torrent?.hash],
@@ -260,9 +210,9 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
     gcTime: 5 * 60 * 1000,
   })
 
-  const shouldUseFallbackPolling = !!torrent && isReady && (!streamState.connected || !!streamState.error)
+  const shouldUseFallbackPolling = !!torrent && isReady
 
-  // SSE is primary for live row state; polling only runs while stream is unavailable.
+  // REST polling for live row state (speeds, progress, etc.)
   const { data: polledLiveTorrent } = useQuery({
     queryKey: ["torrent-live-state", instanceId, torrent?.hash],
     queryFn: async () => {
@@ -278,7 +228,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   })
 
   // Merge live data with prop, preferring live values for frequently-changing fields
-  const liveTorrent = streamTorrent ?? polledLiveTorrent ?? null
+  const liveTorrent = polledLiveTorrent ?? null
   const displayTorrent = useMemo(() => {
     if (!torrent) return null
     if (!liveTorrent) return torrent

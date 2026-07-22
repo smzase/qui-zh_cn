@@ -870,6 +870,7 @@
     "connectionAriaLabel": "qBittorrent 连接状态：{{status}}",
     "connectionAriaLabelUnknown": "qBittorrent 连接状态未知",
     "external": "外部",
+    "externalIpAddresses": "外部 IP 地址",
     "streamStatus": {
       "crossInstance": {
         "label": "跨实例轮询",

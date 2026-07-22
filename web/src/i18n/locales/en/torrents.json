@@ -921,6 +921,7 @@
     "connectionAriaLabel": "qBittorrent connection status: {{status}}",
     "connectionAriaLabelUnknown": "qBittorrent connection status unknown",
     "external": "External",
+    "externalIpAddresses": "External IP addresses",
     "streamStatus": {
       "crossInstance": {
         "label": "Cross-instance polling",
