@@ -45,6 +45,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useCrossSeedInstanceState } from "@/hooks/useCrossSeedInstanceState"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useInstances } from "@/hooks/useInstances"
+import { usePersistedColumnFilterVisibility } from "@/hooks/usePersistedColumnFilterVisibility"
 import { usePersistedCompactViewState } from "@/hooks/usePersistedCompactViewState"
 import { usePersistedFilterSidebarState } from "@/hooks/usePersistedFilterSidebarState"
 import { usePersistedUnifiedInstanceFilter } from "@/hooks/usePersistedUnifiedInstanceFilter"
@@ -61,7 +62,7 @@ import { useQueries, useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { navigateWithSearch } from "@/lib/router-search"
 import { changeLanguage, languageNames, supportedLanguages } from "@/i18n"
-import { Archive, Check, ChevronsUpDown, Cog, Download, FileEdit, FileText, FunnelPlus, FunnelX, GitBranch, Globe, HardDrive, Home, Info, ListTodo, Loader2, LogOut, Menu, Plus, Rss, Search, SearchCode, Server, Settings, X, Zap } from "lucide-react"
+import { Archive, Check, ChevronsUpDown, Cog, Download, Eye, EyeOff, FileEdit, FileText, FunnelPlus, FunnelX, GitBranch, Globe, HardDrive, Home, Info, ListTodo, Loader2, LogOut, Menu, Plus, Rss, Search, SearchCode, Server, Settings, X, Zap } from "lucide-react"
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import { useTranslation } from "react-i18next"
@@ -245,6 +246,7 @@ export function Header({
 
   const isGlobSearch = !!searchValue && /[*?[\]]/.test(searchValue)
   const [filterSidebarCollapsed, setFilterSidebarCollapsed] = usePersistedFilterSidebarState(false)
+  const [columnFilterVisible, setColumnFilterVisible] = usePersistedColumnFilterVisibility(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastFilterToggleRef = useRef(0)
 
@@ -510,6 +512,24 @@ export function Header({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{filterSidebarCollapsed ? t("header.showFilters") : t("header.hideFilters")}</TooltipContent>
+            </Tooltip>
+            {/* Column filter visibility toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="hidden md:inline-flex"
+                  onClick={() => setColumnFilterVisible((prev) => !prev)}
+                >
+                  {columnFilterVisible ? (
+                    <Eye className="h-4 w-4" />
+                  ) : (
+                    <EyeOff className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{columnFilterVisible ? t("header.hideColumnFilters") : t("header.showColumnFilters")}</TooltipContent>
             </Tooltip>
             {isAllInstancesRoute && unifiedManageableInstances.length > 0 && (
               <>

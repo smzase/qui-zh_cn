@@ -18,7 +18,7 @@ import { useCallback, useRef, type Dispatch, type SetStateAction } from "react"
 type Sensors = ReturnType<typeof useSensors>
 
 export interface UseColumnDndParams {
-  instanceId: number
+  instanceId: string | number
   /** Default order, computed by the parent (kept module-scope there for a stable reference). */
   defaultColumnOrder: ColumnOrderState
   /** Latest accessor for the table's leaf column ids — the table is created after this hook. */

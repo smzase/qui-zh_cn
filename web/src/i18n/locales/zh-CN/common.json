@@ -35,6 +35,8 @@
     "noActiveInstances": "没有活动的实例",
     "showFilters": "显示筛选器",
     "hideFilters": "隐藏筛选器",
+    "showColumnFilters": "显示列筛选",
+    "hideColumnFilters": "隐藏列筛选",
     "addTorrent": "添加种子",
     "createTorrent": "创建种子",
     "torrentCreationTasks": "种子创建任务",

@@ -26,6 +26,8 @@ import { usePersistedColumnSizing } from "@/hooks/usePersistedColumnSizing"
 import { usePersistedColumnSorting } from "@/hooks/usePersistedColumnSorting"
 import { usePersistedColumnVisibility } from "@/hooks/usePersistedColumnVisibility"
 import { usePersistedCompactViewState } from "@/hooks/usePersistedCompactViewState"
+import { SYNCED_TORRENT_LAYOUT_KEY, usePersistedTorrentLayoutSync } from "@/hooks/usePersistedTorrentLayoutSync"
+import { usePersistedZoomLevel } from "@/hooks/usePersistedZoomLevel"
 import { TORRENT_ACTIONS, useTorrentActions } from "@/hooks/useTorrentActions"
 import { useTorrentExporter } from "@/hooks/useTorrentExporter"
 import { TORRENT_STREAM_POLL_INTERVAL_SECONDS, useTorrentsList } from "@/hooks/useTorrentsList"
@@ -34,6 +36,10 @@ import { getRowBackgroundClass } from "@/lib/torrent-table/row-display"
 import { resolveTrackerHealthSupport } from "@/lib/tracker-health-support"
 import { formatBytes } from "@/lib/utils"
 import {
+  type ColumnOrderState,
+  type ColumnSizingState,
+  type SortingState,
+  type VisibilityState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -99,13 +105,16 @@ import {
   Globe,
   HardDrive,
   LayoutGrid,
+  Link2,
   Loader2,
   Rabbit,
   RefreshCcw,
   Rows3,
   Table as TableIcon,
   Turtle,
-  X
+  X,
+  ZoomIn,
+  ZoomOut
 } from "lucide-react"
 import { AddTorrentDialog, type AddTorrentDropPayload } from "./AddTorrentDialog"
 import { SelectAllHotkey } from "./SelectAllHotkey"
@@ -180,6 +189,35 @@ function getDefaultColumnOrder(): string[] {
   }
 
   return order
+}
+
+interface PersistedTorrentLayout {
+  sorting: SortingState
+  columnVisibility: VisibilityState
+  columnOrder: ColumnOrderState
+  columnSizing: ColumnSizingState
+}
+
+function persistTorrentLayout(layoutKey: string | number, layout: PersistedTorrentLayout) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  const keySuffix = String(layoutKey)
+  const entries: Array<[string, unknown]> = [
+    [`qui-column-sorting:${keySuffix}`, layout.sorting],
+    [`qui-column-visibility:${keySuffix}`, layout.columnVisibility],
+    [`qui-column-order:${keySuffix}`, layout.columnOrder],
+    [`qui-column-sizing:${keySuffix}`, layout.columnSizing],
+  ]
+
+  try {
+    entries.forEach(([storageKey, value]) => {
+      localStorage.setItem(storageKey, JSON.stringify(value))
+    })
+  } catch (error) {
+    console.error("Failed to persist torrent layout:", error)
+  }
 }
 
 interface ExternalIPAddressProps {
@@ -274,10 +312,12 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
 }: TorrentTableOptimizedProps) {
   const isReadOnly = readOnly
   const isUnifiedView = isAllInstancesScope(instanceId)
+  const [torrentLayoutSyncEnabled, setTorrentLayoutSyncEnabled] = usePersistedTorrentLayoutSync()
+  const torrentLayoutKey = torrentLayoutSyncEnabled ? SYNCED_TORRENT_LAYOUT_KEY : instanceId
   // State management
   // Move default values outside the component for stable references
   // (This should be at module scope, not inside the component)
-  const [sorting, setSorting] = usePersistedColumnSorting([], instanceId)
+  const [sorting, setSorting] = usePersistedColumnSorting([], torrentLayoutKey)
   const [dropPayload, setDropPayload] = useState<AddTorrentDropPayload | null>(null)
 
   // Instance preferences dialog state
@@ -299,6 +339,9 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   // Desktop view mode state (separate from mobile view mode)
   const { viewMode: desktopViewMode, cycleViewMode } = usePersistedCompactViewState("normal", TABLE_ALLOWED_VIEW_MODES)
 
+  // Zoom level for the torrent list (persisted, synced with Torrents.tsx via custom event)
+  const { zoomLevel, zoomIn, zoomOut, resetZoom } = usePersistedZoomLevel(100)
+
   const { trackerIcons, trackerCustomizationLookup } = useTrackerIconCache()
 
   // These should be defined at module scope, not inside the component, to ensure stable references
@@ -306,24 +349,35 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   // const DEFAULT_COLUMN_VISIBILITY, DEFAULT_COLUMN_ORDER, DEFAULT_COLUMN_SIZING
 
   // Column visibility with persistence
-  const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(DEFAULT_COLUMN_VISIBILITY, instanceId)
+  const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(DEFAULT_COLUMN_VISIBILITY, torrentLayoutKey)
   // Column order with persistence (get default order at runtime to avoid initialization order issues)
   // Latest accessor for the table's leaf column ids — reassigned after the table
   // is created below; useColumnDnd reads it lazily at drag time.
   const leafColumnIdsRef = useRef<() => string[]>(() => [])
   const getLeafColumnIds = useCallback(() => leafColumnIdsRef.current(), [])
   const { columnOrder, setColumnOrder, sensors, onDragEnd } = useColumnDnd({
-    instanceId,
+    instanceId: torrentLayoutKey,
     defaultColumnOrder: getDefaultColumnOrder(),
     getLeafColumnIds,
   })
   // Column sizing with persistence
-  const [columnSizing, setColumnSizing] = usePersistedColumnSizing(DEFAULT_COLUMN_SIZING, instanceId)
+  const [columnSizing, setColumnSizing] = usePersistedColumnSizing(DEFAULT_COLUMN_SIZING, torrentLayoutKey)
   // Column filters with persistence
   const [columnFilters, setColumnFilters] = usePersistedColumnFilters(instanceId)
 
   // Delayed loading state to avoid flicker on fast loads
   const [showLoadingState, setShowLoadingState] = useState(false)
+
+  const handleTorrentLayoutSyncToggle = useCallback(() => {
+    const nextEnabled = !torrentLayoutSyncEnabled
+    persistTorrentLayout(nextEnabled ? SYNCED_TORRENT_LAYOUT_KEY : instanceId, {
+      sorting,
+      columnVisibility,
+      columnOrder,
+      columnSizing,
+    })
+    setTorrentLayoutSyncEnabled(nextEnabled)
+  }, [columnOrder, columnSizing, columnVisibility, instanceId, setTorrentLayoutSyncEnabled, sorting, torrentLayoutSyncEnabled])
 
   // Use the shared torrent actions hook
   const {
@@ -1248,6 +1302,31 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
                       </Tooltip>
                     )}
 
+                    {/* Layout sync toggle */}
+                    <Tooltip>
+                      <TooltipTrigger
+                        asChild
+                        onFocus={(e) => {
+                          e.preventDefault()
+                        }}
+                      >
+                        <Button
+                          variant={torrentLayoutSyncEnabled ? "secondary" : "outline"}
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={handleTorrentLayoutSyncToggle}
+                          aria-label={t("syncLayout")}
+                          aria-pressed={torrentLayoutSyncEnabled}
+                        >
+                          <Link2 className="h-4 w-4" />
+                          <span className="sr-only">{t("syncLayout")}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {torrentLayoutSyncEnabled ? t("layoutSyncEnabled") : t("layoutSyncDisabled")}
+                      </TooltipContent>
+                    </Tooltip>
+
                     {desktopViewMode !== "compact" && (
                       <DropdownMenu>
                         <Tooltip disableHoverableContent={true}>
@@ -1938,6 +2017,49 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
                         {incognitoMode ? t("statusBar.incognitoOn") : t("statusBar.incognitoOff")}
                       </span>
                     </Button>
+                  </div>
+                  <div className="flex items-center gap-1 pr-2 border-r last:border-r-0 last:pr-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={zoomOut}
+                          disabled={zoomLevel <= 50}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-accent-foreground"
+                        >
+                          <ZoomOut className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("statusBar.zoomOut")}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={resetZoom}
+                          className="h-6 px-1.5 text-xs text-muted-foreground hover:text-accent-foreground"
+                        >
+                          {zoomLevel}%
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("statusBar.zoomReset")}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={zoomIn}
+                          disabled={zoomLevel >= 200}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-accent-foreground"
+                        >
+                          <ZoomIn className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("statusBar.zoomIn")}</TooltipContent>
+                    </Tooltip>
                   </div>
                   {effectiveServerState?.free_space_on_disk !== undefined && (
                     <div className="flex items-center gap-2 pr-2 border-r last:border-r-0 last:pr-0">
