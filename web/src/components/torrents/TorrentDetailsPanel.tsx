@@ -34,7 +34,7 @@ import { cn, copyTextToClipboard, formatBytes, formatDuration } from "@/lib/util
 import type { SortedPeersResponse, Torrent, TorrentFile, TorrentFilters, TorrentStreamPayload, TorrentTracker, TorrentPeer } from "@/types"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import "flag-icons/css/flag-icons.min.css"
-import { Ban, Copy, Loader2, Trash2, UserPlus, X } from "lucide-react"
+import { Ban, ChevronDown, ChevronUp, Copy, Loader2, Trash2, UserPlus, X } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -51,6 +51,7 @@ interface TorrentDetailsPanelProps {
   layout?: "horizontal" | "vertical";
   onClose?: () => void;
   onNavigateToTorrent?: (instanceId: number, torrentHash: string) => void;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 const TAB_VALUES = ["general", "trackers", "peers", "webseeds", "content", "crossseed"] as const
@@ -64,7 +65,7 @@ function isTabValue(value: string): value is TabValue {
 
 
 
-export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceId, torrent, initialTab, onInitialTabConsumed, layout = "vertical", onClose, onNavigateToTorrent }: TorrentDetailsPanelProps) {
+export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceId, torrent, initialTab, onInitialTabConsumed, layout = "vertical", onClose, onNavigateToTorrent, onCollapsedChange }: TorrentDetailsPanelProps) {
   const { t } = useTranslation("torrents")
   const [activeTab, setActiveTab] = usePersistedTabState<TabValue>(TAB_STORAGE_KEY, DEFAULT_TAB, isTabValue)
 
@@ -85,6 +86,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   const [peersToAdd, setPeersToAdd] = useState("")
   const [peerToBan, setPeerToBan] = useState<TorrentPeer | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const { data: metadata } = useInstanceMetadata(instanceId)
   const { data: capabilities } = useInstanceCapabilities(instanceId)
   const queryClient = useQueryClient()
@@ -867,9 +869,22 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className={cn("flex flex-col", isCollapsed ? "h-auto" : "h-full")}>
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-none"
+            onClick={() => {
+              const next = !isCollapsed
+              setIsCollapsed(next)
+              onCollapsedChange?.(next)
+            }}
+            aria-label={isCollapsed ? t("common:expand") : t("common:collapse")}
+          >
+            {isCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          </Button>
           <div className="flex-1 overflow-x-auto scroll-smooth">
             <TabsList className="w-full justify-start rounded-none h-8 bg-background px-4 sm:px-2 flex-nowrap overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <TabsTrigger value="general" className="text-xs shrink-0">
@@ -908,7 +923,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
         </div>
 
 
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className={cn("flex-1 min-h-0 overflow-hidden", isCollapsed && "hidden")}>
           <TabsContent value="general" className="m-0 h-full">
             {isHorizontal ? (
               <GeneralTabHorizontal

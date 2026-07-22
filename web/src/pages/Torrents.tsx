@@ -27,7 +27,7 @@ import { isAllInstancesScope, normalizeUnifiedInstanceIds } from "@/lib/instance
 import { cn } from "@/lib/utils"
 import type { Category, CrossInstanceTorrent, Torrent, TorrentCounts } from "@/types"
 import { useNavigate } from "@tanstack/react-router"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels"
 
@@ -83,6 +83,11 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   const [selectedTorrent, setSelectedTorrent] = useState<Torrent | null>(null)
   const [initialDetailsTab, setInitialDetailsTab] = useState<string | undefined>(undefined)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false)
+  const [filterHoverOpen, setFilterHoverOpen] = useState(false)
+  const [filterHoverClosing, setFilterHoverClosing] = useState(false)
+  const [filterHoverPosition, setFilterHoverPosition] = useState({ x: 0, y: 0 })
+  const filterHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const handleInitialTabConsumed = useCallback(() => setInitialDetailsTab(undefined), [])
   const navigate = useNavigate()
   const getTorrentInstanceId = useCallback((torrent: Torrent | null | undefined) => {
@@ -303,6 +308,39 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
     // Note: We keep torrentCounts/categories/tags until new data arrives to prevent flickering zeros
     // The TorrentTableOptimized callback will only update when complete data is available
   }, [instanceId])
+
+  // Reset details collapse state when selected torrent changes
+  useEffect(() => {
+    setDetailsCollapsed(false)
+  }, [selectedTorrent?.hash])
+
+  // Filter hover popover: listen for show/hide events from the header filter button
+  useEffect(() => {
+    const handleShow = (e: Event) => {
+      const custom = e as CustomEvent<{ x: number; y: number }>
+      clearTimeout(filterHoverTimeoutRef.current)
+      setFilterHoverClosing(false)
+      setFilterHoverPosition({ x: custom.detail?.x ?? 0, y: custom.detail?.y ?? 0 })
+      setFilterHoverOpen(true)
+    }
+    const handleHide = () => {
+      clearTimeout(filterHoverTimeoutRef.current)
+      filterHoverTimeoutRef.current = setTimeout(() => {
+        setFilterHoverClosing(true)
+        filterHoverTimeoutRef.current = setTimeout(() => {
+          setFilterHoverOpen(false)
+          setFilterHoverClosing(false)
+        }, 150)
+      }, 300)
+    }
+    window.addEventListener("qui-filter-hover-show", handleShow)
+    window.addEventListener("qui-filter-hover-hide", handleHide)
+    return () => {
+      window.removeEventListener("qui-filter-hover-show", handleShow)
+      window.removeEventListener("qui-filter-hover-hide", handleHide)
+      clearTimeout(filterHoverTimeoutRef.current)
+    }
+  }, [])
 
   // Callback when filtered data updates - now receives counts, categories, tags, and useSubcategories from backend
   const handleFilteredDataUpdate = useCallback((_torrents: Torrent[], _total: number, counts?: TorrentCounts, categoriesData?: Record<string, Category>, tagsData?: string[], subcategoriesEnabled?: boolean, trackerHealthEnabled?: boolean) => {
@@ -546,7 +584,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                       }
                     }}
                   >
-                    <div className="h-full border-t bg-background">
+                    <div className={cn("border-t bg-background", detailsCollapsed ? "h-auto" : "h-full")}>
                       <TorrentDetailsPanel
                         instanceId={selectedTorrentInstanceId}
                         torrent={selectedTorrent}
@@ -555,6 +593,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                         layout="horizontal"
                         onClose={() => setSelectedTorrent(null)}
                         onNavigateToTorrent={handleNavigateToTorrent}
+                        onCollapsedChange={setDetailsCollapsed}
                       />
                     </div>
                   </ResizablePanel>
@@ -579,6 +618,50 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
               onFilteredDataUpdate={handleFilteredDataUpdate}
               onFilterChange={setFilters}
             />
+          </div>
+        )}
+        {/* Desktop Filter Hover Popover */}
+        {filterHoverOpen && !isMobile && (
+          <div
+            className="fixed z-50 hidden md:block"
+            style={{
+              top: filterHoverPosition.y + 4,
+              left: filterHoverPosition.x,
+            }}
+            onMouseEnter={() => clearTimeout(filterHoverTimeoutRef.current)}
+            onMouseLeave={() => {
+              clearTimeout(filterHoverTimeoutRef.current)
+              filterHoverTimeoutRef.current = setTimeout(() => {
+                setFilterHoverClosing(true)
+                filterHoverTimeoutRef.current = setTimeout(() => {
+                  setFilterHoverOpen(false)
+                  setFilterHoverClosing(false)
+                }, 150)
+              }, 300)
+            }}
+          >
+            <div className={cn(
+              "w-[300px] max-h-[70vh] overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg",
+              filterHoverClosing? "animate-out fade-out-0 zoom-out-95 duration-150": "animate-in fade-in-0 zoom-in-95 duration-150"
+            )}>
+              <FilterSidebar
+                key={`filter-hover-${instanceId}`}
+                instanceId={instanceId}
+                readOnly={isAllInstances}
+                supportsTrackerHealth={isAllInstances ? supportsTrackerHealth : undefined}
+                selectedFilters={filters}
+                onFilterChange={setFilters}
+                torrentCounts={torrentCounts}
+                categorySizes={categorySizes}
+                tagSizes={tagSizes}
+                categories={categories}
+                tags={tags}
+                useSubcategories={useSubcategories}
+                isStaleData={lastInstanceId !== null && lastInstanceId !== instanceId}
+                isLoading={lastInstanceId !== null && lastInstanceId !== instanceId}
+                isMobile={false}
+              />
+            </div>
           </div>
         )}
       </div>

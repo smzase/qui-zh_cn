@@ -72,6 +72,8 @@
     "expandScope": "展开统一视图",
     "allActive": "全部活动 ({{count}})"
   },
+  "expand": "展开",
+  "collapse": "折叠",
   "mobileNav": {
     "dashboard": "仪表盘",
     "clients": "客户端",

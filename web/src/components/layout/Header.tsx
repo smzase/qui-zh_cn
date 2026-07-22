@@ -257,8 +257,24 @@ export function Header({
     }
 
     lastFilterToggleRef.current = now
+    window.dispatchEvent(new CustomEvent("qui-filter-hover-hide"))
     setFilterSidebarCollapsed((prev) => !prev)
   }, [setFilterSidebarCollapsed])
+
+  const handleFilterMouseEnter = useCallback(() => {
+    if (!filterSidebarCollapsed) {
+      return
+    }
+    const btn = document.querySelector("[data-filter-toggle-btn]")
+    const rect = btn?.getBoundingClientRect()
+    window.dispatchEvent(new CustomEvent("qui-filter-hover-show", {
+      detail: { x: rect?.left ?? 0, y: rect?.bottom ?? 0 },
+    }))
+  }, [filterSidebarCollapsed])
+
+  const handleFilterMouseLeave = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("qui-filter-hover-hide"))
+  }, [])
 
   // Detect platform for appropriate key display
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
@@ -502,7 +518,10 @@ export function Header({
                   variant="outline"
                   size="icon"
                   className="hidden md:inline-flex"
+                  data-filter-toggle-btn
                   onClick={handleToggleFilters}
+                  onMouseEnter={handleFilterMouseEnter}
+                  onMouseLeave={handleFilterMouseLeave}
                 >
                   {filterSidebarCollapsed ? (
                     <FunnelPlus className="h-4 w-4" />

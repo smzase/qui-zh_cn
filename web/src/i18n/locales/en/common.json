@@ -72,6 +72,8 @@
     "expandScope": "Expand unified scope",
     "allActive": "All active ({{count}})"
   },
+  "expand": "Expand",
+  "collapse": "Collapse",
   "mobileNav": {
     "dashboard": "Dashboard",
     "clients": "Clients",

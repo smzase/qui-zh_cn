@@ -7,6 +7,7 @@ import { InstanceErrorDisplay } from "@/components/instances/InstanceErrorDispla
 import { InstanceSettingsButton } from "@/components/instances/InstanceSettingsButton"
 import { MagnetHandlerBanner } from "@/components/MagnetHandlerBanner"
 import { PasswordIssuesBanner } from "@/components/instances/PasswordIssuesBanner"
+import { AddTorrentDialog } from "@/components/torrents/AddTorrentDialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import {
   AlertDialog,
@@ -3004,6 +3005,12 @@ export function Dashboard() {
   // stats stream; after the delayed hide, we stop the heavy stream and only
   // poll transfer info for title bar speeds.
   const statsData = useAllInstanceStats(activeInstances, { enabled: !isHiddenDelayed })
+  const connectedInstances = useMemo(
+    () => statsData
+      .filter(({ instance }) => instance?.connected)
+      .map(({ instance }) => instance),
+    [statsData]
+  )
   const globalStats = useGlobalStats(statsData)
   const transferInfoQueries = useQueries({
     queries: activeInstances.map(instance => ({
@@ -3087,6 +3094,13 @@ export function Dashboard() {
           </p>
           {instances && instances.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              {connectedInstances.length > 0 && (
+                <AddTorrentDialog
+                  instanceId={connectedInstances[0].id}
+                  mode="bulk"
+                  instances={connectedInstances}
+                />
+              )}
               <QuickActionsDropdown statsData={statsData} />
               <Link to="/settings" search={{ tab: "instances" as const, modal: "add-instance" }} className="w-full sm:w-auto">
                 <Button variant="outline" size="sm" className="w-full sm:w-auto">

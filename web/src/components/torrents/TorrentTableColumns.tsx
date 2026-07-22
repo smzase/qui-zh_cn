@@ -5,7 +5,6 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Progress } from "@/components/ui/progress"
 import {
   Tooltip,
   TooltipContent,
@@ -631,19 +630,23 @@ export const createColumns = (
     {
       accessorKey: "progress",
       header: t?.("tableColumns.progress") ?? "Progress",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Progress value={row.original.progress * 100} className="w-20" />
-          <span className="text-xs text-muted-foreground">
-            {row.original.progress >= 0.99 && row.original.progress < 1 ? (
-              (Math.floor(row.original.progress * 1000) / 10).toFixed(1)
-            ) : (
-              Math.round(row.original.progress * 100)
-            )}%
-          </span>
-        </div>
-      ),
-      size: 120,
+      cell: ({ row }) => {
+        const pct = row.original.progress >= 0.99 && row.original.progress < 1? (Math.floor(row.original.progress * 1000) / 10).toFixed(1): Math.round(row.original.progress * 100)
+        return (
+          <div className="relative w-full">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${row.original.progress * 100}%` }}
+              />
+            </div>
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-medium text-white dark:text-[oklch(0.1450_0_0)] whitespace-nowrap [-webkit-text-stroke:0.8px_oklch(0.145_0_0)] dark:[-webkit-text-stroke:0.8px_oklch(0.855_0_0)] [paint-order:stroke_fill]">
+              {pct}%
+            </span>
+          </div>
+        )
+      },
+      size: 100,
     },
     {
       id: "status_icon",
