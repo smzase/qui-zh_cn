@@ -432,7 +432,7 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
 
   // Fetch metadata using shared hook
   const { data: metadata, isLoading: isMetadataLoading } = useInstanceMetadata(instanceId, {
-    fallbackDelayMs: 1500,
+    fallbackDelayMs: 0,
   })
   const metadataTags = metadata?.tags || []
   const metadataCategories = metadata?.categories || {}

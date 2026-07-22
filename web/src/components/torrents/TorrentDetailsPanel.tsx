@@ -84,7 +84,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   const [showBanPeerDialog, setShowBanPeerDialog] = useState(false)
   const [peersToAdd, setPeersToAdd] = useState("")
   const [peerToBan, setPeerToBan] = useState<TorrentPeer | null>(null)
-  const [isReady, setIsReady] = useState(false)
+  const isReady = true
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { data: metadata } = useInstanceMetadata(instanceId)
   const { data: capabilities } = useInstanceCapabilities(instanceId)
@@ -113,14 +113,6 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       toast.error(t("detailsPanel.toast.copyFailed"))
     }
   }, [t])
-  // Wait for component animation before enabling queries when torrent changes
-  useEffect(() => {
-    setIsReady(false)
-    // Small delay to ensure parent component animations complete
-    const timer = setTimeout(() => setIsReady(true), 150)
-    return () => clearTimeout(timer)
-  }, [torrent?.hash])
-
   // Clear cross-seed selection when torrent changes
   useEffect(() => {
     setSelectedCrossSeedTorrents(new Set())
