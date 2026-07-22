@@ -61,7 +61,7 @@ func (h *InstancesHandler) GetInstanceCapabilities(w http.ResponseWriter, r *htt
 				return
 			}
 			log.Error().Err(err).Int("instanceID", instanceID).Msg("Failed to get client for capabilities")
-			RespondError(w, http.StatusServiceUnavailable, "Failed to load instance capabilities")
+			RespondError(w, http.StatusServiceUnavailable, instanceCapabilitiesClientErrorMessage(err))
 			return
 		}
 	}
@@ -77,6 +77,13 @@ func (h *InstancesHandler) GetInstanceCapabilities(w http.ResponseWriter, r *htt
 
 	capabilities := NewInstanceCapabilitiesResponse(client)
 	RespondJSON(w, http.StatusOK, capabilities)
+}
+
+func instanceCapabilitiesClientErrorMessage(err error) string {
+	if message, ok := internalqbittorrent.InstanceHealthBlockerMessage(err); ok {
+		return message
+	}
+	return "Failed to load instance capabilities"
 }
 
 // GetReannounceActivity returns recent reannounce events for an instance.
@@ -201,6 +208,7 @@ func (h *InstancesHandler) buildInstanceResponsesParallel(ctx context.Context, i
 				Name:                     instances[i].Name,
 				Host:                     instances[i].Host,
 				Username:                 instances[i].Username,
+				HasAPIKey:                instances[i].APIKeyEncrypted != "",
 				BasicUsername:            instances[i].BasicUsername,
 				TLSSkipVerify:            instances[i].TLSSkipVerify,
 				HasLocalFilesystemAccess: instances[i].HasLocalFilesystemAccess,
@@ -236,8 +244,8 @@ func (h *InstancesHandler) buildInstanceResponse(ctx context.Context, instance *
 	if !instance.IsActive {
 		connectionStatus = "disabled"
 	} else if client != nil && h.syncManager != nil {
-		if status := strings.TrimSpace(h.syncManager.ReadCachedConnectionStatus(ctx, instance.ID)); status != "" {
-			connectionStatus = strings.ToLower(status)
+		if status := internalqbittorrent.NormalizeConnectionStatus(h.syncManager.ReadCachedConnectionStatus(ctx, instance.ID)); status != "" {
+			connectionStatus = status
 		}
 	}
 
@@ -249,6 +257,7 @@ func (h *InstancesHandler) buildInstanceResponse(ctx context.Context, instance *
 		Name:                     instance.Name,
 		Host:                     instance.Host,
 		Username:                 instance.Username,
+		HasAPIKey:                instance.APIKeyEncrypted != "",
 		BasicUsername:            instance.BasicUsername,
 		TLSSkipVerify:            instance.TLSSkipVerify,
 		HasLocalFilesystemAccess: instance.HasLocalFilesystemAccess,
@@ -291,6 +300,7 @@ func (h *InstancesHandler) buildQuickInstanceResponse(instance *models.Instance)
 		Name:                     instance.Name,
 		Host:                     instance.Host,
 		Username:                 instance.Username,
+		HasAPIKey:                instance.APIKeyEncrypted != "",
 		BasicUsername:            instance.BasicUsername,
 		TLSSkipVerify:            instance.TLSSkipVerify,
 		HasLocalFilesystemAccess: instance.HasLocalFilesystemAccess,
@@ -374,6 +384,7 @@ type CreateInstanceRequest struct {
 	Host                     string                             `json:"host"`
 	Username                 string                             `json:"username"`
 	Password                 string                             `json:"password"`
+	APIKey                   string                             `json:"apiKey,omitempty"`
 	BasicUsername            *string                            `json:"basicUsername,omitempty"`
 	BasicPassword            *string                            `json:"basicPassword,omitempty"`
 	TLSSkipVerify            bool                               `json:"tlsSkipVerify,omitempty"`
@@ -387,6 +398,7 @@ type UpdateInstanceRequest struct {
 	Host                     string                             `json:"host"`
 	Username                 string                             `json:"username"`
 	Password                 string                             `json:"password,omitempty"` // Optional for updates
+	APIKey                   *string                            `json:"apiKey,omitempty"`
 	BasicUsername            *string                            `json:"basicUsername,omitempty"`
 	BasicPassword            *string                            `json:"basicPassword,omitempty"`
 	TLSSkipVerify            *bool                              `json:"tlsSkipVerify,omitempty"`
@@ -409,6 +421,7 @@ type InstanceResponse struct {
 	Name                     string                            `json:"name"`
 	Host                     string                            `json:"host"`
 	Username                 string                            `json:"username"`
+	HasAPIKey                bool                              `json:"hasApiKey"`
 	BasicUsername            *string                           `json:"basicUsername,omitempty"`
 	TLSSkipVerify            bool                              `json:"tlsSkipVerify"`
 	HasLocalFilesystemAccess bool                              `json:"hasLocalFilesystemAccess"`
@@ -597,7 +610,7 @@ func (h *InstancesHandler) CreateInstance(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create instance
-	instance, err := h.instanceStore.Create(r.Context(), req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, req.TLSSkipVerify, req.HasLocalFilesystemAccess)
+	instance, err := h.instanceStore.Create(r.Context(), req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, req.TLSSkipVerify, req.HasLocalFilesystemAccess, req.APIKey)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create instance")
 		RespondError(w, http.StatusInternalServerError, "Failed to create instance")
@@ -663,6 +676,11 @@ func (h *InstancesHandler) UpdateInstance(w http.ResponseWriter, r *http.Request
 		req.BasicPassword = existingInstance.BasicPasswordEncrypted
 	}
 
+	// Handle redacted API key - if redacted, preserve the existing API key
+	if req.APIKey != nil && domain.IsRedactedString(*req.APIKey) {
+		req.APIKey = nil
+	}
+
 	// Validate hardlink/reflink settings
 	effectiveLocalAccess := existingInstance.HasLocalFilesystemAccess
 	if req.HasLocalFilesystemAccess != nil {
@@ -719,7 +737,7 @@ func (h *InstancesHandler) UpdateInstance(w http.ResponseWriter, r *http.Request
 		UseReflinks:              req.UseReflinks,
 		FallbackToRegularMode:    req.FallbackToRegularMode,
 	}
-	instance, err := h.instanceStore.Update(r.Context(), instanceID, req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, updateParams)
+	instance, err := h.instanceStore.Update(r.Context(), instanceID, req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, updateParams, req.APIKey)
 	if err != nil {
 		if errors.Is(err, models.ErrInstanceNotFound) {
 			RespondError(w, http.StatusNotFound, "Instance not found")

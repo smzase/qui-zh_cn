@@ -23,7 +23,6 @@ import type {
   BackupRunsResponse,
   BackupSettings,
   Category,
-  CrossInstanceTorrent,
   CrossSeedApplyResponse,
   CrossSeedAutomationSettings,
   CrossSeedAutomationSettingsPatch,
@@ -35,6 +34,7 @@ import type {
   CrossSeedSearchSettings,
   CrossSeedSearchSettingsPatch,
   CrossSeedSearchStatus,
+  SeasonPackRun,
   CrossSeedTorrentInfo,
   CrossSeedTorrentSearchResponse,
   CrossSeedTorrentSearchSelection,
@@ -67,6 +67,7 @@ import type {
   LocalCrossSeedMatch,
   LogExclusions,
   LogExclusionsInput,
+  LogFile,
   LogSettings,
   LogSettingsUpdate,
   MarkRSSAsReadRequest,
@@ -131,6 +132,7 @@ import type {
   ArrTestResponse
 } from "@/types/arr"
 import { getApiBaseUrl, withBasePath } from "./base-url"
+import { normalizeCrossInstanceTorrents, type RawCrossInstanceTorrent } from "./cross-instance-torrents"
 
 const API_BASE = getApiBaseUrl()
 
@@ -419,11 +421,9 @@ async function ssoSafeFetch(url: string, options: RequestInit): Promise<Response
 // Custom error class for API errors with status and additional data
 export class APIError extends Error {
   status: number
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: any
+  data?: unknown
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(message: string, status: number, data?: any) {
+  constructor(message: string, status: number, data?: unknown) {
     super(message)
     this.name = "APIError"
     this.status = status
@@ -458,8 +458,7 @@ class ApiClient {
     return response.json()
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async extractErrorData(response: Response): Promise<{ message: string; data?: any }> {
+  private async extractErrorData(response: Response): Promise<{ message: string; data?: unknown }> {
     const fallbackMessage = `HTTP error! status: ${response.status}`
 
     try {
@@ -472,8 +471,7 @@ class ApiClient {
 
       // Try to parse as JSON first
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const errorData = JSON.parse(rawBody) as { error?: string; message?: string; [key: string]: any }
+        const errorData = JSON.parse(rawBody) as { error?: string; message?: string; [key: string]: unknown }
         const parsedMessage = errorData?.error ?? errorData?.message
         if (typeof parsedMessage === "string" && parsedMessage.trim().length > 0) {
           // Return both the message and the full data (for 409 conflicts with automations, etc.)
@@ -688,6 +686,7 @@ class ApiClient {
     keepMonthly: number
     includeCategories: boolean
     includeTags: boolean
+    includeSavePaths: boolean
   }): Promise<BackupSettings> {
     return this.request<BackupSettings>(`/instances/${instanceId}/backups/settings`, {
       method: "PUT",
@@ -817,7 +816,9 @@ class ApiClient {
       order?: "asc" | "desc"
       search?: string
       filters?: TorrentFilters
-    }
+      preferCached?: boolean
+    },
+    signal?: AbortSignal
   ): Promise<TorrentResponse> {
     const searchParams = new URLSearchParams()
     if (params.page !== undefined) searchParams.set("page", params.page.toString())
@@ -826,10 +827,53 @@ class ApiClient {
     if (params.order) searchParams.set("order", params.order)
     if (params.search) searchParams.set("search", params.search)
     if (params.filters) searchParams.set("filters", JSON.stringify(params.filters))
+    if (params.preferCached) searchParams.set("prefer", "stale")
 
     return this.request<TorrentResponse>(
-      `/instances/${instanceId}/torrents?${searchParams}`
+      `/instances/${instanceId}/torrents?${searchParams}`,
+      { signal }
     )
+  }
+
+  getTorrentsStreamBatchUrl(
+    streams: Array<{
+      key: string
+      instanceId: number
+      instanceIds?: number[] | null
+      page: number
+      limit: number
+      sort: string
+      order: "asc" | "desc"
+      search?: string
+      filters?: TorrentFilters | null
+    }>,
+    options: { activity?: boolean } = {}
+  ): string {
+    const params = new URLSearchParams()
+
+    if (streams.length > 0) {
+      const normalized = streams.map(stream => ({
+        key: stream.key,
+        instanceId: stream.instanceId,
+        instanceIds: stream.instanceIds ?? null,
+        page: stream.page,
+        limit: stream.limit,
+        sort: stream.sort,
+        order: stream.order,
+        search: stream.search ?? "",
+        filters: stream.filters ?? null,
+      }))
+      params.set("streams", JSON.stringify(normalized))
+    }
+
+    // Activity events (qui-owned server signals) ride the same multiplexed
+    // EventSource; the flag lets a connection with no torrent streams stay open
+    // purely to receive them.
+    if (options.activity) {
+      params.set("activity", "1")
+    }
+
+    return withBasePath(`/api/stream?${params.toString()}`)
   }
 
   async getTorrentField(
@@ -878,7 +922,8 @@ class ApiClient {
       search?: string
       filters?: TorrentFilters
       instanceIds?: number[]
-    }
+    },
+    signal?: AbortSignal
   ): Promise<TorrentResponse> {
     const searchParams = new URLSearchParams()
     if (params.page !== undefined) searchParams.set("page", params.page.toString())
@@ -891,56 +936,9 @@ class ApiClient {
       searchParams.set("instanceIds", params.instanceIds.join(","))
     }
 
-    type RawCrossInstanceTorrent = Omit<CrossInstanceTorrent, "instanceId" | "instanceName"> & {
-      instanceId?: number
-      instanceName?: string
-      instance_id?: number
-      instance_name?: string
-    }
-
-    const normalizeCrossInstanceTorrents = (
-      torrents?: RawCrossInstanceTorrent[] | null
-    ): CrossInstanceTorrent[] | undefined => {
-      if (!torrents) {
-        return undefined
-      }
-
-      let needsNormalization = false
-
-      for (const torrent of torrents) {
-        if (torrent.instanceId === undefined || torrent.instanceName === undefined) {
-          needsNormalization = true
-          break
-        }
-      }
-
-      if (!needsNormalization) {
-        return torrents as CrossInstanceTorrent[]
-      }
-
-      const normalizedTorrents: CrossInstanceTorrent[] = []
-
-      torrents.forEach(torrent => {
-        const instanceId = torrent.instanceId ?? torrent.instance_id
-        const instanceName = torrent.instanceName ?? torrent.instance_name
-
-        if (instanceId === undefined || instanceName === undefined) {
-          console.error("Missing instance fields in cross-instance torrent:", torrent)
-          return
-        }
-
-        normalizedTorrents.push({
-          ...torrent,
-          instanceId,
-          instanceName,
-        })
-      })
-
-      return normalizedTorrents
-    }
-
     const response = await this.request<TorrentResponse>(
-      `/torrents/cross-instance?${searchParams}`
+      `/torrents/cross-instance?${searchParams}`,
+      { signal }
     )
 
     const normalizedCrossInstanceTorrents = normalizeCrossInstanceTorrents(
@@ -1041,10 +1039,11 @@ class ApiClient {
     data: {
       hashes: string[]
       targets?: Array<{ instanceId: number; hash: string }>
-      action: "pause" | "resume" | "delete" | "recheck" | "reannounce" | "increasePriority" | "decreasePriority" | "topPriority" | "bottomPriority" | "setCategory" | "addTags" | "removeTags" | "setTags" | "toggleAutoTMM" | "forceStart" | "setShareLimit" | "setUploadLimit" | "setDownloadLimit" | "setLocation" | "editTrackers" | "addTrackers" | "removeTrackers" | "toggleSequentialDownload"
+      action: "pause" | "resume" | "delete" | "recheck" | "reannounce" | "increasePriority" | "decreasePriority" | "topPriority" | "bottomPriority" | "setCategory" | "addTags" | "removeTags" | "setTags" | "setComment" | "toggleAutoTMM" | "forceStart" | "setShareLimit" | "setUploadLimit" | "setDownloadLimit" | "setLocation" | "editTrackers" | "addTrackers" | "removeTrackers" | "toggleSequentialDownload"
       deleteFiles?: boolean
       category?: string
       tags?: string  // Comma-separated tags string
+      comment?: string  // For setComment action
       enable?: boolean  // For toggleAutoTMM
       selectAll?: boolean  // When true, apply to all torrents matching filters
       filters?: TorrentFilters
@@ -1055,6 +1054,8 @@ class ApiClient {
       ratioLimit?: number  // For setShareLimit action
       seedingTimeLimit?: number  // For setShareLimit action (minutes)
       inactiveSeedingTimeLimit?: number  // For setShareLimit action (minutes)
+      shareLimitAction?: string  // setShareLimit: Qt enum Stop, Remove, etc.; omit for default
+      shareLimitsMode?: string  // setShareLimit: Qt enum MatchAny, MatchAll; omit for default
       uploadLimit?: number  // For setUploadLimit action (KB/s)
       downloadLimit?: number  // For setDownloadLimit action (KB/s)
       location?: string  // For setLocation action
@@ -1278,6 +1279,8 @@ class ApiClient {
       download_volume_factor: number
       upload_volume_factor: number
       guid: string
+      infohash_v1?: string
+      infohash_v2?: string
       imdb_id?: string
       tvdb_id?: string
       match_reason?: string
@@ -1335,6 +1338,8 @@ class ApiClient {
         downloadVolumeFactor: result.download_volume_factor,
         uploadVolumeFactor: result.upload_volume_factor,
         guid: result.guid,
+        infoHashV1: result.infohash_v1 ?? undefined,
+        infoHashV2: result.infohash_v2 ?? undefined,
         imdbId: result.imdb_id ?? undefined,
         tvdbId: result.tvdb_id ?? undefined,
         matchReason: result.match_reason ?? undefined,
@@ -1550,6 +1555,14 @@ class ApiClient {
     if (params?.limit !== undefined) search.set("limit", params.limit.toString())
     if (params?.offset !== undefined) search.set("offset", params.offset.toString())
     return this.request<CrossSeedSearchRun[]>(`/cross-seed/search/runs?${search.toString()}`)
+  }
+
+  async listSeasonPackRuns(params?: { limit?: number }): Promise<SeasonPackRun[]> {
+    const search = new URLSearchParams()
+    if (params?.limit !== undefined) search.set("limit", params.limit.toString())
+    const query = search.toString()
+    const suffix = query ? `?${query}` : ""
+    return this.request<SeasonPackRun[]>(`/cross-seed/season-pack/runs${suffix}`)
   }
 
   async triggerCrossSeedRun(payload: { dryRun?: boolean } = {}): Promise<CrossSeedRun> {
@@ -1990,6 +2003,14 @@ class ApiClient {
     return this.request("/license/refresh", { method: "POST" })
   }
 
+  // Custom themes (sideloaded CSS files; premium-gated server-side)
+  async getCustomThemes(): Promise<{
+    directory: string
+    themes: Array<{ id: string; filename: string; css: string }>
+  }> {
+    return this.request("/themes/custom")
+  }
+
   // Preferences endpoints
   async getInstancePreferences(instanceId: number): Promise<AppPreferences> {
     return this.request<AppPreferences>(`/instances/${instanceId}/preferences`)
@@ -2170,6 +2191,12 @@ class ApiClient {
   // Torznab Indexer endpoints
   async listTorznabIndexers(): Promise<TorznabIndexer[]> {
     return this.request<TorznabIndexer[]>("/torznab/indexers")
+  }
+
+  // Returns tracker domains derived from enabled indexers whose domain can be
+  // resolved reliably (native + Prowlarr backends; Jackett is omitted server-side).
+  async getIndexerTrackerDomains(): Promise<string[]> {
+    return this.request<string[]>("/torznab/indexers/tracker-domains")
   }
 
   async getTorznabIndexer(id: number): Promise<TorznabIndexer> {
@@ -2457,6 +2484,28 @@ class ApiClient {
   // Get the SSE log stream URL for EventSource
   getLogStreamUrl(limit = 1000): string {
     return `${API_BASE}/logs/stream?limit=${limit}`
+  }
+
+  async getLogFiles(): Promise<LogFile[]> {
+    return this.request<LogFile[]>("/logs/files")
+  }
+
+  async downloadLogFile(filename: string): Promise<void> {
+    const response = await ssoSafeFetch(`${API_BASE}/logs/files/${encodeURIComponent(filename)}`, { method: "GET" })
+
+    if (!response.ok) {
+      throw new Error(`Failed to download log file: ${response.statusText}`)
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
   }
 
   // Directory Scanner endpoints

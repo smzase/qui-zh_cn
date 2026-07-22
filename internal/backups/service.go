@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/autobrr/qui/internal/models"
 	"github.com/autobrr/qui/internal/qbittorrent"
+	"github.com/autobrr/qui/internal/services/activity"
 	"github.com/autobrr/qui/internal/services/jackett"
 	"github.com/autobrr/qui/internal/services/notifications"
 	"github.com/autobrr/qui/pkg/torrentname"
@@ -83,6 +85,8 @@ type Service struct {
 	progressMu sync.RWMutex
 
 	now func() time.Time
+
+	activityPublisher activity.Publisher
 }
 
 type backupReader interface {
@@ -105,7 +109,7 @@ type backupTagMutator interface {
 }
 
 type backupTorrentMutator interface {
-	AddTorrent(ctx context.Context, instanceID int, fileContent []byte, options map[string]string) error
+	AddTorrent(ctx context.Context, instanceID int, fileContent []byte, options map[string]string) (*qbt.TorrentAddResponse, error)
 	SetCategory(ctx context.Context, instanceID int, hashes []string, category string) error
 	SetTags(ctx context.Context, instanceID int, hashes []string, tags string) error
 	ResumeWhenComplete(instanceID int, hashes []string, opts qbittorrent.ResumeWhenCompleteOptions)
@@ -140,6 +144,7 @@ type ManifestItem struct {
 	InfoHashV2  *string  `json:"infohashV2,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 	TorrentBlob string   `json:"torrentBlob,omitempty"`
+	SavePath    string   `json:"savePath,omitempty"`
 }
 
 func NewService(store *models.BackupStore, reader backupReader, jackettSvc any, cfg Config, notifier notifications.Notifier) *Service {
@@ -180,6 +185,8 @@ func NewService(store *models.BackupStore, reader backupReader, jackettSvc any, 
 		inflight:   make(map[int]int64),
 		progress:   make(map[int64]*BackupProgress),
 		now:        func() time.Time { return time.Now().UTC() },
+
+		activityPublisher: activity.NopPublisher{},
 	}
 	if tracker, ok := reader.(backupTrackerSource); ok {
 		svc.tracker = tracker
@@ -195,6 +202,30 @@ func NewService(store *models.BackupStore, reader backupReader, jackettSvc any, 
 	}
 
 	return svc
+}
+
+// SetActivityPublisher wires the qui server-event hub so backup run status
+// changes are pushed to connected clients instead of polled. Safe to call once
+// at startup.
+func (s *Service) SetActivityPublisher(publisher activity.Publisher) {
+	if s == nil || publisher == nil {
+		return
+	}
+	s.activityPublisher = publisher
+}
+
+// emitRunActivity signals connected clients that a backup run's status changed
+// so they refetch instead of polling. Must be called after the state transition
+// is persisted and any held lock released.
+func (s *Service) emitRunActivity(instanceID int, runID int64) {
+	if s == nil || s.activityPublisher == nil {
+		return
+	}
+	s.activityPublisher.Publish(activity.Event{
+		Kind:       activity.KindBackupRun,
+		InstanceID: instanceID,
+		ResourceID: strconv.FormatInt(runID, 10),
+	})
 }
 
 func normalizeBackupSettings(settings *models.BackupSettings) bool {
@@ -337,6 +368,11 @@ func (s *Service) recoverIncompleteRuns(ctx context.Context) error {
 	}
 
 	log.Info().Int("count", len(incompleteRuns)).Msg("Successfully recovered incomplete backup runs")
+
+	// Notify connected clients that these runs transitioned to failed.
+	for _, run := range incompleteRuns {
+		s.emitRunActivity(run.InstanceID, run.ID)
+	}
 	return nil
 }
 
@@ -512,6 +548,7 @@ func (s *Service) handleJob(ctx context.Context, j job) {
 			ErrorMessage: msg,
 			CompletedAt:  &now,
 		})
+		s.emitRunActivity(j.instanceID, j.runID)
 		return
 	}
 
@@ -527,6 +564,7 @@ func (s *Service) handleJob(ctx context.Context, j job) {
 		log.Error().Err(err).Int("instanceID", j.instanceID).Msg("Failed to mark backup run as running")
 		return
 	}
+	s.emitRunActivity(j.instanceID, j.runID)
 
 	result, execErr := s.executeBackup(ctx, j)
 	if execErr != nil {
@@ -548,6 +586,7 @@ func (s *Service) handleJob(ctx context.Context, j job) {
 			StartedAt:    &start,
 			CompletedAt:  &now,
 		})
+		s.emitRunActivity(j.instanceID, j.runID)
 	} else {
 		now := s.now()
 		_ = s.store.UpdateRunMetadata(ctx, j.runID, func(run *models.BackupRun) error {
@@ -585,6 +624,7 @@ func (s *Service) handleJob(ctx context.Context, j job) {
 			StartedAt:          &start,
 			CompletedAt:        &now,
 		})
+		s.emitRunActivity(j.instanceID, j.runID)
 	}
 
 	s.clearInstance(j.instanceID, j.runID)
@@ -834,6 +874,15 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 		infohashV1 := strings.TrimSpace(torrent.InfohashV1)
 		infohashV2 := strings.TrimSpace(torrent.InfohashV2)
 
+		// Capture the per-torrent save path only when it diverges from the
+		// category (cross-seed hardlinks, manual relocations, Auto TMM off).
+		// Category-managed torrents store nothing here and are placed by their
+		// recreated category on restore.
+		storeSavePath := ""
+		if settings.IncludeSavePaths {
+			storeSavePath = resolveBackupSavePath(torrent.SavePath, category, snapshotCategories)
+		}
+
 		item := models.BackupItem{
 			RunID:       j.runID,
 			TorrentHash: torrent.Hash,
@@ -859,6 +908,10 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 		if blobRelPath != nil {
 			item.TorrentBlobPath = blobRelPath
 		}
+		if storeSavePath != "" {
+			sp := storeSavePath
+			item.SavePath = &sp
+		}
 		items = append(items, item)
 
 		manifestItem := ManifestItem{
@@ -881,6 +934,9 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 		}
 		if blobRelPath != nil {
 			manifestItem.TorrentBlob = *blobRelPath
+		}
+		if storeSavePath != "" {
+			manifestItem.SavePath = storeSavePath
 		}
 		manifestItems = append(manifestItems, manifestItem)
 
@@ -1059,7 +1115,7 @@ func isExportMetadataUnavailable(err error) bool {
 	if err == nil {
 		return false
 	}
-	if errors.Is(err, qbt.ErrTorrentMetdataNotDownloadedYet) {
+	if errors.Is(err, qbt.ErrTorrentMetadataNotDownloadedYet) {
 		return true
 	}
 	return strings.Contains(err.Error(), "status code: 409")
@@ -1123,6 +1179,7 @@ func (s *Service) QueueRun(ctx context.Context, instanceID int, kind models.Back
 	case s.jobs <- job{runID: run.ID, instanceID: instanceID, kind: kind}:
 	}
 
+	s.emitRunActivity(instanceID, run.ID)
 	return run, nil
 }
 
@@ -1398,6 +1455,9 @@ func (s *Service) LoadManifest(ctx context.Context, runID int64) (*Manifest, err
 		if item.TorrentBlobPath != nil {
 			entry.TorrentBlob = *item.TorrentBlobPath
 		}
+		if item.SavePath != nil {
+			entry.SavePath = *item.SavePath
+		}
 		manifest.Items = append(manifest.Items, entry)
 	}
 
@@ -1449,6 +1509,7 @@ func (s *Service) ImportManifestFromDir(ctx context.Context, instanceID int, man
 	}
 
 	log.Info().Int64("runID", run.ID).Msg("Backup run created successfully")
+	s.emitRunActivity(instanceID, run.ID)
 
 	// Convert manifest items to backup items
 	items := make([]models.BackupItem, 0, len(manifest.Items))
@@ -1496,6 +1557,10 @@ func (s *Service) ImportManifestFromDir(ctx context.Context, instanceID int, man
 		if len(item.Tags) > 0 {
 			tagsStr := strings.Join(item.Tags, ",")
 			backupItem.Tags = &tagsStr
+		}
+
+		if savePath := strings.TrimSpace(item.SavePath); savePath != "" {
+			backupItem.SavePath = &savePath
 		}
 
 		if item.TorrentBlob != "" {
@@ -1579,6 +1644,7 @@ func (s *Service) ImportManifestFromDir(ctx context.Context, instanceID int, man
 		}); err != nil {
 			log.Warn().Err(err).Int64("runID", run.ID).Msg("Failed to mark import run as completed")
 		}
+		s.emitRunActivity(instanceID, run.ID)
 	}
 
 	// Update the run with total bytes and torrent count
@@ -1650,7 +1716,7 @@ func (s *Service) copyTorrentFromTemp(srcPath, destPath string) error {
 func (s *Service) downloadMissingTorrents(runID int64, instanceID int, missing []missingTorrent) {
 	if s.reader == nil {
 		log.Warn().Int64("runID", runID).Msg("No sync manager available for background torrent downloads")
-		s.markImportComplete(runID)
+		s.markImportComplete(instanceID, runID)
 		return
 	}
 
@@ -1665,7 +1731,7 @@ func (s *Service) downloadMissingTorrents(runID int64, instanceID int, missing [
 			select {
 			case <-s.ctx.Done():
 				log.Info().Int64("runID", runID).Int("completed", successCount).Int("total", total).Msg("Background download cancelled due to shutdown")
-				s.markImportComplete(runID)
+				s.markImportComplete(instanceID, runID)
 				return
 			default:
 			}
@@ -1761,11 +1827,11 @@ func (s *Service) downloadMissingTorrents(runID int64, instanceID int, missing [
 		log.Info().Int64("runID", runID).Int64("totalBytes", totalTorrentBytes).Msg("Updated run metadata with torrent file sizes")
 	}
 
-	s.markImportComplete(runID)
+	s.markImportComplete(instanceID, runID)
 }
 
 // markImportComplete marks an import run as completed and cleans up progress
-func (s *Service) markImportComplete(runID int64) {
+func (s *Service) markImportComplete(instanceID int, runID int64) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 
@@ -1784,6 +1850,9 @@ func (s *Service) markImportComplete(runID int64) {
 	s.progressMu.Lock()
 	delete(s.progress, runID)
 	s.progressMu.Unlock()
+
+	// Notify connected clients after the progress lock is released.
+	s.emitRunActivity(instanceID, runID)
 }
 
 // DataDir returns the base data directory used for backups.

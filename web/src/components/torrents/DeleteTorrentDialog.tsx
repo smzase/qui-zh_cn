@@ -56,7 +56,7 @@ export function DeleteTorrentDialog({
   crossSeedWarning,
   onConfirm,
 }: DeleteTorrentDialogProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("torrents")
   // Include cross-seeds in the displayed count when selected
   const crossSeedCount = deleteCrossSeeds ? (crossSeedWarning?.affectedTorrents.length ?? 0) : 0
   const displayCount = count + crossSeedCount
@@ -65,12 +65,12 @@ export function DeleteTorrentDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="!max-w-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("torrents.deleteTorrent", { count: displayCount })}</AlertDialogTitle>
+          <AlertDialogTitle>{t("deleteDialog.title", { count: displayCount })}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("torrents.deleteTorrentDesc")}
+            {t("deleteDialog.description")}
             {totalSize > 0 && (
               <span className="block mt-2 text-xs text-muted-foreground">
-                {t("torrents.totalSize")}: {formattedSize}
+                {t("deleteDialog.totalSize", { size: formattedSize })}
               </span>
             )}
           </AlertDialogDescription>
@@ -106,17 +106,17 @@ export function DeleteTorrentDialog({
               htmlFor="blockCrossSeeds"
               className="text-xs cursor-pointer select-none"
             >
-              {t("torrents.blockCrossSeeds")}
+              {t("deleteDialog.blockCrossSeeds")}
             </label>
           </div>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>{t("deleteDialog.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {t("common.delete")}
+            {t("deleteDialog.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

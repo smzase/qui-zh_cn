@@ -9,10 +9,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -340,6 +342,25 @@ func (h *AutomationHandler) validatePayload(ctx context.Context, instanceID int,
 		return http.StatusBadRequest, "Category action requires a category name", errors.New("category name required")
 	}
 
+	// Validate export to instance action
+	if payload.Conditions.ExportToInstance != nil && payload.Conditions.ExportToInstance.Enabled {
+		if payload.Conditions.ExportToInstance.TargetInstanceID <= 0 {
+			return http.StatusBadRequest, "Export to instance requires a target instance", errors.New("target instance required")
+		}
+		if payload.Conditions.ExportToInstance.TargetInstanceID == instanceID {
+			return http.StatusBadRequest, "Export target cannot be the same as the source instance", errors.New("self-export not allowed")
+		}
+		if h.instanceStore == nil {
+			return http.StatusInternalServerError, "Instance store not configured", errors.New("instance store unavailable")
+		}
+		if _, err := h.instanceStore.Get(ctx, payload.Conditions.ExportToInstance.TargetInstanceID); err != nil {
+			if errors.Is(err, models.ErrInstanceNotFound) {
+				return http.StatusBadRequest, "Target instance not found", errors.New("target instance not found")
+			}
+			return http.StatusInternalServerError, "Failed to validate target instance", err
+		}
+	}
+
 	// Validate delete is standalone - it cannot be combined with any other action
 	hasDelete := payload.Conditions.Delete != nil && payload.Conditions.Delete.Enabled
 	if hasDelete {
@@ -356,7 +377,8 @@ func (h *AutomationHandler) validatePayload(ctx context.Context, instanceID int,
 			(payload.Conditions.Category != nil && payload.Conditions.Category.Enabled) ||
 			(payload.Conditions.Move != nil && payload.Conditions.Move.Enabled) ||
 			(payload.Conditions.ExternalProgram != nil && payload.Conditions.ExternalProgram.Enabled) ||
-			(payload.Conditions.AutoManagement != nil)
+			(payload.Conditions.AutoManagement != nil) ||
+			(payload.Conditions.ExportToInstance != nil && payload.Conditions.ExportToInstance.Enabled)
 		if hasOtherAction {
 			return http.StatusBadRequest, "Delete action cannot be combined with other actions", errors.New("delete must be standalone")
 		}
@@ -417,6 +439,10 @@ func (h *AutomationHandler) validatePayload(ctx context.Context, instanceID int,
 	}
 
 	if msg, err := validateConditionGroupingConfig(payload.Conditions); err != nil {
+		return http.StatusBadRequest, msg, err
+	}
+
+	if msg, err := validateRlsYearConditions(payload.Conditions); err != nil {
 		return http.StatusBadRequest, msg, err
 	}
 
@@ -488,7 +514,8 @@ func conditionsUseField(conditions *models.ActionConditions, field automations.C
 		(c.Category != nil && check(c.Category.Enabled, c.Category.Condition)) ||
 		(c.Move != nil && check(c.Move.Enabled, c.Move.Condition)) ||
 		(c.ExternalProgram != nil && check(c.ExternalProgram.Enabled, c.ExternalProgram.Condition)) ||
-		(c.AutoManagement != nil && automations.ConditionUsesField(c.AutoManagement.Condition, field))
+		(c.AutoManagement != nil && automations.ConditionUsesField(c.AutoManagement.Condition, field)) ||
+		(c.ExportToInstance != nil && check(c.ExportToInstance.Enabled, c.ExportToInstance.Condition))
 }
 
 func anyEnabledTagActionUsesField(actions []*models.TagAction, field automations.ConditionField) bool {
@@ -636,6 +663,9 @@ func conditionTreesForValidation(conditions *models.ActionConditions) []*models.
 	if conditions.AutoManagement != nil {
 		trees = append(trees, conditions.AutoManagement.Condition)
 	}
+	if conditions.ExportToInstance != nil && conditions.ExportToInstance.Enabled {
+		trees = append(trees, conditions.ExportToInstance.Condition)
+	}
 	return trees
 }
 
@@ -659,6 +689,72 @@ func validateConditionTreeGroupIDs(cond *models.RuleCondition, knownGroupIDs map
 		}
 	}
 
+	return "", nil
+}
+
+// minRlsYear is the lowest year a RLS_YEAR condition may use. The release-name
+// parser performs no range sanity check, so we reject obviously-bogus values at save time.
+const minRlsYear = 1900
+
+// validateRlsYearConditions rejects RLS_YEAR conditions whose values fall outside a
+// plausible range (minRlsYear..currentYear+1), guarding against typos and stray 4-digit
+// tokens that the parser might otherwise surface as a real year.
+func validateRlsYearConditions(conditions *models.ActionConditions) (string, error) {
+	maxYear := time.Now().Year() + 1
+	for _, tree := range conditionTreesForValidation(conditions) {
+		if msg, err := validateRlsYearTree(tree, maxYear); err != nil {
+			return msg, err
+		}
+	}
+	return "", nil
+}
+
+func validateRlsYearTree(cond *models.RuleCondition, maxYear int) (string, error) {
+	if cond == nil {
+		return "", nil
+	}
+	if cond.Field == models.FieldRlsYear {
+		if msg, err := validateRlsYearLeaf(cond, maxYear); err != nil {
+			return msg, err
+		}
+	}
+	for _, child := range cond.Conditions {
+		if msg, err := validateRlsYearTree(child, maxYear); err != nil {
+			return msg, err
+		}
+	}
+	return "", nil
+}
+
+func validateRlsYearLeaf(cond *models.RuleCondition, maxYear int) (string, error) {
+	rangeMsg := fmt.Sprintf("Release Year must be between %d and %d", minRlsYear, maxYear)
+	inRange := func(year float64) bool {
+		return year >= float64(minRlsYear) && year <= float64(maxYear)
+	}
+
+	if cond.Operator == models.OperatorBetween {
+		if cond.MinValue == nil || cond.MaxValue == nil {
+			return "Release Year range requires both a minimum and maximum year", errors.New("release year range missing bound")
+		}
+		if *cond.MinValue != math.Trunc(*cond.MinValue) || *cond.MaxValue != math.Trunc(*cond.MaxValue) {
+			return "Release Year range requires whole-number years", errors.New("release year range must be whole numbers")
+		}
+		if *cond.MinValue > *cond.MaxValue {
+			return "Release Year minimum cannot be greater than maximum", errors.New("release year min greater than max")
+		}
+		if !inRange(*cond.MinValue) || !inRange(*cond.MaxValue) {
+			return rangeMsg, errors.New("release year out of range")
+		}
+		return "", nil
+	}
+
+	year, err := strconv.Atoi(strings.TrimSpace(cond.Value))
+	if err != nil {
+		return "Release Year must be a whole number", errors.New("release year not an integer")
+	}
+	if !inRange(float64(year)) {
+		return rangeMsg, errors.New("release year out of range")
+	}
 	return "", nil
 }
 
@@ -1043,6 +1139,9 @@ func collectConditionRegexErrors(conditions *models.ActionConditions) []RegexVal
 	}
 	if conditions.AutoManagement != nil {
 		validateConditionRegex(conditions.AutoManagement.Condition, "/conditions/autoManagement/condition", &result)
+	}
+	if conditions.ExportToInstance != nil {
+		validateConditionRegex(conditions.ExportToInstance.Condition, "/conditions/exportToInstance/condition", &result)
 	}
 
 	return result

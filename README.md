@@ -8,10 +8,10 @@
 
 ### **自用，仅构建 Windows，使用 GLM-5.1 + Kimi-K2.6 修改，为 qui 添加基本的简体中文，以及添加一些功能**
 
-- 添加了常用？的中文翻译（太多了不想改，这个项目创建之初估计就不考虑支持多语言吧）
-- 为隐藏“筛选”后添加鼠标悬停显示筛选，并添加“隐藏列筛选”
-- 为 qbittorrent 页面的底栏添加了下载和上传总量，并将分开的 ipv4 & ipv6 合并（二合一会更好看吧）
-  - 还添加了列表大小缩放
+- 简体中文翻译现已由上游主仓库统一提供（多语言支持含简体中文等 9 种语言），本仓库不再维护自制 i18n
+- 为隐藏“筛选”后添加鼠标悬停显示筛选，并添加“隐藏列筛选”（`usePersistedColumnFilterVisibility`）
+- 为种子列表添加布局同步开关（`usePersistedTorrentLayoutSync`）
+- 为批量添加种子对话框记住所选实例（`usePersistedBulkAddTorrentInstances`）
 
 ## 文档
 
@@ -41,6 +41,20 @@ docker run -d \
   ghcr.io/autobrr/qui:latest
 ```
 
+### macOS Container
+
+首先，从官方来源安装 Container：https://github.com/apple/container/releases
+其次，在你希望的位置创建 `/config` 和 `/downloads` 文件夹。
+然后，运行以下命令：
+
+```bash
+container run -d \
+  -p 7476:7476 \
+  -v $(pwd)/config:/config \
+  -v $(pwd)/downloads:/downloads \
+  ghcr.io/autobrr/qui:latest
+```
+
 ## 功能特性
 
 - **单二进制文件**：无需依赖，下载即可运行
@@ -50,6 +64,7 @@ docker run -d \
 - **自动化规则**：基于条件的规则化种子管理
 - **备份与恢复**：支持定时快照及多种恢复模式
 - **反向代理**：为外部应用提供透明的 qBittorrent 代理
+- **多语言支持**：提供英语、德语、法语、意大利语、捷克语、乌克兰语、韩语、巴西葡萄牙语以及简体中文，并支持浏览器语言自动检测
 
 ## 社区
 
@@ -110,6 +125,8 @@ qui 由志愿者开发和维护。您的支持将帮助我们持续改进项目�
 ## 贡献
 
 欢迎贡献代码。注意：本仓库仅限**协作者**创建 Pull Request。请先通过 Discussion/Issue（或 Discord）与我们协调变更事宜。
+
+开发与测试流程请参见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 ## 许可证
 

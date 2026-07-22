@@ -4,20 +4,20 @@
  */
 
 import { useState } from "react"
-import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Link2 } from "lucide-react"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 import {
   canRegisterProtocolHandler,
   dismissProtocolHandlerBanner,
   getMagnetHandlerRegistrationGuidance,
   isProtocolHandlerBannerDismissed,
-  registerMagnetHandler,
+  registerMagnetHandler
 } from "@/lib/protocol-handler"
 
 export function MagnetHandlerBanner() {
-  const { t } = useTranslation()
+  const { t } = useTranslation("common")
   const [dismissed, setDismissed] = useState(() => isProtocolHandlerBannerDismissed())
 
   // Don't show if browser doesn't support registerProtocolHandler or not HTTPS
@@ -33,13 +33,13 @@ export function MagnetHandlerBanner() {
   const handleRegister = () => {
     const success = registerMagnetHandler()
     if (success) {
-      toast.success(t("magnetHandler.registered"), {
+      toast.success(t("magnetHandler.registrationRequested"), {
         description: getMagnetHandlerRegistrationGuidance(),
       })
       dismissProtocolHandlerBanner()
       setDismissed(true)
     } else {
-      toast.error(t("magnetHandler.registerFailed"))
+      toast.error(t("magnetHandler.registrationFailed"))
     }
   }
 
@@ -52,14 +52,14 @@ export function MagnetHandlerBanner() {
     <div className="mb-4 flex items-center justify-between gap-4 rounded-md bg-blue-500/10 border border-blue-500/20 px-4 py-2.5 text-sm">
       <div className="flex items-center gap-2">
         <Link2 className="h-4 w-4 text-blue-500" />
-        <span>{t("magnetHandler.registerBanner")}</span>
+        <span>{t("magnetHandler.registerPrompt")}</span>
       </div>
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={handleRegister}>
-          {t("common.register")}
+          {t("magnetHandler.register")}
         </Button>
         <Button variant="ghost" size="sm" onClick={handleDismiss}>
-          {t("common.dismiss")}
+          {t("magnetHandler.dismiss")}
         </Button>
       </div>
     </div>

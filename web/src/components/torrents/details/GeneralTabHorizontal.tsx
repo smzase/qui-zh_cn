@@ -16,8 +16,8 @@ import type { Torrent, TorrentProperties } from "@/types"
 import { useQuery } from "@tanstack/react-query"
 import { Copy, Loader2 } from "lucide-react"
 import { memo, useMemo } from "react"
-import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { PieceBar } from "./PieceBar"
 import { StatRow } from "./StatRow"
 
@@ -58,7 +58,7 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
   displayCreatedBy,
   queueingEnabled,
 }: GeneralTabHorizontalProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("torrents")
   const { formatTimestamp } = useDateTimeFormatters()
 
   // Only fetch piece states when downloading or rechecking (not needed for completed torrents)
@@ -105,19 +105,19 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await copyTextToClipboard(text)
-      toast.success(t("torrents.copiedToClipboard", { label }))
+      toast.success(t("detailsPanel.toast.copied", { type: label }))
     } catch {
-      toast.error(t("torrents.failedCopyClipboard"))
+      toast.error(t("detailsPanel.toast.copyFailed"))
     }
   }
 
-  const downloadLimitLabel = downloadLimit > 0? formatSpeedWithUnit(downloadLimit, speedUnit): t("torrents.unlimited")
-  const uploadLimitLabel = uploadLimit > 0? formatSpeedWithUnit(uploadLimit, speedUnit): t("torrents.unlimited")
+  const downloadLimitLabel = downloadLimit > 0? formatSpeedWithUnit(downloadLimit, speedUnit): t("generalTab.unlimited")
+  const uploadLimitLabel = uploadLimit > 0? formatSpeedWithUnit(uploadLimit, speedUnit): t("generalTab.unlimited")
   const pieceSizeLabel = properties?.piece_size? formatBytes(properties.piece_size): "—"
 
   const formatTimeLimit = (minutes: number | undefined): string => {
-    if (minutes === undefined || minutes === -1) return t("torrents.unlimited")
-    if (minutes === -2) return t("torrents.useGlobal")
+    if (minutes === undefined || minutes === -1) return t("generalTab.unlimited")
+    if (minutes === -2) return t("generalTab.useGlobal")
     return formatDuration((minutes || 0) * 60)
   }
 
@@ -132,7 +132,7 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
   if (!properties) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        {t("torrents.noDataAvailable")}
+        {t("generalTab.noDataAvailable")}
       </div>
     )
   }
@@ -142,27 +142,27 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
       <div className="p-3">
         {/* Row 1: Name + Size */}
         <div className="grid grid-cols-2 gap-6 h-5">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-              {t("torrents.name")}:
+              {t("generalTab.name")}
             </span>
             <TruncatedText className="text-xs font-mono text-muted-foreground">
-              {displayName || "N/A"}
+              {displayName || t("generalTab.na")}
             </TruncatedText>
             {displayName && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 shrink-0"
-                onClick={() => copyToClipboard(displayName, t("torrents.name"))}
+                onClick={() => copyToClipboard(displayName, t("generalTab.name"))}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-              {t("torrents.size")}:
+              {t("generalTab.size")}
             </span>
             <span className="text-xs text-muted-foreground">
               {formatBytes(properties.total_size || torrent.size)}
@@ -172,28 +172,28 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
 
         {/* Row 2: Hash v1 + Hash v2 */}
         <div className="grid grid-cols-2 gap-6 h-5">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-              {t("torrents.hashV1")}:
+              {t("generalTab.hashV1")}
             </span>
             <TruncatedText className="text-xs font-mono text-muted-foreground">
-              {displayInfohashV1 || "N/A"}
+              {displayInfohashV1 || t("generalTab.na")}
             </TruncatedText>
             {displayInfohashV1 && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 shrink-0"
-                onClick={() => copyToClipboard(displayInfohashV1, t("torrents.hashV1"))}
+                onClick={() => copyToClipboard(displayInfohashV1, t("generalTab.hashV1"))}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             )}
           </div>
           {displayInfohashV2 && (
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-start gap-2 min-w-0">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-                {t("torrents.hashV2")}:
+                {t("generalTab.hashV2")}
               </span>
               <TruncatedText className="text-xs font-mono text-muted-foreground">
                 {displayInfohashV2}
@@ -202,7 +202,7 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 shrink-0"
-                onClick={() => copyToClipboard(displayInfohashV2, t("torrents.hashV2"))}
+                onClick={() => copyToClipboard(displayInfohashV2, t("generalTab.hashV2"))}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -212,28 +212,28 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
 
         {/* Row 3: Save Path + Temp Path (if enabled) */}
         <div className="grid grid-cols-2 gap-6 h-5">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-              {t("torrents.savePath")}:
+              {t("generalTab.savePath")}
             </span>
             <TruncatedText className="text-xs font-mono text-muted-foreground">
-              {displaySavePath || "N/A"}
+              {displaySavePath || t("generalTab.na")}
             </TruncatedText>
             {displaySavePath && (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 shrink-0"
-                onClick={() => copyToClipboard(displaySavePath, t("torrents.savePath"))}
+                onClick={() => copyToClipboard(displaySavePath, t("generalTab.savePath"))}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             )}
           </div>
           {tempPathEnabled && displayTempPath ? (
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-start gap-2 min-w-0">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-                {t("torrents.tempPath")}:
+                {t("generalTab.tempPath")}
               </span>
               <TruncatedText className="text-xs font-mono text-muted-foreground">
                 {displayTempPath}
@@ -242,7 +242,7 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 shrink-0"
-                onClick={() => copyToClipboard(displayTempPath, t("torrents.tempPath"))}
+                onClick={() => copyToClipboard(displayTempPath, t("generalTab.tempPath"))}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -253,23 +253,23 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
 
         {/* Row 4: Comment & Created By */}
         {(displayComment) && (
-          <div className="grid grid-cols-2 gap-6 h-5">
+          <div className="grid grid-cols-2 gap-6">
             {displayComment && (
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-start gap-2 min-w-0">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-                  {t("torrents.comment")}:
+                  {t("generalTab.comment")}
                 </span>
-                <span className="text-xs text-muted-foreground truncate" title={displayComment}>
+                <span className="min-w-0 flex-1 font-mono text-xs text-muted-foreground whitespace-pre-wrap break-words">
                   {renderTextWithLinks(displayComment)}
                 </span>
               </div>
             )}
             {displayCreatedBy && (
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-start gap-2 min-w-0">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 whitespace-nowrap">
-                  {t("torrents.createdBy")}:
+                  {t("generalTab.createdBy")}
                 </span>
-                <span className="text-xs text-muted-foreground truncate" title={displayCreatedBy}>
+                <span className="min-w-0 flex-1 text-xs text-muted-foreground truncate" title={displayCreatedBy}>
                   {renderTextWithLinks(displayCreatedBy)}
                 </span>
               </div>
@@ -283,79 +283,79 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-6 lg:gap-y-0 m-0 mt-2">
           {/* Transfer Stats */}
           <div className="space-y-1">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("torrents.transfer")}</h4>
-            <StatRow label={t("torrents.downloaded")} value={formatBytes(properties.total_downloaded || 0)} />
-            <StatRow label={t("torrents.uploaded")} value={formatBytes(properties.total_uploaded || 0)} />
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("generalTab.transfer")}</h4>
+            <StatRow label={t("generalTab.downloaded")} value={formatBytes(properties.total_downloaded || 0)} />
+            <StatRow label={t("generalTab.uploaded")} value={formatBytes(properties.total_uploaded || 0)} />
             <StatRow
-              label={t("torrents.ratio")}
+              label={t("generalTab.ratio")}
               value={(properties.share_ratio || 0).toFixed(2)}
               valueStyle={{ color: getRatioColor(properties.share_ratio || 0) }}
             />
-            <StatRow label={t("torrents.wasted")} value={formatBytes(properties.total_wasted || 0)} />
-            {torrent.seq_dl && <StatRow label={t("torrents.sequentialDownload")} value={t("torrents.sequentialDownloadEnabled")} />}
+            <StatRow label={t("generalTab.wasted")} value={formatBytes(properties.total_wasted || 0)} />
+            {torrent.seq_dl && <StatRow label={t("generalTab.sequentialDownload")} value={t("generalTab.enabled")} />}
           </div>
 
           {/* Network */}
           <div className="space-y-1">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("torrents.network")}</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("generalTab.network")}</h4>
             <StatRow
-              label={t("torrents.dl")}
-              value={`${formatSpeedWithUnit(properties.dl_speed || 0, speedUnit)} - (${formatSpeedWithUnit(properties.dl_speed_avg || 0, speedUnit)} ${t("torrents.avg")})`}
+              label="DL"
+              value={`${formatSpeedWithUnit(properties.dl_speed || 0, speedUnit)} - (${formatSpeedWithUnit(properties.dl_speed_avg || 0, speedUnit)} avg.)`}
               highlight="green"
             />
             <StatRow
-              label={t("torrents.ul")}
-              value={`${formatSpeedWithUnit(properties.up_speed || 0, speedUnit)} - (${formatSpeedWithUnit(properties.up_speed_avg || 0, speedUnit)} ${t("torrents.avg")})`}
+              label="UL"
+              value={`${formatSpeedWithUnit(properties.up_speed || 0, speedUnit)} - (${formatSpeedWithUnit(properties.up_speed_avg || 0, speedUnit)} avg.)`}
               highlight="blue"
             />
             <StatRow
-              label={t("torrents.seeds")}
+              label={t("generalTab.seeds")}
               value={`${properties.seeds || 0} / ${properties.seeds_total || 0}`}
             />
             <StatRow
-              label={t("torrents.peers")}
+              label={t("generalTab.peers")}
               value={`${properties.peers || 0} / ${properties.peers_total || 0}`}
             />
             <StatRow
-              label={t("torrents.pieces")}
+              label={t("generalTab.pieces")}
               value={piecesStats.total > 0 ? `${piecesStats.have} / ${piecesStats.total}` : "—"}
             />
-            <StatRow label={t("torrents.pieceSize")} value={pieceSizeLabel} />
+            <StatRow label={t("generalTab.pieceSize")} value={pieceSizeLabel} />
             {queueingEnabled && (
               <StatRow
-                label={t("torrents.priority")}
-                value={torrent.priority > 0 ? String(torrent.priority) : t("torrents.normal")}
+                label={t("generalTab.queue")}
+                value={torrent.priority > 0 ? String(torrent.priority) : "Normal"}
               />
             )}
           </div>
 
           {/* Time */}
           <div className="space-y-1">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("torrents.time")}</h4>
-            <StatRow label={t("torrents.active")} value={formatDuration(properties.time_elapsed || 0)} />
-            <StatRow label={t("torrents.seeding")} value={formatDuration(properties.seeding_time || 0)} />
-            <StatRow label={t("torrents.added")} value={formatTimestamp(properties.addition_date, true)} />
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("generalTab.time")}</h4>
+            <StatRow label={t("generalTab.timeActive")} value={formatDuration(properties.time_elapsed || 0)} />
+            <StatRow label={t("generalTab.seedingTime")} value={formatDuration(properties.seeding_time || 0)} />
+            <StatRow label={t("generalTab.addedOn")} value={formatTimestamp(properties.addition_date, true)} />
             {properties.completion_date > 0 && (
-              <StatRow label={t("torrents.completed")} value={formatTimestamp(properties.completion_date, true)} />
+              <StatRow label={t("generalTab.completedOn")} value={formatTimestamp(properties.completion_date, true)} />
             )}
             {properties.creation_date > 0 && (
-              <StatRow label={t("torrents.created")} value={formatTimestamp(properties.creation_date, true)} />
+              <StatRow label={t("generalTab.createdOn")} value={formatTimestamp(properties.creation_date, true)} />
             )}
           </div>
 
           {/* Limits */}
           <div className="space-y-1">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("torrents.limits")}</h4>
-            <StatRow label={t("torrents.ratioLimit")} value={torrent.max_ratio > 0 ? torrent.max_ratio.toFixed(2) : "∞"} />
-            <StatRow label={t("torrents.dlLimit")} value={downloadLimitLabel} />
-            <StatRow label={t("torrents.ulLimit")} value={uploadLimitLabel} />
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{t("generalTab.limits")}</h4>
+            <StatRow label={t("generalTab.ratioLimit")} value={torrent.max_ratio > 0 ? torrent.max_ratio.toFixed(2) : "∞"} />
+            <StatRow label={t("generalTab.downLimit")} value={downloadLimitLabel} />
+            <StatRow label={t("generalTab.upLimit")} value={uploadLimitLabel} />
             <StatRow
-              label={t("torrents.seedtimeLimit")}
+              label={t("generalTab.seedingTimeLimit")}
               value={formatTimeLimit(torrent.seeding_time_limit)}
             />
             {torrent.inactive_seeding_time_limit !== undefined && (
               <StatRow
-                label={t("torrents.inactiveLimit")}
+                label={t("generalTab.inactiveSeedingLimit")}
                 value={formatTimeLimit(torrent.inactive_seeding_time_limit)}
               />
             )}
@@ -367,7 +367,7 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
         <div className="mt-2">
           <div className="flex items-center justify-between mb-1.5">
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {t("torrents.pieces")}
+              {t("generalTab.pieces")}
             </h4>
             <span className="text-xs text-muted-foreground tabular-nums">
               {piecesStats.total > 0? `${piecesStats.have} / ${piecesStats.total} (${piecesStats.progress.toFixed(1)}%)`: "—"}

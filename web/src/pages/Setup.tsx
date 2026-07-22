@@ -20,7 +20,7 @@ import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
 export function Setup() {
-  const { t } = useTranslation()
+  const { t } = useTranslation("auth")
   const navigate = useNavigate()
   const { setup, isSettingUp, setupError } = useAuth()
 
@@ -72,10 +72,10 @@ export function Setup() {
               <Logo className="h-12 w-12" />
             </div>
             <CardTitle className="text-3xl font-bold pointer-events-none select-none">
-              qui
+              {t("setup.title")}
             </CardTitle>
             <CardDescription className="pointer-events-none select-none">
-              {t("login.createAccountToGetStarted")}
+              {t("setup.subtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
@@ -90,22 +90,22 @@ export function Setup() {
                 name="username"
                 validators={{
                   onChange: ({ value }) => {
-                    if (!value) return t("login.usernameRequired")
-                    if (value.length < 3) return t("login.usernameMinLength")
+                    if (!value) return t("setup.usernameRequired")
+                    if (value.length < 3) return t("setup.usernameMinLength")
                     return undefined
                   },
                 }}
               >
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>{t("login.username")}</Label>
+                    <Label htmlFor={field.name}>{t("setup.usernameLabel")}</Label>
                     <Input
                       id={field.name}
                       type="text"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={t("login.chooseUsername")}
+                      placeholder={t("setup.usernamePlaceholder")}
                     />
                     {field.state.meta.isTouched && field.state.meta.errors[0] && (
                       <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
@@ -118,22 +118,22 @@ export function Setup() {
                 name="password"
                 validators={{
                   onChange: ({ value }) => {
-                    if (!value) return t("login.passwordRequired")
-                    if (value.length < 8) return t("login.passwordMinLength")
+                    if (!value) return t("setup.passwordRequired")
+                    if (value.length < 8) return t("setup.passwordMinLength")
                     return undefined
                   },
                 }}
               >
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>{t("login.password")}</Label>
+                    <Label htmlFor={field.name}>{t("setup.passwordLabel")}</Label>
                     <Input
                       id={field.name}
                       type="password"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={t("login.chooseStrongPassword")}
+                      placeholder={t("setup.passwordPlaceholder")}
                     />
                     {field.state.meta.isTouched && field.state.meta.errors[0] && (
                       <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
@@ -147,22 +147,22 @@ export function Setup() {
                 validators={{
                   onChange: ({ value, fieldApi }) => {
                     const password = fieldApi.form.getFieldValue("password")
-                    if (!value) return t("login.confirmPasswordRequired")
-                    if (value !== password) return t("login.passwordsDoNotMatch")
+                    if (!value) return t("setup.confirmPasswordRequired")
+                    if (value !== password) return t("setup.passwordsDoNotMatch")
                     return undefined
                   },
                 }}
               >
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>{t("login.confirmPassword")}</Label>
+                    <Label htmlFor={field.name}>{t("setup.confirmPasswordLabel")}</Label>
                     <Input
                       id={field.name}
                       type="password"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={t("login.confirmYourPassword")}
+                      placeholder={t("setup.confirmPasswordPlaceholder")}
                     />
                     {field.state.meta.isTouched && field.state.meta.errors[0] && (
                       <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
@@ -173,7 +173,7 @@ export function Setup() {
 
               {setupError && (
                 <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">
-                  {setupError.message || t("login.failedCreateUser")}
+                  {setupError.message || t("setup.setupFailed")}
                 </div>
               )}
 
@@ -187,7 +187,7 @@ export function Setup() {
                     size="lg"
                     disabled={!canSubmit || isSubmitting || isSettingUp}
                   >
-                    {isSettingUp ? t("login.creatingAccount") : t("login.createAccount")}
+                    {isSettingUp ? t("setup.creatingAccount") : t("setup.createAccount")}
                   </Button>
                 )}
               </form.Subscribe>

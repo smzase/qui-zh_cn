@@ -43,6 +43,11 @@ func TestSyncManager_FilteringAndSorting(t *testing.T) {
 		Message: "Tracker is down for maintenance",
 	}}
 
+	torrents[5].Trackers = []qbt.TorrentTracker{{
+		Status:  qbt.TrackerStatusNotWorking,
+		Message: "Invalid tracker response payload",
+	}}
+
 	t.Run("matchTorrentStatus filters correctly", func(t *testing.T) {
 		testCases := []struct {
 			status   string
@@ -56,6 +61,7 @@ func TestSyncManager_FilteringAndSorting(t *testing.T) {
 			{"errored", 1},
 			{"unregistered", 1},
 			{"tracker_down", 1},
+			{"tracker_error", 1},
 		}
 
 		for _, tc := range testCases {
@@ -174,6 +180,54 @@ func TestSyncManager_TorrentTrackerIsDown_TrackerUpdating(t *testing.T) {
 	})
 }
 
+func TestSyncManager_TorrentHasTrackerError(t *testing.T) {
+	sm := &SyncManager{}
+
+	t.Run("marks generic tracker errors when all trackers are errored", func(t *testing.T) {
+		torrent := qbt.Torrent{
+			Trackers: []qbt.TorrentTracker{
+				{Status: qbt.TrackerStatusNotWorking, Message: "Invalid tracker response payload"},
+				{Status: qbt.TrackerStatusTrackerError, Message: "Tracker reply failed checksum validation"},
+			},
+		}
+
+		assert.True(t, sm.torrentHasTrackerError(&torrent))
+		assert.Equal(t, TrackerHealthError, sm.determineTrackerHealth(&torrent))
+	})
+
+	t.Run("ignores tracker errors when a working tracker is present", func(t *testing.T) {
+		torrent := qbt.Torrent{
+			Trackers: []qbt.TorrentTracker{
+				{Status: qbt.TrackerStatusNotWorking, Message: "Invalid tracker response payload"},
+				{Status: qbt.TrackerStatusOK, Message: ""},
+			},
+		}
+
+		assert.False(t, sm.torrentHasTrackerError(&torrent))
+	})
+
+	t.Run("ignores tracker errors classified as unregistered", func(t *testing.T) {
+		torrent := qbt.Torrent{
+			AddedOn: time.Now().Add(-2 * time.Hour).Unix(),
+			Trackers: []qbt.TorrentTracker{
+				{Status: qbt.TrackerStatusNotWorking, Message: "Torrent not registered on tracker"},
+			},
+		}
+
+		assert.False(t, sm.torrentHasTrackerError(&torrent))
+	})
+
+	t.Run("ignores tracker errors classified as tracker down", func(t *testing.T) {
+		torrent := qbt.Torrent{
+			Trackers: []qbt.TorrentTracker{
+				{Status: qbt.TrackerStatusUnreachable, Message: "Connection timed out"},
+			},
+		}
+
+		assert.False(t, sm.torrentHasTrackerError(&torrent))
+	})
+}
+
 func TestSyncManager_CountTorrentStatuses_TrackerHealthExclusive(t *testing.T) {
 	sm := &SyncManager{}
 	counts := map[string]int{}
@@ -194,6 +248,7 @@ func TestSyncManager_CountTorrentStatuses_TrackerHealthExclusive(t *testing.T) {
 	assert.Equal(t, 1, counts["all"])
 	assert.Equal(t, 1, counts["unregistered"])
 	assert.Zero(t, counts["tracker_down"])
+	assert.Zero(t, counts["tracker_error"])
 }
 
 func TestSyncManager_TorrentBelongsToTrackerDomain(t *testing.T) {
@@ -299,8 +354,10 @@ func TestSyncManager_GetTrackerHealthCounts_DeepCopy(t *testing.T) {
 	original := &TrackerHealthCounts{
 		Unregistered:    2,
 		TrackerDown:     1,
+		TrackerError:    3,
 		UnregisteredSet: map[string]struct{}{"hash1": {}, "hash2": {}},
 		TrackerDownSet:  map[string]struct{}{"hash3": {}},
+		TrackerErrorSet: map[string]struct{}{"hash4": {}, "hash5": {}, "hash6": {}},
 		UpdatedAt:       originalTime,
 	}
 	sm.trackerHealthCache[1] = original
@@ -312,22 +369,28 @@ func TestSyncManager_GetTrackerHealthCounts_DeepCopy(t *testing.T) {
 	assert.NotNil(t, returned)
 	assert.Equal(t, 2, returned.Unregistered)
 	assert.Equal(t, 1, returned.TrackerDown)
+	assert.Equal(t, 3, returned.TrackerError)
 
 	// Modify the returned copy
 	returned.Unregistered = 99
 	returned.TrackerDown = 88
+	returned.TrackerError = 77
 	returned.UnregisteredSet["modified"] = struct{}{}
 	delete(returned.UnregisteredSet, "hash1")
 	returned.TrackerDownSet["modified2"] = struct{}{}
+	returned.TrackerErrorSet["modified3"] = struct{}{}
 
 	// Verify original is unchanged
 	assert.Equal(t, 2, original.Unregistered, "Original Unregistered should be unchanged")
 	assert.Equal(t, 1, original.TrackerDown, "Original TrackerDown should be unchanged")
+	assert.Equal(t, 3, original.TrackerError, "Original TrackerError should be unchanged")
 	assert.Contains(t, original.UnregisteredSet, "hash1", "Original UnregisteredSet should still contain hash1")
 	assert.NotContains(t, original.UnregisteredSet, "modified", "Original UnregisteredSet should not contain modified")
 	assert.NotContains(t, original.TrackerDownSet, "modified2", "Original TrackerDownSet should not contain modified2")
+	assert.NotContains(t, original.TrackerErrorSet, "modified3", "Original TrackerErrorSet should not contain modified3")
 	assert.Len(t, original.UnregisteredSet, 2, "Original UnregisteredSet should still have 2 items")
 	assert.Len(t, original.TrackerDownSet, 1, "Original TrackerDownSet should still have 1 item")
+	assert.Len(t, original.TrackerErrorSet, 3, "Original TrackerErrorSet should still have 3 items")
 }
 
 func TestSyncManager_GetTrackerHealthCounts_NilWhenNoCache(t *testing.T) {
@@ -344,97 +407,145 @@ func TestSyncManager_RemoveHashesFromTrackerHealthCache(t *testing.T) {
 		name                string
 		initialUnregistered int
 		initialTrackerDown  int
+		initialTrackerError int
 		unregisteredSet     map[string]struct{}
 		trackerDownSet      map[string]struct{}
+		trackerErrorSet     map[string]struct{}
 		hashesToRemove      []string
 		expectedUnreg       int
 		expectedDown        int
+		expectedError       int
 		expectedUnregSet    map[string]struct{}
 		expectedDownSet     map[string]struct{}
+		expectedErrorSet    map[string]struct{}
 	}{
 		{
 			name:                "remove from UnregisteredSet only",
 			initialUnregistered: 2,
 			initialTrackerDown:  1,
+			initialTrackerError: 1,
 			unregisteredSet:     map[string]struct{}{"h1": {}, "h2": {}},
 			trackerDownSet:      map[string]struct{}{"h3": {}},
+			trackerErrorSet:     map[string]struct{}{"h4": {}},
 			hashesToRemove:      []string{"h1"},
 			expectedUnreg:       1,
 			expectedDown:        1,
+			expectedError:       1,
 			expectedUnregSet:    map[string]struct{}{"h2": {}},
 			expectedDownSet:     map[string]struct{}{"h3": {}},
+			expectedErrorSet:    map[string]struct{}{"h4": {}},
 		},
 		{
 			name:                "remove from TrackerDownSet only",
 			initialUnregistered: 2,
 			initialTrackerDown:  1,
+			initialTrackerError: 1,
 			unregisteredSet:     map[string]struct{}{"h1": {}, "h2": {}},
 			trackerDownSet:      map[string]struct{}{"h3": {}},
+			trackerErrorSet:     map[string]struct{}{"h4": {}},
 			hashesToRemove:      []string{"h3"},
 			expectedUnreg:       2,
 			expectedDown:        0,
+			expectedError:       1,
 			expectedUnregSet:    map[string]struct{}{"h1": {}, "h2": {}},
 			expectedDownSet:     map[string]struct{}{},
+			expectedErrorSet:    map[string]struct{}{"h4": {}},
+		},
+		{
+			name:                "remove from TrackerErrorSet only",
+			initialUnregistered: 2,
+			initialTrackerDown:  1,
+			initialTrackerError: 2,
+			unregisteredSet:     map[string]struct{}{"h1": {}, "h2": {}},
+			trackerDownSet:      map[string]struct{}{"h3": {}},
+			trackerErrorSet:     map[string]struct{}{"h4": {}, "h5": {}},
+			hashesToRemove:      []string{"h4"},
+			expectedUnreg:       2,
+			expectedDown:        1,
+			expectedError:       1,
+			expectedUnregSet:    map[string]struct{}{"h1": {}, "h2": {}},
+			expectedDownSet:     map[string]struct{}{"h3": {}},
+			expectedErrorSet:    map[string]struct{}{"h5": {}},
 		},
 		{
 			name:                "remove from both sets",
 			initialUnregistered: 2,
 			initialTrackerDown:  2,
+			initialTrackerError: 1,
 			unregisteredSet:     map[string]struct{}{"h1": {}, "h2": {}},
 			trackerDownSet:      map[string]struct{}{"h1": {}, "h3": {}},
+			trackerErrorSet:     map[string]struct{}{"h4": {}},
 			hashesToRemove:      []string{"h1"},
 			expectedUnreg:       1,
 			expectedDown:        1,
+			expectedError:       1,
 			expectedUnregSet:    map[string]struct{}{"h2": {}},
 			expectedDownSet:     map[string]struct{}{"h3": {}},
+			expectedErrorSet:    map[string]struct{}{"h4": {}},
 		},
 		{
 			name:                "remove non-existent hash - no change",
 			initialUnregistered: 2,
 			initialTrackerDown:  1,
+			initialTrackerError: 1,
 			unregisteredSet:     map[string]struct{}{"h1": {}, "h2": {}},
 			trackerDownSet:      map[string]struct{}{"h3": {}},
+			trackerErrorSet:     map[string]struct{}{"h4": {}},
 			hashesToRemove:      []string{"nonexistent"},
 			expectedUnreg:       2,
 			expectedDown:        1,
+			expectedError:       1,
 			expectedUnregSet:    map[string]struct{}{"h1": {}, "h2": {}},
 			expectedDownSet:     map[string]struct{}{"h3": {}},
+			expectedErrorSet:    map[string]struct{}{"h4": {}},
 		},
 		{
 			name:                "underflow protection - count stays at 0",
 			initialUnregistered: 0,
 			initialTrackerDown:  0,
+			initialTrackerError: 0,
 			unregisteredSet:     map[string]struct{}{"h1": {}},
 			trackerDownSet:      map[string]struct{}{"h2": {}},
-			hashesToRemove:      []string{"h1", "h2"},
+			trackerErrorSet:     map[string]struct{}{"h3": {}},
+			hashesToRemove:      []string{"h1", "h2", "h3"},
 			expectedUnreg:       0,
 			expectedDown:        0,
+			expectedError:       0,
 			expectedUnregSet:    map[string]struct{}{},
 			expectedDownSet:     map[string]struct{}{},
+			expectedErrorSet:    map[string]struct{}{},
 		},
 		{
 			name:                "empty hashes slice - no-op",
 			initialUnregistered: 2,
 			initialTrackerDown:  1,
+			initialTrackerError: 1,
 			unregisteredSet:     map[string]struct{}{"h1": {}, "h2": {}},
 			trackerDownSet:      map[string]struct{}{"h3": {}},
+			trackerErrorSet:     map[string]struct{}{"h4": {}},
 			hashesToRemove:      []string{},
 			expectedUnreg:       2,
 			expectedDown:        1,
+			expectedError:       1,
 			expectedUnregSet:    map[string]struct{}{"h1": {}, "h2": {}},
 			expectedDownSet:     map[string]struct{}{"h3": {}},
+			expectedErrorSet:    map[string]struct{}{"h4": {}},
 		},
 		{
 			name:                "remove multiple hashes",
 			initialUnregistered: 3,
 			initialTrackerDown:  2,
+			initialTrackerError: 2,
 			unregisteredSet:     map[string]struct{}{"h1": {}, "h2": {}, "h3": {}},
 			trackerDownSet:      map[string]struct{}{"h4": {}, "h5": {}},
-			hashesToRemove:      []string{"h1", "h2", "h4"},
+			trackerErrorSet:     map[string]struct{}{"h6": {}, "h7": {}},
+			hashesToRemove:      []string{"h1", "h2", "h4", "h6"},
 			expectedUnreg:       1,
 			expectedDown:        1,
+			expectedError:       1,
 			expectedUnregSet:    map[string]struct{}{"h3": {}},
 			expectedDownSet:     map[string]struct{}{"h5": {}},
+			expectedErrorSet:    map[string]struct{}{"h7": {}},
 		},
 	}
 
@@ -449,14 +560,20 @@ func TestSyncManager_RemoveHashesFromTrackerHealthCache(t *testing.T) {
 			for k := range tt.trackerDownSet {
 				downSet[k] = struct{}{}
 			}
+			errorSet := make(map[string]struct{}, len(tt.trackerErrorSet))
+			for k := range tt.trackerErrorSet {
+				errorSet[k] = struct{}{}
+			}
 
 			sm := &SyncManager{
 				trackerHealthCache: map[int]*TrackerHealthCounts{
 					1: {
 						Unregistered:    tt.initialUnregistered,
 						TrackerDown:     tt.initialTrackerDown,
+						TrackerError:    tt.initialTrackerError,
 						UnregisteredSet: unregSet,
 						TrackerDownSet:  downSet,
+						TrackerErrorSet: errorSet,
 					},
 				},
 			}
@@ -466,8 +583,10 @@ func TestSyncManager_RemoveHashesFromTrackerHealthCache(t *testing.T) {
 			counts := sm.trackerHealthCache[1]
 			assert.Equal(t, tt.expectedUnreg, counts.Unregistered, "Unregistered count")
 			assert.Equal(t, tt.expectedDown, counts.TrackerDown, "TrackerDown count")
+			assert.Equal(t, tt.expectedError, counts.TrackerError, "TrackerError count")
 			assert.Equal(t, tt.expectedUnregSet, counts.UnregisteredSet, "UnregisteredSet")
 			assert.Equal(t, tt.expectedDownSet, counts.TrackerDownSet, "TrackerDownSet")
+			assert.Equal(t, tt.expectedErrorSet, counts.TrackerErrorSet, "TrackerErrorSet")
 		})
 	}
 }
@@ -482,6 +601,30 @@ func TestSyncManager_RemoveHashesFromTrackerHealthCache_NoCache(t *testing.T) {
 	// If we get here without panic, the test passes
 }
 
+func TestSyncManager_RemoveHashesFromTrackerHealthCache_NotifiesOnlyOnChange(t *testing.T) {
+	sm := NewSyncManager(nil, nil)
+	sink := &mockSyncEventSink{}
+	sm.SetSyncEventSink(sink)
+	sm.trackerHealthCache[1] = &TrackerHealthCounts{
+		Unregistered:    1,
+		TrackerDown:     1,
+		TrackerError:    1,
+		UnregisteredSet: map[string]struct{}{"unregistered": {}},
+		TrackerDownSet:  map[string]struct{}{"down": {}},
+		TrackerErrorSet: map[string]struct{}{"error": {}},
+	}
+
+	sm.RemoveHashesFromTrackerHealthCache(1, []string{"down", "missing"})
+	assert.Equal(t, []int{1}, sink.getTrackerHealthUpdates())
+	assert.Equal(t, 0, sm.trackerHealthCache[1].TrackerDown)
+	assert.NotContains(t, sm.trackerHealthCache[1].TrackerDownSet, "down")
+
+	sm.RemoveHashesFromTrackerHealthCache(1, []string{"missing"})
+	sm.RemoveHashesFromTrackerHealthCache(2, []string{"unregistered"})
+	sm.RemoveHashesFromTrackerHealthCache(1, nil)
+	assert.Equal(t, []int{1}, sink.getTrackerHealthUpdates())
+}
+
 func TestSyncManager_TrackerHealthCache_ConcurrentAccess(t *testing.T) {
 	// This test verifies that concurrent reads (GetTrackerHealthCounts) and writes
 	// (RemoveHashesFromTrackerHealthCache) don't cause data races.
@@ -492,8 +635,10 @@ func TestSyncManager_TrackerHealthCache_ConcurrentAccess(t *testing.T) {
 			1: {
 				Unregistered:    100,
 				TrackerDown:     50,
+				TrackerError:    25,
 				UnregisteredSet: make(map[string]struct{}),
 				TrackerDownSet:  make(map[string]struct{}),
+				TrackerErrorSet: make(map[string]struct{}),
 			},
 		},
 	}
@@ -504,6 +649,9 @@ func TestSyncManager_TrackerHealthCache_ConcurrentAccess(t *testing.T) {
 	}
 	for i := range 50 {
 		sm.trackerHealthCache[1].TrackerDownSet[fmt.Sprintf("down%d", i)] = struct{}{}
+	}
+	for i := range 25 {
+		sm.trackerHealthCache[1].TrackerErrorSet[fmt.Sprintf("error%d", i)] = struct{}{}
 	}
 
 	var wg sync.WaitGroup
@@ -517,8 +665,10 @@ func TestSyncManager_TrackerHealthCache_ConcurrentAccess(t *testing.T) {
 					// Access the returned copy to ensure it's safe
 					_ = counts.Unregistered
 					_ = counts.TrackerDown
+					_ = counts.TrackerError
 					_ = len(counts.UnregisteredSet)
 					_ = len(counts.TrackerDownSet)
+					_ = len(counts.TrackerErrorSet)
 				}
 			}
 		})
@@ -631,6 +781,11 @@ func TestFiltersRequireTrackerData(t *testing.T) {
 			want:    true,
 		},
 		{
+			name:    "include tracker error status",
+			filters: FilterOptions{Status: []string{"tracker_error"}},
+			want:    true,
+		},
+		{
 			name:    "non tracker health statuses",
 			filters: FilterOptions{Status: []string{"downloading"}},
 			want:    false,
@@ -645,6 +800,30 @@ func TestFiltersRequireTrackerData(t *testing.T) {
 	for _, tc := range testCases {
 		assert.Equal(t, tc.want, filtersRequireTrackerData(tc.filters), tc.name)
 	}
+}
+
+func TestSyncManager_ApplyManualFiltersUsesCachedTrackerHealth(t *testing.T) {
+	sm := &SyncManager{}
+	cachedHealth := &TrackerHealthCounts{
+		UnregisteredSet: map[string]struct{}{"unregistered": {}},
+		TrackerDownSet:  map[string]struct{}{"down": {}},
+		TrackerErrorSet: map[string]struct{}{"error": {}},
+	}
+	torrents := []qbt.Torrent{
+		{Hash: "healthy", Name: "Healthy"},
+		{Hash: "unregistered", Name: "Unregistered"},
+		{Hash: "down", Name: "Down"},
+		{Hash: "error", Name: "Error"},
+	}
+
+	filtered := sm.applyManualFiltersWithTrackerHealth(nil, torrents, FilterOptions{Status: []string{"unregistered", "tracker_error"}}, nil, nil, false, cachedHealth)
+	assert.Equal(t, []qbt.Torrent{torrents[1], torrents[3]}, filtered)
+
+	excluded := sm.applyManualFiltersWithTrackerHealth(nil, torrents, FilterOptions{ExcludeStatus: []string{"tracker_down"}}, nil, nil, false, cachedHealth)
+	assert.Equal(t, []qbt.Torrent{torrents[0], torrents[1], torrents[3]}, excluded)
+
+	withoutCache := sm.applyManualFilters(nil, torrents, FilterOptions{Status: []string{"unregistered"}}, nil, nil, false)
+	assert.Empty(t, withoutCache)
 }
 
 func TestSyncManager_SortTorrentsByStatus(t *testing.T) {
@@ -726,6 +905,41 @@ func TestSyncManager_SortTorrentsByStatus(t *testing.T) {
 
 	sm.sortTorrentsByStatus(torrents, false, true)
 	assert.Equal(t, []string{"unreg", "down", "downloading", "stalled_dl", "uploading", "uploading_old", "paused", "paused_old"}, hashes(torrents))
+}
+
+func TestSyncManager_SortTorrentsByStatusUsesCachedTrackerHealth(t *testing.T) {
+	sm := &SyncManager{}
+	cachedHealth := &TrackerHealthCounts{
+		UnregisteredSet: map[string]struct{}{"unregistered": {}},
+		TrackerDownSet:  map[string]struct{}{"down": {}},
+		TrackerErrorSet: map[string]struct{}{"error": {}},
+	}
+	torrents := []qbt.Torrent{
+		{Hash: "healthy", Name: "Healthy", State: qbt.TorrentStateDownloading, AddedOn: 1},
+		{Hash: "error", Name: "Error", State: qbt.TorrentStateDownloading, AddedOn: 2},
+		{Hash: "down", Name: "Down", State: qbt.TorrentStateDownloading, AddedOn: 3},
+		{Hash: "unregistered", Name: "Unregistered", State: qbt.TorrentStateDownloading, AddedOn: 4},
+	}
+
+	hashes := func(ts []qbt.Torrent) []string {
+		out := make([]string, len(ts))
+		for i, torrent := range ts {
+			out[i] = torrent.Hash
+		}
+		return out
+	}
+
+	sm.sortTorrentsByStatusWithTrackerHealth(torrents, false, true, cachedHealth)
+	assert.Equal(t, []string{"unregistered", "down", "error", "healthy"}, hashes(torrents))
+
+	unsupportedTorrents := []qbt.Torrent{
+		{Hash: "unregistered", Name: "Delta", State: qbt.TorrentStateDownloading, AddedOn: 100},
+		{Hash: "down", Name: "Charlie", State: qbt.TorrentStateDownloading, AddedOn: 100},
+		{Hash: "error", Name: "Bravo", State: qbt.TorrentStateDownloading, AddedOn: 100},
+		{Hash: "healthy", Name: "Alpha", State: qbt.TorrentStateDownloading, AddedOn: 100},
+	}
+	sm.sortTorrentsByStatusWithTrackerHealth(unsupportedTorrents, false, false, cachedHealth)
+	assert.Equal(t, []string{"healthy", "error", "down", "unregistered"}, hashes(unsupportedTorrents))
 }
 
 func TestSyncManager_SortTorrentsByStatus_TieBreakAddedOn(t *testing.T) {

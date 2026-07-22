@@ -11,8 +11,8 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Radar, Users, Shield } from "lucide-react"
 import { useInstancePreferences } from "@/hooks/useInstancePreferences"
-import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { PreferencesFormShell } from "./PreferencesFormShell"
 
@@ -57,7 +57,7 @@ function SwitchSetting({
 }
 
 export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscoveryFormProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   const { preferences, isLoading, updatePreferences, isUpdating } = useInstancePreferences(instanceId)
 
   const form = useForm({
@@ -74,10 +74,10 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
     onSubmit: async ({ value }) => {
       try {
         await updatePreferences(value)
-        toast.success(t("instances.networkDiscoveryUpdated"))
+        toast.success(t("preferences.networkDiscovery.toast.success"))
         onSuccess?.()
       } catch (error) {
-        toast.error(t("instances.networkDiscoveryUpdateFailed"))
+        toast.error(t("preferences.networkDiscovery.toast.error"))
         console.error("Failed to update network discovery settings:", error)
       }
     },
@@ -100,17 +100,16 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
   if (isLoading || !preferences) {
     return (
       <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
-        <p className="text-sm text-muted-foreground">{t("instances.loadingNetworkDiscovery")}</p>
+        <p className="text-sm text-muted-foreground">{t("preferences.networkDiscovery.loading")}</p>
       </div>
     )
   }
 
   const getEncryptionLabel = (value: number) => {
     switch (value) {
-      case 0: return t("instances.preferEncryption")
-      case 1: return t("instances.forceEncryption")
-      case 2: return t("instances.disableEncryption")
-      default: return t("instances.preferEncryption")
+      case 1: return t("preferences.networkDiscovery.requireEncryption")
+      case 2: return t("preferences.networkDiscovery.disableEncryption")
+      default: return t("preferences.networkDiscovery.preferEncryption")
     }
   }
 
@@ -130,7 +129,7 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
               disabled={!canSubmit || isSubmitting || isUpdating}
               className="min-w-32"
             >
-              {isSubmitting || isUpdating ? t("instances.saving") : t("instances.save")}
+              {isSubmitting || isUpdating ? t("preferences.common.saving") : t("preferences.common.saveChanges")}
             </Button>
           )}
         </form.Subscribe>
@@ -141,15 +140,15 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Radar className="h-4 w-4" />
-            <h3 className="text-lg font-medium">{t("instances.peerDiscovery")}</h3>
+            <h3 className="text-lg font-medium">{t("preferences.networkDiscovery.peerDiscovery")}</h3>
           </div>
 
           <div className="space-y-4">
             <form.Field name="dht">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.enableDht")}
-                  description={t("instances.enableDhtDesc")}
+                  label={t("preferences.networkDiscovery.enableDht")}
+                  description={t("preferences.networkDiscovery.enableDhtDescription")}
                   checked={field.state.value}
                   onChange={(checked) => field.handleChange(checked)}
                 />
@@ -159,8 +158,8 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
             <form.Field name="pex">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.enablePex")}
-                  description={t("instances.enablePexDesc")}
+                  label={t("preferences.networkDiscovery.enablePex")}
+                  description={t("preferences.networkDiscovery.enablePexDescription")}
                   checked={field.state.value}
                   onChange={(checked) => field.handleChange(checked)}
                 />
@@ -170,8 +169,8 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
             <form.Field name="lsd">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.enableLocalPeerDiscovery")}
-                  description={t("instances.enableLocalPeerDiscoveryDesc")}
+                  label={t("preferences.networkDiscovery.enableLsd")}
+                  description={t("preferences.networkDiscovery.enableLsdDescription")}
                   checked={field.state.value}
                   onChange={(checked) => field.handleChange(checked)}
                 />
@@ -184,15 +183,15 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <h3 className="text-lg font-medium">{t("instances.trackerSettings")}</h3>
+            <h3 className="text-lg font-medium">{t("preferences.networkDiscovery.trackerSettings")}</h3>
           </div>
 
           <div className="space-y-4">
             <form.Field name="announce_to_all_tiers">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.alwaysAnnounceAllTiers")}
-                  description={t("instances.alwaysAnnounceAllTiersDesc")}
+                  label={t("preferences.networkDiscovery.announceToAllTiers")}
+                  description={t("preferences.networkDiscovery.announceToAllTiersDescription")}
                   checked={field.state.value}
                   onChange={(checked) => field.handleChange(checked)}
                 />
@@ -202,8 +201,8 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
             <form.Field name="announce_to_all_trackers">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.alwaysAnnounceAllTrackersInTier")}
-                  description={t("instances.alwaysAnnounceAllTrackersInTierDesc")}
+                  label={t("preferences.networkDiscovery.announceToAllTrackers")}
+                  description={t("preferences.networkDiscovery.announceToAllTrackersDescription")}
                   checked={field.state.value}
                   onChange={(checked) => field.handleChange(checked)}
                 />
@@ -216,14 +215,14 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            <h3 className="text-lg font-medium">{t("instances.securityPrivacy")}</h3>
+            <h3 className="text-lg font-medium">{t("preferences.networkDiscovery.securityPrivacy")}</h3>
           </div>
 
           <div className="space-y-4">
             <form.Field name="encryption">
               {(field) => (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">{t("instances.encryption")}</Label>
+                  <Label className="text-sm font-medium">{t("preferences.networkDiscovery.protocolEncryption")}</Label>
                   <Select
                     value={field.state.value.toString()}
                     onValueChange={(value) => field.handleChange(parseInt(value))}
@@ -238,7 +237,7 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    {t("instances.encryptionDesc")}
+                    {t("preferences.networkDiscovery.encryptionDescription")}
                   </p>
                 </div>
               )}
@@ -247,8 +246,8 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
             <form.Field name="anonymous_mode">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.enableAnonymousMode")}
-                  description={t("instances.enableAnonymousModeDesc")}
+                  label={t("preferences.networkDiscovery.enableAnonymousMode")}
+                  description={t("preferences.networkDiscovery.enableAnonymousModeDescription")}
                   checked={field.state.value}
                   onChange={(checked) => field.handleChange(checked)}
                 />
@@ -258,8 +257,8 @@ export function NetworkDiscoveryForm({ instanceId, onSuccess }: NetworkDiscovery
             <form.Field name="resolve_peer_countries">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.resolvePeerCountries")}
-                  description={t("instances.resolvePeerCountriesDesc")}
+                  label={t("preferences.networkDiscovery.resolvePeerCountries")}
+                  description={t("preferences.networkDiscovery.resolvePeerCountriesDescription")}
                   checked={field.state.value}
                   onChange={(checked) => field.handleChange(checked)}
                 />

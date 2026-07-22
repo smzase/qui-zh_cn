@@ -28,30 +28,12 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { DEFAULT_DASHBOARD_SETTINGS, useDashboardSettings, useUpdateDashboardSettings } from "@/hooks/useDashboardSettings"
 
-function getSectionLabels(t: (key: string) => string): Record<string, string> {
-  return {
-    "server-stats": t("dashboard.serverStats"),
-    "tracker-breakdown": t("dashboard.trackerBreakdown"),
-    "global-stats": t("dashboard.globalStatsCards"),
-    "instances": t("dashboard.instanceCards"),
-  }
-}
+const SECTION_IDS = ["server-stats", "tracker-breakdown", "global-stats", "instances"] as const
 
-function getSortColumnLabels(t: (key: string) => string): Record<string, string> {
-  return {
-    "tracker": t("dashboard.trackerName"),
-    "uploaded": t("dashboard.uploaded"),
-    "downloaded": t("dashboard.downloaded"),
-    "ratio": t("dashboard.ratio"),
-    "buffer": t("dashboard.buffer"),
-    "count": t("dashboard.torrents"),
-    "size": t("dashboard.size"),
-    "performance": t("dashboard.seeded"),
-  }
-}
+const SORT_COLUMN_IDS = ["tracker", "uploaded", "downloaded", "ratio", "buffer", "count", "size", "performance"] as const
 
 export function DashboardSettingsDialog() {
-  const { t } = useTranslation()
+  const { t } = useTranslation("dashboard")
   const { data: settings } = useDashboardSettings()
   const updateSettings = useUpdateDashboardSettings()
 
@@ -129,21 +111,21 @@ export function DashboardSettingsDialog() {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="w-full sm:w-auto">
           <Settings className="h-4 w-4 mr-2" />
-          {t('dashboard.layoutSettings')}
+          {t("settingsDialog.button")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('dashboard.dashboardSettings')}</DialogTitle>
+          <DialogTitle>{t("settingsDialog.title")}</DialogTitle>
           <DialogDescription>
-            {t('dashboard.dashboardSettingsDesc')}
+            {t("settingsDialog.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Section Visibility & Order */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">{t('dashboard.sections')}</Label>
+            <Label className="text-sm font-medium">{t("settingsDialog.sections")}</Label>
             <div className="space-y-2">
               {order.map((sectionId, index) => (
                 <div
@@ -159,7 +141,9 @@ export function DashboardSettingsDialog() {
                     htmlFor={`section-${sectionId}`}
                     className="flex-1 text-sm cursor-pointer"
                   >
-                    {(getSectionLabels(t)[sectionId] || sectionId)}
+                    {SECTION_IDS.includes(sectionId as (typeof SECTION_IDS)[number])
+                      ? t(`settingsDialog.sectionLabels.${sectionId}`)
+                      : sectionId}
                   </Label>
                   <div className="flex items-center gap-1">
                     <Button
@@ -190,21 +174,21 @@ export function DashboardSettingsDialog() {
 
           {/* Tracker Breakdown Settings */}
           <div className="space-y-4">
-            <Label className="text-sm font-medium">{t('dashboard.trackerBreakdownDefaults')}</Label>
+            <Label className="text-sm font-medium">{t("settingsDialog.trackerDefaults")}</Label>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="sort-column" className="text-xs text-muted-foreground">
-                  {t('dashboard.defaultSort')}
+                  {t("settingsDialog.defaultSort")}
                 </Label>
                 <Select value={sortColumn} onValueChange={handleSortColumnChange}>
                   <SelectTrigger id="sort-column">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(getSortColumnLabels(t)).map(([value, label]) => (
+                    {SORT_COLUMN_IDS.map((value) => (
                       <SelectItem key={value} value={value}>
-                        {label}
+                        {t(`settingsDialog.sortColumnLabels.${value}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -213,15 +197,15 @@ export function DashboardSettingsDialog() {
 
               <div className="space-y-2">
                 <Label htmlFor="sort-direction" className="text-xs text-muted-foreground">
-                  {t('dashboard.direction')}
+                  {t("settingsDialog.direction")}
                 </Label>
                 <Select value={sortDirection} onValueChange={handleSortDirectionChange}>
                   <SelectTrigger id="sort-direction">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="desc">{t('dashboard.descending')}</SelectItem>
-                    <SelectItem value="asc">{t('dashboard.ascending')}</SelectItem>
+                    <SelectItem value="desc">{t("settingsDialog.descending")}</SelectItem>
+                    <SelectItem value="asc">{t("settingsDialog.ascending")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -229,7 +213,7 @@ export function DashboardSettingsDialog() {
 
             <div className="space-y-2">
               <Label htmlFor="items-per-page" className="text-xs text-muted-foreground">
-                {t('dashboard.itemsPerPage')}
+                {t("settingsDialog.itemsPerPage")}
               </Label>
               <Select value={String(itemsPerPage)} onValueChange={handleItemsPerPageChange}>
                 <SelectTrigger id="items-per-page" className="w-32">

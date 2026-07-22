@@ -144,7 +144,7 @@ Use this when autobrr shows the filter accepted the release (or your Discord not
 5. **Check paused torrents**
    - Cross-seeds are often added **paused**. Look in qBittorrent's paused list (and any cross-seed tag/category you configured).
 
-If you still can't see why, jump to [Cross-Seed Troubleshooting](troubleshooting).
+If you still can't see why, jump to [Cross-Seed Troubleshooting](./troubleshooting.md).
 
 ## Webhook Source Filters
 
@@ -166,3 +166,11 @@ Exclude filters take precedence over include filters. Tag matching is case-sensi
 :::
 
 Configure in qui UI: **Cross-Seed → Auto → Webhook / autobrr**
+
+## Season Pack Webhook
+
+qui also supports a dedicated season-pack flow through separate endpoints. When autobrr announces a season pack, qui checks your instances for matching individual episodes, links whatever is already local, and lets qBittorrent fetch the remainder after recheck when coverage is sufficient.
+
+This uses different endpoints (`/api/cross-seed/season-pack/check` and `/api/cross-seed/season-pack/apply`) and requires a separate autobrr filter.
+
+See [Season Packs](./season-packs.md) for full setup instructions.

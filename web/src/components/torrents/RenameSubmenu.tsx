@@ -41,7 +41,7 @@ export const RenameSubmenu = memo(function RenameSubmenu({
   isPending = false,
   capabilities,
 }: RenameSubmenuProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("torrents")
   const Sub = type === "context" ? ContextMenuSub : DropdownMenuSub
   const SubTrigger = type === "context" ? ContextMenuSubTrigger : DropdownMenuSubTrigger
   const SubContent = type === "context" ? ContextMenuSubContent : DropdownMenuSubContent
@@ -62,25 +62,25 @@ export const RenameSubmenu = memo(function RenameSubmenu({
     <Sub>
       <SubTrigger disabled={disableRename}>
         <Pencil className="mr-4 h-4 w-4" />
-        {t("torrents.rename")}
+        {t("renameSubmenu.rename")}
       </SubTrigger>
       <SubContent>
         {supportsRenameTorrent && (
           <MenuItem onClick={onRenameTorrent} disabled={disableRename}>
             <Pencil className="mr-2 h-4 w-4" />
-            {t("torrents.renameTorrent")}
+            {t("renameSubmenu.renameTorrent")}
           </MenuItem>
         )}
         {supportsRenameFile && (
           <MenuItem onClick={onRenameFile} disabled={disableRename}>
             <FilePen className="mr-2 h-4 w-4" />
-            {t("torrents.renameFile")}
+            {t("renameSubmenu.renameFile")}
           </MenuItem>
         )}
         {supportsRenameFolder && (
           <MenuItem onClick={onRenameFolder} disabled={disableRename}>
             <FolderPen className="mr-2 h-4 w-4" />
-            {t("torrents.renameFolder")}
+            {t("renameSubmenu.renameFolder")}
           </MenuItem>
         )}
       </SubContent>

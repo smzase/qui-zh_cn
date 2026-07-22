@@ -40,6 +40,27 @@ func TestMigrationNumbering(t *testing.T) {
 	}
 }
 
+func TestPostgresMigrationNumbering(t *testing.T) {
+	files := listPostgresMigrationFiles(t)
+
+	seen := make(map[string]struct{})
+	prev := -1
+
+	for _, name := range files {
+		parts := strings.SplitN(name, "_", 2)
+		require.Lenf(t, parts, 2, "migration file %s must follow <number>_<description>.sql", name)
+
+		number := parts[0]
+		require.NotContainsf(t, seen, number, "Duplicate postgres migration number found: %s", number)
+		seen[number] = struct{}{}
+
+		n, err := strconv.Atoi(number)
+		require.NoErrorf(t, err, "migration prefix %s must be numeric", number)
+		require.Greaterf(t, n, prev, "postgres migration numbers must be strictly increasing (saw %d then %d)", prev, n)
+		prev = n
+	}
+}
+
 func TestMigrationIdempotency(t *testing.T) {
 	log.Logger = log.Output(io.Discard)
 	ctx := t.Context()
@@ -176,6 +197,7 @@ var expectedSchema = map[string][]columnSpec{
 		{Name: "host_id", Type: "INTEGER"},
 		{Name: "username_id", Type: "INTEGER"},
 		{Name: "password_encrypted", Type: "TEXT"},
+		{Name: "api_key_encrypted", Type: "TEXT"},
 		{Name: "basic_username_id", Type: "INTEGER"},
 		{Name: "basic_password_encrypted", Type: "TEXT"},
 		{Name: "tls_skip_verify", Type: "BOOLEAN"},
@@ -300,6 +322,22 @@ var expectedTriggers = []string{
 func listMigrationFiles(t *testing.T) []string {
 	entries, err := migrationsFS.ReadDir("migrations")
 	require.NoError(t, err, "Failed to read migrations directory")
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
+			continue
+		}
+		files = append(files, entry.Name())
+	}
+
+	sort.Strings(files)
+	return files
+}
+
+func listPostgresMigrationFiles(t *testing.T) []string {
+	entries, err := postgresMigrationsFS.ReadDir("postgres_migrations")
+	require.NoError(t, err, "Failed to read postgres migrations directory")
 
 	var files []string
 	for _, entry := range entries {
@@ -528,6 +566,88 @@ func TestCleanupUnusedStrings_BasicAuthStringRefs(t *testing.T) {
 	require.True(t, exists, "torznab basic username string must remain referenced")
 	require.NoError(t, conn.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM string_pool WHERE id = ?)", orphanID).Scan(&exists))
 	require.False(t, exists, "orphan string should be cleaned up")
+}
+
+// TestStringPoolFKColumnsAreIndexed guards the string_pool GC stall fixed in migration 078
+// (discussion #2048). Every column that references string_pool via ON DELETE RESTRICT must:
+//  1. have a leading index, or FK enforcement full-scans it once per deleted string during
+//     CleanupUnusedStrings and eventually exceeds its deadline; and
+//  2. be collected by referencedStringsInsertQuery, or the GC would try to delete strings the
+//     column still references and fail the RESTRICT check.
+//
+// The check is schema-driven (PRAGMA foreign_key_list), so any future table that adds a
+// string_pool FK is covered automatically without touching this test.
+func TestStringPoolFKColumnsAreIndexed(t *testing.T) {
+	log.Logger = log.Output(io.Discard)
+	ctx := t.Context()
+	db := openTestDatabase(t)
+	conn := db.Conn()
+
+	var tables []string
+	rows, err := conn.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+	require.NoError(t, err)
+	for rows.Next() {
+		var name string
+		require.NoError(t, rows.Scan(&name))
+		tables = append(tables, name)
+	}
+	require.NoError(t, rows.Err())
+	require.NoError(t, rows.Close())
+
+	type fkCol struct{ table, column string }
+	var fkCols []fkCol
+	for _, table := range tables {
+		// Table names come from sqlite_master (trusted schema), so interpolation is safe;
+		// PRAGMA foreign_key_list does not accept bound parameters.
+		fkRows, err := conn.QueryContext(ctx, fmt.Sprintf("PRAGMA foreign_key_list(%q)", table))
+		require.NoError(t, err)
+		for fkRows.Next() {
+			var (
+				id, seq                   int
+				refTable, from, to        sql.NullString
+				onUpdate, onDelete, match sql.NullString
+			)
+			require.NoError(t, fkRows.Scan(&id, &seq, &refTable, &from, &to, &onUpdate, &onDelete, &match))
+			if refTable.String == "string_pool" {
+				fkCols = append(fkCols, fkCol{table: table, column: from.String})
+			}
+		}
+		require.NoError(t, fkRows.Err())
+		require.NoError(t, fkRows.Close())
+	}
+
+	require.NotEmpty(t, fkCols, "expected to discover string_pool foreign-key columns")
+
+	for _, fc := range fkCols {
+		// (1) FK enforcement during DELETE probes `WHERE col = ?`; this must resolve via an
+		// index (SEARCH), not a full table scan (SCAN). Verified against the freshly migrated
+		// (empty) schema: the planner picks SEARCH purely on index availability here.
+		planRows, err := conn.QueryContext(ctx, fmt.Sprintf("EXPLAIN QUERY PLAN SELECT 1 FROM %q WHERE %q = 1", fc.table, fc.column))
+		require.NoError(t, err)
+		var plan strings.Builder
+		for planRows.Next() {
+			var id, parent, notused int
+			var detail string
+			require.NoError(t, planRows.Scan(&id, &parent, &notused, &detail))
+			plan.WriteString(detail)
+			plan.WriteByte('\n')
+		}
+		require.NoError(t, planRows.Err())
+		require.NoError(t, planRows.Close())
+
+		require.NotContainsf(t, plan.String(), "SCAN",
+			"%s.%s references string_pool but lacks a leading index; FK enforcement will "+
+				"full-scan it during string_pool GC. Add an index (see migration 078). Plan:\n%s",
+			fc.table, fc.column, plan.String())
+
+		// (2) The GC must actually collect this reference, or it will try to delete strings the
+		// column still points at and fail the RESTRICT check.
+		require.Containsf(t, referencedStringsInsertQuery,
+			fmt.Sprintf("SELECT %s AS string_id FROM %s", fc.column, fc.table),
+			"%s.%s references string_pool but is not collected by referencedStringsInsertQuery; "+
+				"the string_pool GC would fail trying to delete strings it still references.",
+			fc.table, fc.column)
+	}
 }
 
 func TestTxTempTableQueriesBypassStatementCache(t *testing.T) {

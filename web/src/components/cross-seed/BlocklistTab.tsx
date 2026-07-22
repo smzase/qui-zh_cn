@@ -53,7 +53,7 @@ function isValidInfoHash(value: string): boolean {
 }
 
 export function BlocklistTab({ instances }: BlocklistTabProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("crossseed")
   const queryClient = useQueryClient()
   const { formatDate } = useDateTimeFormatters()
 
@@ -85,7 +85,7 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
   const addMutation = useMutation({
     mutationFn: (payload: { instanceId: number; infoHash: string; note?: string }) => api.addCrossSeedBlocklist(payload),
     onSuccess: () => {
-      toast.success(t("crossSeed.addedToBlocklist"))
+      toast.success(t("blocklist.toast.addedToBlocklist"))
       setInfoHash("")
       setNote("")
       queryClient.invalidateQueries({ queryKey: ["cross-seed", "blocklist"] })
@@ -98,7 +98,7 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
   const deleteMutation = useMutation({
     mutationFn: (entry: CrossSeedBlocklistEntry) => api.deleteCrossSeedBlocklist(entry.instanceId, entry.infoHash),
     onSuccess: () => {
-      toast.success(t("crossSeed.removedFromBlocklist"))
+      toast.success(t("blocklist.toast.removedFromBlocklist"))
       queryClient.invalidateQueries({ queryKey: ["cross-seed", "blocklist"] })
     },
     onError: (error: Error) => {
@@ -108,13 +108,13 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
 
   const handleAdd = useCallback(() => {
     if (!instanceId) {
-      toast.error(t("crossSeed.selectInstanceForBlocklist"))
+      toast.error(t("blocklist.toast.selectAnInstance"))
       return
     }
 
     const normalized = normalizeInfoHash(infoHash)
     if (!isValidInfoHash(normalized)) {
-      toast.error(t("crossSeed.invalidInfohash"))
+      toast.error(t("blocklist.toast.invalidInfohash"))
       return
     }
 
@@ -123,7 +123,7 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
       infoHash: normalized,
       note: note.trim() || undefined,
     })
-  }, [addMutation, infoHash, instanceId, note])
+  }, [t, addMutation, infoHash, instanceId, note])
 
   const formatDateValue = useCallback((value?: string) => {
     if (!value) return "—"
@@ -136,9 +136,9 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Cross-Seed Blocklist</CardTitle>
+          <CardTitle>{t("blocklist.title")}</CardTitle>
           <CardDescription>
-            Add instances to manage blocked cross-seed infohashes.
+            {t("blocklist.noInstancesDescription")}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -149,21 +149,21 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Cross-Seed Blocklist</CardTitle>
+          <CardTitle>{t("blocklist.title")}</CardTitle>
           <CardDescription>
-            Prevent specific infohashes from being injected on a per-instance basis.
+            {t("blocklist.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-[200px_1fr]">
             <div className="space-y-2">
-              <Label htmlFor="blocklist-instance">Instance</Label>
+              <Label htmlFor="blocklist-instance">{t("blocklist.instanceLabel")}</Label>
               <Select
                 value={instanceId ? instanceId.toString() : ""}
                 onValueChange={(value) => setInstanceId(Number(value))}
               >
                 <SelectTrigger id="blocklist-instance">
-                  <SelectValue placeholder="Select instance" />
+                  <SelectValue placeholder={t("blocklist.selectInstance")} />
                 </SelectTrigger>
                 <SelectContent>
                   {instances.map((instance) => (
@@ -175,10 +175,10 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="blocklist-infohash">Infohash</Label>
+              <Label htmlFor="blocklist-infohash">{t("blocklist.infohashLabel")}</Label>
               <Input
                 id="blocklist-infohash"
-                placeholder="e.g. 63e07ff523710ca268567dad344ce1e0e6b7e8a3"
+                placeholder={t("blocklist.infohashPlaceholder")}
                 value={infoHash}
                 onChange={(event) => setInfoHash(event.target.value)}
               />
@@ -186,10 +186,10 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
           </div>
           <div className="grid gap-4 md:grid-cols-[1fr_auto]">
             <div className="space-y-2">
-              <Label htmlFor="blocklist-note">Note (optional)</Label>
+              <Label htmlFor="blocklist-note">{t("blocklist.noteLabel")}</Label>
               <Input
                 id="blocklist-note"
-                placeholder="Why is this hash blocked?"
+                placeholder={t("blocklist.notePlaceholder")}
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
               />
@@ -204,7 +204,7 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
                 ) : (
                   <Plus className="mr-2 h-4 w-4" />
                 )}
-                Add
+                {t("blocklist.add")}
               </Button>
             </div>
           </div>
@@ -213,9 +213,9 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Blocked Hashes</CardTitle>
+          <CardTitle>{t("blocklist.blockedHashes")}</CardTitle>
           <CardDescription>
-            Entries are applied only to the selected instance.
+            {t("blocklist.blockedHashesDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -224,14 +224,14 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
           ) : blocklist.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No blocked infohashes.</div>
+            <div className="text-sm text-muted-foreground">{t("blocklist.noBlockedInfohashes")}</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Infohash</TableHead>
-                  <TableHead>Note</TableHead>
-                  <TableHead>Added</TableHead>
+                  <TableHead>{t("blocklist.tableInfohash")}</TableHead>
+                  <TableHead>{t("blocklist.tableNote")}</TableHead>
+                  <TableHead>{t("blocklist.tableAdded")}</TableHead>
                   <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -253,7 +253,7 @@ export function BlocklistTab({ instances }: BlocklistTabProps) {
                           size="icon"
                           onClick={() => deleteMutation.mutate(entry)}
                           disabled={isDeleting}
-                          aria-label={`Remove ${entry.infoHash} from blocklist`}
+                          aria-label={t("blocklist.removeAriaLabel", { hash: entry.infoHash })}
                         >
                           {isDeleting ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

@@ -355,12 +355,16 @@ Partial matches in link tree mode (hardlink or reflink) require **Download missi
 :::
 
 See:
-- [Hardlink Mode](hardlink-mode)
-- [Link Directories](link-directories)
+- [Hardlink Mode](./hardlink-mode.md)
+- [Link Directories](./link-directories.md)
 
 ### Fallback to regular mode
 
 When link-tree creation fails (hardlinking across filesystems, permission issues), Dir Scan falls back to regular add behavior **if** the instance has **Fallback to regular mode** enabled. Otherwise, the candidate fails.
+
+Filesystem fallback adds the torrent against the matched source files instead of the link-tree directory, so qui requires a full 100% recheck before auto-resume. If **Skip recheck** is enabled, the fallback candidate is skipped.
+
+For partial or otherwise non-perfect fallback matches, qui runs piece-boundary protection before adding the torrent. This fallback check is always enforced, even when **Skip piece boundary safety check** is enabled for regular reuse mode.
 
 ## Scanning Your *arr Library
 
@@ -408,4 +412,4 @@ Click a run to see details including failure reasons for individual items.
 - Indexers may throttle requests. Check **Scheduler Activity** on the Indexers page.
 - Consider reducing scan frequency or limiting to fewer indexers.
 
-For cross-seed-wide issues (matching behavior, hardlink failures, recheck problems), see [Troubleshooting](troubleshooting).
+For cross-seed-wide issues (matching behavior, hardlink failures, recheck problems), see [Troubleshooting](./troubleshooting.md).

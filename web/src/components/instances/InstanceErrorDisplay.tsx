@@ -1,4 +1,4 @@
-﻿﻿﻿﻿/*
+/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -18,8 +18,8 @@ import { formatErrorMessage } from "@/lib/utils"
 import type { InstanceResponse } from "@/types"
 import { AlertCircle, ChevronDown, Edit, XCircle } from "lucide-react"
 import { useState } from "react"
-import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
 import { useTranslation } from "react-i18next"
+import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
 
 interface InstanceErrorDisplayProps {
   instance: InstanceResponse
@@ -29,7 +29,7 @@ interface InstanceErrorDisplayProps {
 }
 
 export function InstanceErrorDisplay({ instance, onEdit, showEditButton = false, compact = false }: InstanceErrorDisplayProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   const [isDecryptionOpen, setIsDecryptionOpen] = useState(compact)
   const [isRecentErrorsOpen, setIsRecentErrorsOpen] = useState(compact)
   const { formatTimestamp } = useDateTimeFormatters()
@@ -44,14 +44,14 @@ export function InstanceErrorDisplay({ instance, onEdit, showEditButton = false,
               <CollapsibleTrigger className="flex w-full items-center justify-between p-3 text-left hover:bg-destructive/20 transition-colors">
                 <div className="flex items-center gap-2 min-w-0">
                   <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
-                  <span className="text-sm font-medium text-destructive truncate">{t("instances.passwordRequired")}</span>
+                  <span className="text-sm font-medium text-destructive truncate">{t("errorDisplay.passwordRequired")}</span>
                 </div>
                 <ChevronDown className={`h-4 w-4 text-destructive transition-transform duration-200 ${isDecryptionOpen ? "rotate-180" : ""}`} />
               </CollapsibleTrigger>
 
               <CollapsibleContent className="px-3 pb-3">
                 <div className="text-sm text-destructive/90 mt-2 mb-3">
-                  {t("instances.passwordRequiredDesc")}
+                  {t("errorDisplay.decryptionDescription")}
                 </div>
                 {showEditButton && onEdit && (
                   <Button
@@ -61,7 +61,7 @@ export function InstanceErrorDisplay({ instance, onEdit, showEditButton = false,
                     className="h-7 px-3 text-xs"
                   >
                     <Edit className="mr-1 h-3 w-3" />
-                    {t("instances.reEnterPassword")}
+                    {t("errorDisplay.reenterPassword")}
                   </Button>
                 )}
               </CollapsibleContent>
@@ -76,7 +76,7 @@ export function InstanceErrorDisplay({ instance, onEdit, showEditButton = false,
                 <div className="flex items-center gap-2 min-w-0">
                   <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
                   <span className="text-sm font-medium text-destructive truncate">
-                    {t("instances.recentErrors")} ({instance.recentErrors.length})
+                    {t("errorDisplay.recentErrors", { count: instance.recentErrors.length })}
                   </span>
                 </div>
                 <ChevronDown className={`h-4 w-4 text-destructive transition-transform duration-200 ${isRecentErrorsOpen ? "rotate-180" : ""}`} />
@@ -126,9 +126,9 @@ export function InstanceErrorDisplay({ instance, onEdit, showEditButton = false,
           <div className="flex items-start gap-2 text-sm text-foreground">
             <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-destructive" />
             <div className="flex-1">
-              <div className="font-medium mb-1 text-destructive">{t("instances.passwordRequired")}</div>
+              <div className="font-medium mb-1 text-destructive">{t("errorDisplay.passwordRequired")}</div>
               <div className="text-muted-foreground mb-2">
-                {t("instances.passwordRequiredDesc")}
+                {t("errorDisplay.decryptionDescription")}
               </div>
               {showEditButton && onEdit && (
                 <Button
@@ -137,7 +137,7 @@ export function InstanceErrorDisplay({ instance, onEdit, showEditButton = false,
                   variant="outline"
                 >
                   <Edit className="mr-2 h-3 w-3" />
-                  {t("instances.reEnterPassword")}
+                  {t("errorDisplay.reenterPassword")}
                 </Button>
               )}
             </div>
@@ -151,7 +151,7 @@ export function InstanceErrorDisplay({ instance, onEdit, showEditButton = false,
             <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-destructive" />
             <div className="flex-1">
               <div className="font-medium mb-2 text-destructive">
-                {t("instances.recentErrors")} ({instance.recentErrors.length})
+                {t("errorDisplay.recentErrors", { count: instance.recentErrors.length })}
               </div>
               <div className="space-y-3">
                 {instance.recentErrors.map((error, index) => (

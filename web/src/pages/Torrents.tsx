@@ -4,7 +4,6 @@
  */
 
 import { FilterSidebar } from "@/components/torrents/FilterSidebar"
-import { GlobalStatusBar, type SelectionInfo } from "@/components/torrents/GlobalStatusBar"
 import { TorrentCreationTasks } from "@/components/torrents/TorrentCreationTasks"
 import { TorrentCreatorDialog } from "@/components/torrents/TorrentCreatorDialog"
 import { TorrentDetailsPanel } from "@/components/torrents/TorrentDetailsPanel"
@@ -21,16 +20,15 @@ import { usePersistedFilters } from "@/hooks/usePersistedFilters"
 import { usePersistedFilterSidebarState } from "@/hooks/usePersistedFilterSidebarState"
 import { usePersistedTitleBarSpeeds } from "@/hooks/usePersistedTitleBarSpeeds"
 import { usePersistedUnifiedInstanceFilter } from "@/hooks/usePersistedUnifiedInstanceFilter"
-import { usePersistedZoomLevel } from "@/hooks/usePersistedZoomLevel"
 import { useTitleBarSpeeds } from "@/hooks/useTitleBarSpeeds"
 import { api } from "@/lib/api"
 import { isAllInstancesScope, normalizeUnifiedInstanceIds } from "@/lib/instances"
 import { cn } from "@/lib/utils"
-import type { Category, CrossInstanceTorrent, ServerState, Torrent, TorrentCounts } from "@/types"
+import type { Category, CrossInstanceTorrent, Torrent, TorrentCounts } from "@/types"
 import { useNavigate } from "@tanstack/react-router"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useDefaultLayout, usePanelRef } from "react-resizable-panels"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useDefaultLayout, usePanelRef } from "react-resizable-panels"
 
 interface TorrentsProps {
   instanceId: number
@@ -41,12 +39,11 @@ interface TorrentsProps {
 }
 
 export function Torrents({ instanceId, instanceName, isAllInstancesView = false, search, onSearchChange }: TorrentsProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("torrents")
   const isAllInstances = isAllInstancesView || isAllInstancesScope(instanceId)
   const [filters, setFilters] = usePersistedFilters(instanceId)
   const [filterSidebarCollapsed] = usePersistedFilterSidebarState(false)
   const { viewMode } = usePersistedCompactViewState("normal")
-  const { zoomLevel } = usePersistedZoomLevel(100)
   const { clearSelection } = useTorrentSelection()
   const { instances } = useInstances()
   const [persistedUnifiedFilter] = usePersistedUnifiedInstanceFilter()
@@ -70,40 +67,20 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   }, [instances, instanceId, isAllInstances])
   const [titleBarSpeedsEnabled] = usePersistedTitleBarSpeeds(false)
 
-  // Server state for global status bar
-  const [serverState, setServerState] = useState<ServerState | null>(null)
-  const [listenPort, setListenPort] = useState<number | null>(null)
-  const handleServerStateUpdate = useCallback((state: ServerState | null, port?: number | null) => {
-    setServerState(state)
-    setListenPort(port ?? null)
-  }, [])
-
   useTitleBarSpeeds({
     mode: "instance",
     enabled: titleBarSpeedsEnabled && !isAllInstances,
     instanceId,
     instanceName: instance?.name ?? instanceName,
-    foregroundSpeeds: serverState? {
-      dl: serverState.dl_info_speed ?? 0,
-      up: serverState.up_info_speed ?? 0,
-    }: undefined,
+    // Foreground speeds come from the SSE stream inside useTitleBarSpeeds itself,
+    // so no page-level serverState plumbing is needed here.
   })
-
-  // Selection info for global status bar
-  const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null)
-  const handleSelectionInfoUpdate = useCallback((info: SelectionInfo) => {
-    setSelectionInfo(info)
-  }, [])
 
   // Sidebar width: 320px normal, 260px dense (fixed px to avoid issues with non-16px root font size)
   const sidebarWidth = viewMode === "dense" ? "260px" : "320px"
   const [selectedTorrent, setSelectedTorrent] = useState<Torrent | null>(null)
   const [initialDetailsTab, setInitialDetailsTab] = useState<string | undefined>(undefined)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
-  const [filterHoverOpen, setFilterHoverOpen] = useState(false)
-  const [filterHoverClosing, setFilterHoverClosing] = useState(false)
-  const [filterHoverPosition, setFilterHoverPosition] = useState({ x: 0, y: 0 })
-  const filterHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const handleInitialTabConsumed = useCallback(() => setInitialDetailsTab(undefined), [])
   const navigate = useNavigate()
   const getTorrentInstanceId = useCallback((torrent: Torrent | null | undefined) => {
@@ -231,11 +208,6 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   const isMobile = useIsMobile()
 
   const [detailsPanelReady, setDetailsPanelReady] = useState(false)
-  const [detailsCollapsed, setDetailsCollapsed] = useState(false)
-
-  useEffect(() => {
-    setDetailsCollapsed(false)
-  }, [selectedTorrent?.hash])
 
   const panelIds = useMemo(
     () => (selectedTorrent ? ["torrent-list", "torrent-details"] : ["torrent-list"]),
@@ -400,34 +372,6 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
     return () => window.removeEventListener("qui-open-mobile-filters", handler)
   }, [])
 
-  // Listen for header filter hover events
-  useEffect(() => {
-    const handleShow = (e: Event) => {
-      const custom = e as CustomEvent<{ x: number; y: number }>
-      clearTimeout(filterHoverTimeoutRef.current)
-      setFilterHoverClosing(false)
-      setFilterHoverPosition({ x: custom.detail?.x ?? 0, y: custom.detail?.y ?? 0 })
-      setFilterHoverOpen(true)
-    }
-    const handleHide = () => {
-      clearTimeout(filterHoverTimeoutRef.current)
-      filterHoverTimeoutRef.current = setTimeout(() => {
-        setFilterHoverClosing(true)
-        filterHoverTimeoutRef.current = setTimeout(() => {
-          setFilterHoverOpen(false)
-          setFilterHoverClosing(false)
-        }, 150)
-      }, 300)
-    }
-    window.addEventListener("qui-filter-hover-show", handleShow)
-    window.addEventListener("qui-filter-hover-hide", handleHide)
-    return () => {
-      window.removeEventListener("qui-filter-hover-show", handleShow)
-      window.removeEventListener("qui-filter-hover-hide", handleHide)
-      clearTimeout(filterHoverTimeoutRef.current)
-    }
-  }, [])
-
   useEffect(() => {
     if (!selectedTorrent || isMobile) {
       setDetailsPanelReady(false)
@@ -506,53 +450,6 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
         </div>
       </div>
 
-      {/* Desktop Filter Hover Popover */}
-      {filterHoverOpen && !isMobile && (
-        <div
-          className="fixed z-50 hidden md:block"
-          style={{
-            top: filterHoverPosition.y + 4,
-            left: filterHoverPosition.x,
-          }}
-          onMouseEnter={() => clearTimeout(filterHoverTimeoutRef.current)}
-          onMouseLeave={() => {
-            clearTimeout(filterHoverTimeoutRef.current)
-            filterHoverTimeoutRef.current = setTimeout(() => {
-              setFilterHoverClosing(true)
-              filterHoverTimeoutRef.current = setTimeout(() => {
-                setFilterHoverOpen(false)
-                setFilterHoverClosing(false)
-              }, 150)
-            }, 300)
-          }}
-        >
-          <div className={cn(
-            "w-[300px] max-h-[70vh] overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-lg",
-            filterHoverClosing
-              ? "animate-out fade-out-0 zoom-out-95 duration-150"
-              : "animate-in fade-in-0 zoom-in-95 duration-150"
-          )}>
-            <FilterSidebar
-              key={`filter-hover-${instanceId}`}
-              instanceId={instanceId}
-              readOnly={isAllInstances}
-              supportsTrackerHealth={isAllInstances ? supportsTrackerHealth : undefined}
-              selectedFilters={filters}
-              onFilterChange={setFilters}
-              torrentCounts={torrentCounts}
-              categorySizes={categorySizes}
-              tagSizes={tagSizes}
-              categories={categories}
-              tags={tags}
-              useSubcategories={useSubcategories}
-              isStaleData={lastInstanceId !== null && lastInstanceId !== instanceId}
-              isLoading={lastInstanceId !== null && lastInstanceId !== instanceId}
-              isMobile={false}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Mobile Filter Sheet */}
       <Sheet open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
         <SheetContent
@@ -567,7 +464,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
           }}
         >
           <SheetHeader className="px-4 py-3 border-b">
-            <SheetTitle className="text-lg font-semibold">{t("common.filters")}</SheetTitle>
+            <SheetTitle className="text-lg font-semibold">{t("filterSidebar.title")}</SheetTitle>
           </SheetHeader>
           <div className="flex-1 min-h-0 overflow-hidden">
             <FilterSidebar
@@ -598,6 +495,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
         {!isMobile && (
           <div className="flex flex-col h-full">
             <ResizablePanelGroup
+              className="flex-1 min-h-0"
               direction="vertical"
               defaultLayout={defaultLayout}
               onLayoutChange={onLayoutChange}
@@ -606,7 +504,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                 id="torrent-list"
                 defaultSize={selectedTorrent ? "60%" : "100%"}
               >
-                <div className="h-full" style={{ zoom: zoomLevel !== 100 ? zoomLevel / 100 : undefined }}>
+                <div className="h-full">
                   <TorrentTableResponsive
                     instanceId={instanceId}
                     instanceIds={unifiedScopeInstanceIds}
@@ -617,8 +515,6 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                     onAddTorrentModalChange={handleAddTorrentModalChange}
                     onFilteredDataUpdate={handleFilteredDataUpdate}
                     onFilterChange={setFilters}
-                    onServerStateUpdate={handleServerStateUpdate}
-                    onSelectionInfoUpdate={handleSelectionInfoUpdate}
                   />
                 </div>
               </ResizablePanel>
@@ -648,7 +544,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                       }
                     }}
                   >
-                    <div className={cn("border-t bg-background", detailsCollapsed ? "h-auto" : "h-full")}>
+                    <div className="h-full border-t bg-background">
                       <TorrentDetailsPanel
                         instanceId={selectedTorrentInstanceId}
                         torrent={selectedTorrent}
@@ -657,21 +553,13 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                         layout="horizontal"
                         onClose={() => setSelectedTorrent(null)}
                         onNavigateToTorrent={handleNavigateToTorrent}
-                        onCollapsedChange={setDetailsCollapsed}
                       />
                     </div>
                   </ResizablePanel>
                 </>
               )}
             </ResizablePanelGroup>
-            {/* Global status bar - at bottom of desktop layout */}
-            <GlobalStatusBar
-              instanceId={instanceId}
-              serverState={serverState}
-              instance={instance}
-              listenPort={listenPort}
-              selectionInfo={selectionInfo}
-            />
+            <div id="qui-status-bar-container" className="flex-shrink-0 bg-background" />
           </div>
         )}
 
@@ -711,7 +599,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
             <SheetHeader className="sr-only">
               <VisuallyHidden>
                 <SheetTitle>
-                  {selectedTorrent ? `${t("torrents.torrentDetails")}: ${selectedTorrent.name}` : t("torrents.torrentDetails")}
+                  {selectedTorrent ? t("page.torrentDetailsWithName", { name: selectedTorrent.name }) : t("page.torrentDetails")}
                 </SheetTitle>
               </VisuallyHidden>
             </SheetHeader>
@@ -743,7 +631,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
         <Dialog open={isTasksModalOpen} onOpenChange={handleTasksModalChange}>
           <DialogContent className="w-full sm:max-w-screen-sm md:max-w-screen-md lg:max-w-screen-xl xl:max-w-screen-xl max-h-[85vh] overflow-hidden flex flex-col">
             <DialogHeader>
-              <DialogTitle>{t("torrents.torrentCreationTasks")}</DialogTitle>
+              <DialogTitle>{t("creationTasks.dialogTitle")}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-auto">
               <TorrentCreationTasks instanceId={instanceId} />

@@ -74,7 +74,8 @@ function resolveBlocklistTargets(
 }
 
 export function useCrossSeedBlocklistActions(instanceId: number) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("crossseed")
+
   const blockCrossSeedHashes = useCallback(async (hashes: string[], targets?: TorrentActionTarget[]) => {
     if (hashes.length === 0) return
 
@@ -83,7 +84,7 @@ export function useCrossSeedBlocklistActions(instanceId: number) {
 
     const resolvedTargets = resolveBlocklistTargets(instanceId, uniqueHashes, targets)
     if (resolvedTargets.length === 0) {
-      toast.error(t("blocklist.unableToBlock"))
+      toast.error(t("hooks.blocklist.selectionUnavailable"))
       return
     }
 
@@ -93,12 +94,12 @@ export function useCrossSeedBlocklistActions(instanceId: number) {
 
     const failed = results.filter((result) => result.status === "rejected").length
     if (failed > 0) {
-      toast.error(`Failed to block ${failed} of ${resolvedTargets.length} cross-seed torrents`)
+      toast.error(t("hooks.blocklist.blockFailed", { failed, total: resolvedTargets.length }))
       return
     }
 
-    toast.success(`Blocked ${resolvedTargets.length} cross-seed ${resolvedTargets.length === 1 ? "torrent" : "torrents"}`)
-  }, [instanceId])
+    toast.success(t("hooks.blocklist.blocked", { count: resolvedTargets.length }))
+  }, [instanceId, t])
 
   return { blockCrossSeedHashes } as const
 }

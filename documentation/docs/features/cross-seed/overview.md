@@ -22,15 +22,16 @@ qui supports three modes for handling files:
 - **Hardlink mode** (optional): Creates a hardlinked copy of the matched files laid out exactly as the incoming torrent expects, then adds the torrent pointing at that tree. Avoids rename-alignment entirely.
 - **Reflink mode** (optional): Creates copy-on-write clones (reflinks) of the matched files. Allows safe cross-seeding of torrents with extra/missing files because qBittorrent can write/repair the clones without affecting originals.
 
-Disc-based media (Blu-ray/DVD) requires manual verification. See [troubleshooting](troubleshooting#blu-ray-or-dvd-cross-seed-left-paused).
+Disc-based media (Blu-ray/DVD) requires manual verification. See [troubleshooting](./troubleshooting.md#blu-ray-or-dvd-cross-seed-left-paused).
 
 ## Prerequisites
 
 You need Prowlarr or Jackett to provide Torznab indexer feeds. Add your indexers in **Settings → Indexers** using the "1-click sync" feature to import from Prowlarr/Jackett automatically.
 
-Optional: qui can also query OPS/RED via the trackers' Gazelle JSON APIs. This complements Torznab (and excludes OPS/RED Torznab indexers for per-torrent searches only when **both** Gazelle keys are configured). See [OPS/RED (Gazelle)](gazelle-ops-red).
+Optional: qui can also query OPS/RED directly via the trackers' Gazelle JSON APIs. This complements Torznab, can handle OPS/RED searches even when no Torznab backend is available, and excludes OPS/RED Torznab indexers for per-torrent searches only when **both** Gazelle keys are configured. See [OPS/RED (Gazelle)](./gazelle-ops-red.md).
 
 **Optional but recommended:** Configure Sonarr/Radarr instances in **Settings → Integrations** to enable external ID lookups (IMDb, TMDb, TVDb, TVMaze). When configured, qui queries your *arr instances to resolve IDs for cross-seed searches, improving match accuracy on indexers that support ID-based queries.
+- This is especially helpful for content that is "AKA" type, and can have differing names depending on locale.
 
 ## Discovery Methods
 
@@ -52,8 +53,8 @@ Deep scan of torrents you already seed to find cross-seed opportunities on other
 
 - **Source instance** - The qBittorrent instance to scan
 - **Categories/Tags** - Filter which torrents to include
-- **Interval** - Delay between processing each torrent (minimum 60 seconds with Torznab enabled; minimum 5 seconds when Torznab is disabled and Gazelle is configured (recommended 10+ seconds))
-- **Cooldown** - Skip torrents searched within this window (minimum 12 hours)
+- **Interval** - Delay between processing each torrent (minimum 60 seconds with Torznab enabled; minimum 5 seconds when Torznab is disabled and Gazelle is configured; recommended 10+ seconds for Gazelle-only runs)
+- **Cooldown** - Skip torrents searched within this window (minimum 12 hours). qui records this only after an actual remote Gazelle or Torznab request, so local preflight failures and local Gazelle skips do not suppress future searches.
 
 :::warning
 Run sparingly. This deep scan touches every matching torrent and queries Torznab and/or Gazelle for each one. Use RSS automation or autobrr for routine coverage; reserve library scan for occasional catch-up passes.
@@ -77,6 +78,10 @@ Right-click any torrent in the list to access cross-seed actions:
 
 - **Search Cross-Seeds** - Query indexers for matching torrents on other trackers
 - **Filter Cross-Seeds** - Show torrents in your library that share content with the selected torrent (useful for identifying existing cross-seeds)
+
+### Season Pack Assembly
+
+Assemble season-pack torrents from individual episodes you already seed. When autobrr announces a season pack, qui checks your qBittorrent instances for matching episodes, links whatever is already local, and lets qBittorrent download the remainder after recheck when coverage passes the configured threshold (default 75%). Sonarr, TVDB, and TVMaze improve the threshold decision when available. Requires local filesystem access and hardlink/reflink mode. See [Season Packs](./season-packs.md) for setup.
 
 ## Blocklist
 

@@ -41,7 +41,7 @@ func buildSafeSearchQuery(name string, release *rls.Release, baseQuery string) S
 
 	if strings.TrimSpace(baseQuery) != "" {
 		return SearchQuery{
-			Query:   baseQuery,
+			Query:   strings.TrimSpace(baseQuery),
 			Season:  seasonPtr,
 			Episode: episodePtr,
 		}
@@ -65,7 +65,12 @@ func buildSafeSearchQuery(name string, release *rls.Release, baseQuery string) S
 	}
 
 	if cleanedTitle == "" {
-		cleanedTitle = baseQuery
+		// baseQuery is empty on this path (the non-empty case returns early above),
+		// so fall back to the original name to avoid emitting an empty query.
+		cleanedTitle = strings.TrimSpace(baseQuery)
+		if cleanedTitle == "" {
+			cleanedTitle = strings.TrimSpace(name)
+		}
 	}
 
 	return SearchQuery{

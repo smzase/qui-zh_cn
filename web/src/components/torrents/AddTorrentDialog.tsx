@@ -35,20 +35,18 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Checkbox } from "@/components/ui/checkbox"
 import { useInstanceCapabilities } from "@/hooks/useInstanceCapabilities.ts"
 import { useInstanceMetadata } from "@/hooks/useInstanceMetadata"
 import { usePathAutocomplete } from "@/hooks/usePathAutocomplete"
-import { usePersistedBulkAddTorrentInstances } from "@/hooks/usePersistedBulkAddTorrentInstances"
 import { usePersistedStartPaused } from "@/hooks/usePersistedStartPaused"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import type { AddTorrentResponse, AppPreferences, Category, InstanceResponse, Torrent } from "@/types"
+import type { AddTorrentResponse, Torrent } from "@/types"
 import { useForm } from "@tanstack/react-form"
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, Link, Loader2, Plus, Upload, X } from "lucide-react"
 import parseTorrent from "parse-torrent"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
@@ -108,26 +106,6 @@ export type AddTorrentDropPayload =
   | { type: "file"; files: File[] }
   | { type: "url"; urls: string[]; indexerId?: number }
 
-interface InstanceMetadata {
-  categories: Record<string, Category>
-  tags: string[]
-  preferences: AppPreferences
-}
-
-interface BulkAddTorrentResult {
-  instanceId: number
-  instanceName: string
-  response?: AddTorrentResponse
-  error?: unknown
-}
-
-interface BulkAddTorrentResponse {
-  mode: "bulk"
-  results: BulkAddTorrentResult[]
-}
-
-type AddTorrentMutationResponse = AddTorrentResponse | BulkAddTorrentResponse
-
 interface AddTorrentDialogProps {
   instanceId: number
   open?: boolean
@@ -135,8 +113,6 @@ interface AddTorrentDialogProps {
   dropPayload?: AddTorrentDropPayload | null
   onDropPayloadConsumed?: () => void
   torrents?: Torrent[]
-  mode?: "single" | "bulk"
-  instances?: InstanceResponse[]
 }
 
 type TabValue = "file" | "url"
@@ -186,78 +162,8 @@ function createFileKey(file: File): string {
   return `${file.name}__${file.size}__${file.lastModified}`
 }
 
-async function fetchInstanceMetadata(instanceId: number): Promise<InstanceMetadata> {
-  const [categories, tags, preferences] = await Promise.all([
-    api.getCategories(instanceId),
-    api.getTags(instanceId),
-    api.getInstancePreferences(instanceId),
-  ])
-
-  return {
-    categories: categories ?? {},
-    tags: Array.isArray(tags) ? tags : [],
-    preferences,
-  }
-}
-
-function getCommonCategories(metadataList: InstanceMetadata[]): Record<string, Category> {
-  if (metadataList.length === 0) {
-    return {}
-  }
-
-  const [firstMetadata, ...remainingMetadata] = metadataList
-  const commonCategories: Record<string, Category> = {}
-
-  Object.values(firstMetadata.categories ?? {}).forEach((category) => {
-    const existsEverywhere = remainingMetadata.every((metadata) =>
-      Object.values(metadata.categories ?? {}).some((candidate) => candidate.name === category.name)
-    )
-
-    if (existsEverywhere) {
-      commonCategories[category.name] = category
-    }
-  })
-
-  return commonCategories
-}
-
-function getAvailableTags(metadataList: InstanceMetadata[]): string[] {
-  const tags = new Set<string>()
-  metadataList.forEach((metadata) => {
-    if (!Array.isArray(metadata.tags)) {
-      return
-    }
-    metadata.tags.forEach((tag) => tags.add(tag))
-  })
-  return Array.from(tags).sort((left, right) => left.localeCompare(right))
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-  if (typeof error === "string" && error.trim()) {
-    return error
-  }
-  return "Unknown error"
-}
-
-function areNumberArraysEqual(left: number[], right: number[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index])
-}
-
-export function AddTorrentDialog({
-  instanceId,
-  open: controlledOpen,
-  onOpenChange,
-  dropPayload,
-  onDropPayloadConsumed,
-  torrents = [],
-  mode = "single",
-  instances = [],
-}: AddTorrentDialogProps) {
-  const { t } = useTranslation()
-  const isBulkMode = mode === "bulk"
+export function AddTorrentDialog({ instanceId, open: controlledOpen, onOpenChange, dropPayload, onDropPayloadConsumed, torrents = [] }: AddTorrentDialogProps) {
+  const { t } = useTranslation("torrents")
   const [internalOpen, setInternalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabValue>("file")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -265,119 +171,29 @@ export function AddTorrentDialog({
   const [showFileList, setShowFileList] = useState(false)
   const [categorySearch, setCategorySearch] = useState("")
   const [tagSearch, setTagSearch] = useState("")
-  const [bulkSelectedInstanceIds, setBulkSelectedInstanceIds] = useState<number[]>([])
   const [duplicateSummary, setDuplicateSummary] = useState<DuplicateSummary>(() => createEmptyDuplicateSummary())
   const [duplicateCheckStatus, setDuplicateCheckStatus] = useState<"idle" | "pending" | "visible">("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const bulkSelectionInitializedRef = useRef(false)
   const duplicateCheckRequestRef = useRef(0)
   const duplicateCheckIndicatorTimeoutRef = useRef<number | null>(null)
   const queryClient = useQueryClient()
-  const [persistedBulkInstanceIds, saveBulkInstanceIds] = usePersistedBulkAddTorrentInstances()
-  const selectableInstances = useMemo(
-    () => instances.filter((instance) => instance.connected && instance.isActive),
-    [instances]
-  )
-  const selectableInstanceIds = useMemo(
-    () => selectableInstances.map((instance) => instance.id),
-    [selectableInstances]
-  )
-  const selectedBulkInstances = useMemo(() => {
-    const selectedIdSet = new Set(bulkSelectedInstanceIds)
-    return selectableInstances.filter((instance) => selectedIdSet.has(instance.id))
-  }, [bulkSelectedInstanceIds, selectableInstances])
-  const primaryInstanceId = isBulkMode ? selectableInstances[0]?.id ?? instanceId : instanceId
   // NOTE: Use localStorage-persisted preference instead of qBittorrent's preference
   // This works around qBittorrent API not supporting start_paused_enabled setting
-  const [startPausedEnabled] = usePersistedStartPaused(primaryInstanceId, false)
+  const [startPausedEnabled] = usePersistedStartPaused(instanceId, false)
 
   // Use controlled state if provided, otherwise use internal state
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const setOpen = onOpenChange || setInternalOpen
 
   // Fetch metadata (categories, tags, preferences) with single API call
-  const { data: singleMetadata } = useInstanceMetadata(primaryInstanceId)
-  const bulkMetadataQueries = useQueries({
-    queries: selectedBulkInstances.map((instance) => ({
-      queryKey: ["instance-metadata", instance.id],
-      enabled: isBulkMode && open,
-      queryFn: () => fetchInstanceMetadata(instance.id),
-      staleTime: 60000,
-      gcTime: 1800000,
-      refetchInterval: 30000,
-      refetchIntervalInBackground: false,
-    })),
-  })
-  const loadedBulkMetadata = useMemo(
-    () => bulkMetadataQueries
-      .map((query) => query.data)
-      .filter((metadata): metadata is InstanceMetadata => Boolean(metadata)),
-    [bulkMetadataQueries]
-  )
-  const bulkMetadataReady = !isBulkMode ||
-    (selectedBulkInstances.length > 0 && loadedBulkMetadata.length === selectedBulkInstances.length)
-  const bulkCategories = useMemo(
-    () => bulkMetadataReady ? getCommonCategories(loadedBulkMetadata) : {},
-    [bulkMetadataReady, loadedBulkMetadata]
-  )
-  const metadata = isBulkMode ? loadedBulkMetadata[0] ?? singleMetadata : singleMetadata
-  const categories = isBulkMode ? bulkCategories : metadata?.categories
-  const availableTags = isBulkMode && loadedBulkMetadata.length > 0 ? getAvailableTags(loadedBulkMetadata) : metadata?.tags
+  const { data: metadata } = useInstanceMetadata(instanceId)
+  const categories = metadata?.categories
+  const availableTags = metadata?.tags
   const preferences = metadata?.preferences
 
-  const { data: capabilities } = useInstanceCapabilities(primaryInstanceId)
+  const { data: capabilities } = useInstanceCapabilities(instanceId)
   const supportsTorrentTmpPath = capabilities?.supportsTorrentTmpPath ?? false
   const supportsPathAutocomplete = capabilities?.supportsPathAutocomplete ?? false
-
-  useEffect(() => {
-    if (!isBulkMode) {
-      return
-    }
-
-    if (selectableInstanceIds.length === 0) {
-      bulkSelectionInitializedRef.current = false
-      setBulkSelectedInstanceIds([])
-      return
-    }
-
-    const selectableIdSet = new Set(selectableInstanceIds)
-    setBulkSelectedInstanceIds((currentIds) => {
-      const filteredCurrentIds = currentIds.filter((id) => selectableIdSet.has(id))
-      if (bulkSelectionInitializedRef.current) {
-        return areNumberArraysEqual(filteredCurrentIds, currentIds) ? currentIds : filteredCurrentIds
-      }
-
-      bulkSelectionInitializedRef.current = true
-      const filteredPersistedIds = persistedBulkInstanceIds.filter((id) => selectableIdSet.has(id))
-      const nextIds = filteredPersistedIds.length > 0 ? filteredPersistedIds : selectableInstanceIds
-      return areNumberArraysEqual(nextIds, currentIds) ? currentIds : nextIds
-    })
-  }, [isBulkMode, persistedBulkInstanceIds, selectableInstanceIds])
-
-  const updateBulkSelectedInstanceIds = useCallback((nextIds: number[]) => {
-    const selectedIdSet = new Set(nextIds)
-    const orderedIds = selectableInstanceIds.filter((id) => selectedIdSet.has(id))
-    setBulkSelectedInstanceIds(orderedIds)
-    saveBulkInstanceIds(orderedIds)
-  }, [saveBulkInstanceIds, selectableInstanceIds])
-
-  const handleBulkInstanceChange = useCallback((instanceId: number, checked: boolean) => {
-    const selectedIdSet = new Set(bulkSelectedInstanceIds)
-    if (checked) {
-      selectedIdSet.add(instanceId)
-    } else {
-      selectedIdSet.delete(instanceId)
-    }
-    updateBulkSelectedInstanceIds(Array.from(selectedIdSet))
-  }, [bulkSelectedInstanceIds, updateBulkSelectedInstanceIds])
-
-  const handleBulkSelectAllToggle = useCallback(() => {
-    if (bulkSelectedInstanceIds.length === selectableInstanceIds.length) {
-      updateBulkSelectedInstanceIds([])
-      return
-    }
-    updateBulkSelectedInstanceIds(selectableInstanceIds)
-  }, [bulkSelectedInstanceIds.length, selectableInstanceIds, updateBulkSelectedInstanceIds])
 
   // Reset tag state when dialog closes
   useEffect(() => {
@@ -403,11 +219,6 @@ export function AddTorrentDialog({
       }
     }
   }, [])
-
-  const duplicateCheckInstanceIds = useMemo(
-    () => isBulkMode ? selectedBulkInstances.map((instance) => instance.id) : [instanceId],
-    [instanceId, isBulkMode, selectedBulkInstances]
-  )
 
   // Check for duplicate torrents when files or URLs are loaded
   const checkForDuplicates = useCallback(async (files: File[] | null, urls: string) => {
@@ -617,61 +428,52 @@ export function AddTorrentDialog({
 
     try {
       const hashList = Array.from(hashesForApi).slice(0, 512)
-      const duplicateResponses = await Promise.all(
-        duplicateCheckInstanceIds.map((targetInstanceId) =>
-          api.checkTorrentDuplicates(targetInstanceId, hashList).catch((error) => {
-            console.error("[checkForDuplicates] Failed to check duplicates via API:", error)
-            return null
-          })
-        )
-      )
+      const response = await api.checkTorrentDuplicates(instanceId, hashList)
       if (!isLatest()) {
         return
       }
 
-      for (const response of duplicateResponses) {
-        for (const duplicate of response?.duplicates ?? []) {
-          const displayName =
-            duplicate.name ||
-            duplicate.hash ||
-            duplicate.infohash_v1 ||
-            duplicate.infohash_v2 ||
-            t("torrents.existingTorrent")
-          if (displayName) {
-            duplicateNameSet.add(displayName)
-          }
+      for (const duplicate of response.duplicates ?? []) {
+        const displayName =
+          duplicate.name ||
+          duplicate.hash ||
+          duplicate.infohash_v1 ||
+          duplicate.infohash_v2 ||
+          "Existing torrent"
+        if (displayName) {
+          duplicateNameSet.add(displayName)
+        }
 
-          const candidateHashes = new Set<string>()
-          if (duplicate.hash) {
-            candidateHashes.add(duplicate.hash.toLowerCase())
-          }
-          if (duplicate.infohash_v1) {
-            candidateHashes.add(duplicate.infohash_v1.toLowerCase())
-          }
-          if (duplicate.infohash_v2) {
-            candidateHashes.add(duplicate.infohash_v2.toLowerCase())
-          }
-          if (duplicate.matched_hashes) {
-            duplicate.matched_hashes.forEach((matched) => {
-              candidateHashes.add(matched.toLowerCase())
-            })
-          }
-
-          candidateHashes.forEach((candidateHash) => {
-            const sources = hashSources.get(candidateHash)
-            if (!sources) {
-              return
-            }
-
-            sources.forEach((source) => {
-              if (source.type === "file") {
-                recordFileMatch(source.key, displayName, candidateHash)
-              } else {
-                recordUrlMatch(source.key, displayName, candidateHash)
-              }
-            })
+        const candidateHashes = new Set<string>()
+        if (duplicate.hash) {
+          candidateHashes.add(duplicate.hash.toLowerCase())
+        }
+        if (duplicate.infohash_v1) {
+          candidateHashes.add(duplicate.infohash_v1.toLowerCase())
+        }
+        if (duplicate.infohash_v2) {
+          candidateHashes.add(duplicate.infohash_v2.toLowerCase())
+        }
+        if (duplicate.matched_hashes) {
+          duplicate.matched_hashes.forEach((matched) => {
+            candidateHashes.add(matched.toLowerCase())
           })
         }
+
+        candidateHashes.forEach((candidateHash) => {
+          const sources = hashSources.get(candidateHash)
+          if (!sources) {
+            return
+          }
+
+          sources.forEach((source) => {
+            if (source.type === "file") {
+              recordFileMatch(source.key, displayName, candidateHash)
+            } else {
+              recordUrlMatch(source.key, displayName, candidateHash)
+            }
+          })
+        })
       }
     } catch (error) {
       console.error("[checkForDuplicates] Failed to check duplicates via API:", error)
@@ -679,7 +481,7 @@ export function AddTorrentDialog({
 
     publishResults()
     finalizeCheck()
-  }, [duplicateCheckInstanceIds, torrents, t])
+  }, [instanceId, torrents])
 
 
   // Combine API tags with temporarily added new tags and sort alphabetically
@@ -694,7 +496,7 @@ export function AddTorrentDialog({
   const duplicatePreviewRemaining = Math.max(duplicateSummary.existingNames.length - duplicatePreviewNames.length, 0)
   const showDuplicateCheckIndicator = duplicateCheckStatus === "visible"
 
-  const mutation = useMutation<AddTorrentMutationResponse, Error, FormData>({
+  const mutation = useMutation({
     retry: false, // Don't retry - could cause duplicate torrent additions
     mutationFn: async (data: FormData) => {
       // Use the user's explicit TMM choice
@@ -732,105 +534,20 @@ export function AddTorrentDialog({
         }
       }
 
-      if (isBulkMode) {
-        if (selectedBulkInstances.length === 0) {
-          throw new Error(t("torrents.selectAtLeastOneInstance"))
-        }
-
-        const results = await Promise.all(
-          selectedBulkInstances.map(async (instance): Promise<BulkAddTorrentResult> => {
-            try {
-              const response = await api.addTorrent(instance.id, submitData)
-              return { instanceId: instance.id, instanceName: instance.name, response }
-            } catch (error) {
-              return { instanceId: instance.id, instanceName: instance.name, error }
-            }
-          })
-        )
-
-        return { mode: "bulk", results }
-      }
-
       return api.addTorrent(instanceId, submitData)
     },
     onError: (error) => {
-      let description = "Please verify the torrent file or URL and try again."
+      let description = t("addTorrentDialog.toast.verifyInput")
       if (error instanceof Error && error.message && !error.message.startsWith("HTTP error! status:")) {
         description = error.message
       }
 
-      toast.error(t("torrents.failedAddTorrent"), {
+      toast.error(t("addTorrentDialog.toast.failedToAdd"), {
         description,
         duration: 5000,
       })
     },
-    onSuccess: (response) => {
-      if ("mode" in response) {
-        const results = response.results
-        const successfulResults = results.filter((result) => result.response)
-        const totalAdded = successfulResults.reduce((sum, result) => sum + (result.response?.added ?? 0), 0)
-        const responseFailures = successfulResults.reduce((sum, result) => sum + (result.response?.failed ?? 0), 0)
-        const requestFailures = results.filter((result) => result.error).length
-        const totalFailed = responseFailures + requestFailures
-        const failedDetails = results.flatMap((result) => {
-          if (result.error) {
-            return [`${result.instanceName}: ${getErrorMessage(result.error)}`]
-          }
-
-          const addResponse = result.response
-          if (!addResponse || addResponse.failed === 0) {
-            return []
-          }
-
-          return [
-            ...(addResponse.failedURLs?.map(f => `${result.instanceName}: ${f.url}: ${f.error}`) ?? []),
-            ...(addResponse.failedFiles?.map(f => `${result.instanceName}: ${f.filename}: ${f.error}`) ?? []),
-          ]
-        })
-
-        if (successfulResults.length > 0) {
-          setTimeout(() => {
-            successfulResults.forEach((result) => {
-              queryClient.refetchQueries({
-                queryKey: ["torrents-list", result.instanceId],
-                exact: false,
-                type: "active",
-              })
-              queryClient.refetchQueries({
-                queryKey: ["instance-metadata", result.instanceId],
-                exact: false,
-                type: "active",
-              })
-            })
-          }, 500)
-        }
-
-        if (totalAdded > 0 && totalFailed === 0) {
-          toast.success(t("torrents.bulkAddTorrentSuccess", { count: totalAdded }))
-        } else if (totalAdded > 0) {
-          toast.warning(t("torrents.bulkAddTorrentPartialSuccess", { added: totalAdded, failed: totalFailed }), {
-            description: failedDetails.length > 0 ? failedDetails.slice(0, 3).join("\n") : undefined,
-            duration: 5000,
-          })
-        } else {
-          toast.error(t("torrents.bulkAddTorrentFailed"), {
-            description: failedDetails.length > 0 ? failedDetails.slice(0, 3).join("\n") : undefined,
-            duration: 5000,
-          })
-        }
-
-        if (successfulResults.length === 0) {
-          return
-        }
-
-        setOpen(false)
-        form.reset()
-        setSelectedTags([])
-        setNewTag("")
-        setTagSearch("")
-        return
-      }
-
+    onSuccess: (response: AddTorrentResponse) => {
       // Add small delay to allow qBittorrent to process the new torrent
       setTimeout(() => {
         // Use refetch instead of invalidate to avoid loading state
@@ -849,14 +566,18 @@ export function AddTorrentDialog({
 
       // Show appropriate toast based on results
       if (response.failed === 0) {
-        toast.success(response.added === 1? t("torrents.torrentAddedSuccess"): t("torrents.torrentsAddedSuccess", { count: response.added }))
+        toast.success(
+          response.added === 1
+            ? t("addTorrentDialog.toast.addedOne")
+            : t("addTorrentDialog.toast.addedMany", { count: response.added })
+        )
       } else if (response.added === 0) {
         // All failed
         const failedDetails = [
           ...(response.failedURLs?.map(f => `${f.url}: ${f.error}`) ?? []),
           ...(response.failedFiles?.map(f => `${f.filename}: ${f.error}`) ?? []),
         ]
-        toast.error(t("torrents.failedAddTorrents", { count: response.failed }), {
+        toast.error(t("addTorrentDialog.toast.failedMany", { count: response.failed }), {
           description: failedDetails.length > 0 ? failedDetails.slice(0, 3).join("\n") : undefined,
           duration: 5000,
         })
@@ -866,7 +587,7 @@ export function AddTorrentDialog({
           ...(response.failedURLs?.map(f => `${f.url}: ${f.error}`) ?? []),
           ...(response.failedFiles?.map(f => `${f.filename}: ${f.error}`) ?? []),
         ]
-        toast.warning(t("torrents.partialAddSuccess", { added: response.added, failed: response.failed }), {
+        toast.warning(t("addTorrentDialog.toast.partialSuccess", { added: response.added, failed: response.failed }), {
           description: failedDetails.length > 0 ? failedDetails.slice(0, 3).join("\n") : undefined,
           duration: 5000,
         })
@@ -909,37 +630,6 @@ export function AddTorrentDialog({
     },
   })
 
-  useEffect(() => {
-    if (!isBulkMode) {
-      return
-    }
-
-    const selectedCategory = form.getFieldValue("category")
-    if (!selectedCategory || selectedCategory === "__none__") {
-      return
-    }
-
-    const categoryExists = Object.values(categories ?? {}).some((category) => category.name === selectedCategory)
-    if (!categoryExists) {
-      form.setFieldValue("category", "__none__")
-    }
-  }, [categories, form, isBulkMode])
-
-  useEffect(() => {
-    if (!isBulkMode || !open) {
-      return
-    }
-
-    const rawFiles = form.getFieldValue("torrentFiles")
-    const currentFiles = Array.isArray(rawFiles) ? (rawFiles as File[]) : null
-    const currentUrls = form.getFieldValue("urls") || ""
-    if ((!currentFiles || currentFiles.length === 0) && !currentUrls) {
-      return
-    }
-
-    checkForDuplicates(currentFiles, currentUrls)
-  }, [bulkSelectedInstanceIds, checkForDuplicates, form, isBulkMode, open])
-
   const setSavePath = useCallback((path: string) => {
     form.setFieldValue("savePath", path)
   }, [form])
@@ -956,7 +646,7 @@ export function AddTorrentDialog({
     highlightedIndex: saveHighlightedIndex,
     showSuggestions: showSaveSuggestions,
     inputRef: savePathInputRef,
-  } = usePathAutocomplete(setSavePath, primaryInstanceId);
+  } = usePathAutocomplete(setSavePath, instanceId);
 
   const {
     suggestions: tempSuggestions,
@@ -966,7 +656,7 @@ export function AddTorrentDialog({
     highlightedIndex: tempHighlightedIndex,
     showSuggestions: showTempSuggestions,
     inputRef: tempPathInputRef,
-  } = usePathAutocomplete(setTempPath, primaryInstanceId);
+  } = usePathAutocomplete(setTempPath, instanceId);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     // Filter to .torrent files only (iOS Safari may bypass accept attribute filtering)
@@ -975,7 +665,9 @@ export function AddTorrentDialog({
 
     if (rejectedCount > 0) {
       toast.error(
-        rejectedCount === 1? t("torrents.fileRejected"): t("torrents.filesRejected", { count: rejectedCount })
+        rejectedCount === 1
+          ? t("addTorrentDialog.toast.rejectedOne")
+          : t("addTorrentDialog.toast.rejectedMany", { count: rejectedCount })
       )
     }
 
@@ -991,7 +683,7 @@ export function AddTorrentDialog({
     if (allFiles.length > 0) {
       checkForDuplicates(allFiles, form.getFieldValue("urls"))
     }
-  }, [form, checkForDuplicates])
+  }, [form, checkForDuplicates, t])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -1113,17 +805,17 @@ export function AddTorrentDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {controlledOpen === undefined && (
         <DialogTrigger asChild>
-          <Button variant={isBulkMode ? "outline" : "default"} size={isBulkMode ? "sm" : "default"} className={isBulkMode ? "w-full sm:w-auto" : undefined}>
+          <Button>
             <Plus className="mr-2 h-4 w-4 transition-transform duration-200" />
-            {isBulkMode ? t("torrents.bulkAddTorrent") : t("torrents.addTorrent")}
+            {t("addTorrentDialog.trigger")}
           </Button>
         </DialogTrigger>
       )}
       <DialogContent className="flex flex-col w-full max-w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] sm:max-h-[85vh] p-0 !translate-y-0 !top-[5vh] sm:!top-[7.5vh]">
         <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-          <DialogTitle>{isBulkMode ? t("torrents.bulkAddTorrent") : t("torrents.addNewTorrent")}</DialogTitle>
+          <DialogTitle>{t("addTorrentDialog.title")}</DialogTitle>
           <DialogDescription>
-            {isBulkMode ? t("torrents.bulkAddTorrentDesc") : t("torrents.addTorrentDesc")}
+            {t("addTorrentDialog.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -1140,68 +832,19 @@ export function AddTorrentDialog({
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="file" className="gap-2">
                   <Upload className="h-4 w-4" />
-                  {t("torrents.file")}
+                  {t("addTorrentDialog.file")}
                 </TabsTrigger>
                 <TabsTrigger value="url" className="gap-2">
                   <Link className="h-4 w-4" />
-                  {t("torrents.url")}
+                  {t("addTorrentDialog.url")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            {isBulkMode && (
-              <div className="rounded-md border bg-muted/30 p-3 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <Label>{t("torrents.targetInstances")}</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t("torrents.selectedInstancesCount", { count: selectedBulkInstances.length })}
-                    </p>
-                  </div>
-                  {selectableInstances.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2 text-xs"
-                      onClick={handleBulkSelectAllToggle}
-                    >
-                      {bulkSelectedInstanceIds.length === selectableInstanceIds.length ? t("torrents.clearAll") : t("torrents.selectAllInstances")}
-                    </Button>
-                  )}
-                </div>
-
-                {selectableInstances.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                    {selectableInstances.map((instance) => {
-                      const checkboxId = `bulk-add-instance-${instance.id}`
-                      const checked = bulkSelectedInstanceIds.includes(instance.id)
-                      return (
-                        <label
-                          key={instance.id}
-                          htmlFor={checkboxId}
-                          className="flex items-center gap-2 rounded-md border bg-background/60 px-3 py-2 text-sm cursor-pointer hover:bg-accent"
-                        >
-                          <Checkbox
-                            id={checkboxId}
-                            checked={checked}
-                            onCheckedChange={(value) => handleBulkInstanceChange(instance.id, value === true)}
-                          />
-                          <span className="truncate">{instance.name}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{t("torrents.noConnectedInstances")}</p>
-                )}
-              </div>
-            )}
-
             {showDuplicateCheckIndicator && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                {t("torrents.checkingDuplicates")}
+                {t("addTorrentDialog.duplicate.checking")}
               </div>
             )}
 
@@ -1210,16 +853,16 @@ export function AddTorrentDialog({
                 <div className="flex flex-col gap-1 text-sm">
                   <span className="flex items-center gap-2 font-medium text-yellow-500">
                     <AlertCircle className="h-4 w-4" />
-                    {t("torrents.duplicateDetected", { count: duplicateSelectionCount })}
+                    {t("addTorrentDialog.duplicate.selectionDetected", { count: duplicateSelectionCount })}
                   </span>
                   {duplicatePreviewNames.length > 0 ? (
                     <span className="text-xs text-muted-foreground">
-                      {t("torrents.existingTorrents")}: {duplicatePreviewNames.join(", ")}
-                      {duplicatePreviewRemaining > 0 && ` (+${duplicatePreviewRemaining} ${t("torrents.more")})`}
+                      {t("addTorrentDialog.duplicate.existingTorrents", { names: duplicatePreviewNames.join(", ") })}
+                      {duplicatePreviewRemaining > 0 && ` (+${duplicatePreviewRemaining} more)`}
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      {t("torrents.duplicateHighlighted")}
+                      {t("addTorrentDialog.duplicate.highlightedBelow")}
                     </span>
                   )}
                 </div>
@@ -1230,7 +873,7 @@ export function AddTorrentDialog({
                   className="text-yellow-600 border-yellow-600/40 hover:bg-yellow-600/10 hover:text-yellow-700"
                   onClick={handleRemoveDuplicateSelections}
                 >
-                  {t("torrents.removeDuplicates")}
+                  {t("addTorrentDialog.duplicate.remove")}
                 </Button>
               </div>
             )}
@@ -1238,8 +881,8 @@ export function AddTorrentDialog({
             {/* Main Content Tabs */}
             <Tabs defaultValue="basic" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="basic">{t("torrents.basic")}</TabsTrigger>
-                <TabsTrigger value="advanced">{t("torrents.advanced")}</TabsTrigger>
+                <TabsTrigger value="basic">{t("addTorrentDialog.tabs.basic")}</TabsTrigger>
+                <TabsTrigger value="advanced">{t("addTorrentDialog.tabs.advanced")}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4 mt-4">
@@ -1250,7 +893,7 @@ export function AddTorrentDialog({
                     validators={{
                       onChange: ({ value }) => {
                         if ((!value || value.length === 0) && activeTab === "file") {
-                          return t("torrents.selectAtLeastOneFile")
+                          return t("addTorrentDialog.validation.selectTorrentFile")
                         }
                         return undefined
                       },
@@ -1258,7 +901,7 @@ export function AddTorrentDialog({
                   >
                     {(field) => (
                       <div className="space-y-2">
-                        <Label htmlFor="torrentFiles">{t("torrents.torrentFiles")}</Label>
+                        <Label htmlFor="torrentFiles">{t("addTorrentDialog.fileInput.label")}</Label>
                         <div
                           {...getRootProps({
                             className: cn(
@@ -1273,11 +916,11 @@ export function AddTorrentDialog({
                           <div className="flex flex-col items-center justify-center text-center space-y-2 h-22">
                             <Upload className="h-8 w-8 text-muted-foreground" />
                             {isDragActive ? (
-                              <p className="text-sm font-medium">{t("torrents.dropFilesHere")}</p>
+                              <p className="text-sm font-medium">{t("addTorrentDialog.fileInput.dropActive")}</p>
                             ) : (
                               <>
-                                <p className="text-sm font-medium">{t("torrents.dragDropFiles")}</p>
-                                <p className="text-xs text-muted-foreground">{t("torrents.orClickBrowse")}</p>
+                                <p className="text-sm font-medium">{t("addTorrentDialog.fileInput.dragDrop")}</p>
+                                <p className="text-xs text-muted-foreground">{t("addTorrentDialog.fileInput.browse")}</p>
                               </>
                             )}
                           </div>
@@ -1285,12 +928,12 @@ export function AddTorrentDialog({
                         {field.state.value && field.state.value.length > 0 && (
                           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                             <span>
-                              {t("torrents.filesSelected", { count: field.state.value.length })}
+                              {t("addTorrentDialog.fileInput.selectedFiles", { count: field.state.value.length })}
                             </span>
                             {duplicateFileKeys.length > 0 && (
                               <span className="flex items-center gap-1 text-xs font-medium text-yellow-500">
                                 <AlertCircle className="h-3 w-3" />
-                                {t("torrents.duplicateFiles", { count: duplicateFileKeys.length })}
+                                {t("addTorrentDialog.fileInput.duplicateFiles", { count: duplicateFileKeys.length })}
                               </span>
                             )}
                             <Tooltip>
@@ -1300,7 +943,7 @@ export function AddTorrentDialog({
                                   className="text-xs underline hover:text-foreground"
                                   onClick={() => setShowFileList(!showFileList)}
                                 >
-                                  {showFileList ? t("common.hide") : t("common.show")} {t("torrents.files")}
+                                  {showFileList ? t("addTorrentDialog.fileInput.hideFiles") : t("addTorrentDialog.fileInput.showFiles")}
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -1318,7 +961,7 @@ export function AddTorrentDialog({
                                     )
                                   })}
                                   {field.state.value.length > 3 && (
-                                    <div className="text-xs">... {t("torrents.andMore", { count: field.state.value.length - 3 })}</div>
+                                    <div className="text-xs">{t("addTorrentDialog.fileInput.moreFiles", { count: field.state.value.length - 3 })}</div>
                                   )}
                                 </div>
                               </TooltipContent>
@@ -1342,8 +985,8 @@ export function AddTorrentDialog({
                                       <span>{file.name}</span>
                                       {isDuplicate && duplicateInfo?.matches.length ? (
                                         <span className="block text-[11px] text-yellow-700">
-                                          {t("torrents.matchesExisting")}: {duplicateInfo.matches.slice(0, 2).join(", ")}
-                                          {duplicateInfo.matches.length > 2 && ` (+${duplicateInfo.matches.length - 2} ${t("torrents.more")})`}
+                                          {t("addTorrentDialog.duplicate.matchesExisting", { names: duplicateInfo.matches.slice(0, 2).join(", ") })}
+                                          {duplicateInfo.matches.length > 2 && ` (+${duplicateInfo.matches.length - 2} more)`}
                                         </span>
                                       ) : null}
                                     </div>
@@ -1351,7 +994,7 @@ export function AddTorrentDialog({
                                       type="button"
                                       onClick={() => handleRemoveFile(index)}
                                       className="shrink-0 h-5 w-5 rounded-sm hover:bg-destructive/10 hover:text-destructive flex items-center justify-center transition-colors"
-                                      title={t("torrents.removeFile")}
+                                      title={t("addTorrentDialog.fileInput.removeFile")}
                                     >
                                       <X className="h-3 w-3" />
                                     </button>
@@ -1373,7 +1016,7 @@ export function AddTorrentDialog({
                     validators={{
                       onChange: ({ value }) => {
                         if (!value && activeTab === "url") {
-                          return t("torrents.enterAtLeastOneUrl")
+                          return t("addTorrentDialog.validation.enterUrl")
                         }
                         return undefined
                       },
@@ -1381,10 +1024,10 @@ export function AddTorrentDialog({
                   >
                     {(field) => (
                       <div className="space-y-2">
-                        <Label htmlFor="urls">{t("torrents.urlsMagnetLinks")}</Label>
+                        <Label htmlFor="urls">{t("addTorrentDialog.urlInput.label")}</Label>
                         <Textarea
                           id="urls"
-                          placeholder={t("torrents.enterUrlsPlaceholder")}
+                          placeholder={t("addTorrentDialog.urlInput.placeholder")}
                           rows={4}
                           value={field.state.value}
                           onBlur={field.handleBlur}
@@ -1406,8 +1049,8 @@ export function AddTorrentDialog({
                                   <div className="font-medium truncate">{duplicateInfo.label}</div>
                                   {duplicateInfo.matches.length > 0 && (
                                     <div className="text-yellow-700 text-[11px]">
-                                      {t("torrents.matchesExisting")}: {duplicateInfo.matches.slice(0, 2).join(", ")}
-                                      {duplicateInfo.matches.length > 2 && ` (+${duplicateInfo.matches.length - 2} ${t("torrents.more")})`}
+                                      {t("addTorrentDialog.duplicate.matchesExisting", { names: duplicateInfo.matches.slice(0, 2).join(", ") })}
+                                      {duplicateInfo.matches.length > 2 && ` (+${duplicateInfo.matches.length - 2} more)`}
                                     </div>
                                   )}
                                 </div>
@@ -1433,7 +1076,7 @@ export function AddTorrentDialog({
                           checked={field.state.value}
                           onCheckedChange={field.handleChange}
                         />
-                        <Label htmlFor="startPaused-left">{t("torrents.startPaused")}</Label>
+                        <Label htmlFor="startPaused-left">{t("addTorrentDialog.options.startPaused")}</Label>
                       </div>
                     )}
                   </form.Field>
@@ -1448,7 +1091,7 @@ export function AddTorrentDialog({
                           checked={field.state.value}
                           onCheckedChange={field.handleChange}
                         />
-                        <Label htmlFor="skipHashCheck-left">{t("torrents.skipHashCheck")}</Label>
+                        <Label htmlFor="skipHashCheck-left">{t("addTorrentDialog.options.skipHashCheck")}</Label>
                       </div>
                     )}
                   </form.Field>
@@ -1461,12 +1104,12 @@ export function AddTorrentDialog({
                       <>
                         {/* Header with search */}
                         <div className="flex items-center gap-2 w-full">
-                          <Label className="shrink-0">{t("torrents.category")}</Label>
+                          <Label className="shrink-0">{t("addTorrentDialog.options.category")}</Label>
                           <Input
                             id="categorySearch"
                             value={categorySearch}
                             onChange={(e) => setCategorySearch(e.target.value)}
-                            placeholder={t("torrents.searchCategoriesPlaceholder")}
+                            placeholder={t("addTorrentDialog.options.searchCategories")}
                             className="h-8 text-sm flex-1 min-w-0"
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && categorySearch.trim()) {
@@ -1493,7 +1136,9 @@ export function AddTorrentDialog({
                         {categories && Object.entries(categories).length > 0 && (
                           <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">
-                              {isBulkMode ? t("torrents.availableCommonCategoriesHint") : t("torrents.availableCategoriesHint")} {categorySearch && `- filtering: "${categorySearch}"`}
+                              {categorySearch
+                                ? t("addTorrentDialog.options.availableCategoriesFiltered", { query: categorySearch })
+                                : t("addTorrentDialog.options.availableCategories")}
                             </Label>
                             <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
                               {[
@@ -1521,15 +1166,9 @@ export function AddTorrentDialog({
                             </div>
                             {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
                             {categorySearch && Object.entries(categories).filter(([_key, cat]) => cat.name.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
-                              <p className="text-xs text-muted-foreground">{t("torrents.noCategoriesMatch")} "{categorySearch}"</p>
+                              <p className="text-xs text-muted-foreground">{t("addTorrentDialog.options.noCategoriesMatch", { query: categorySearch })}</p>
                             )}
                           </div>
-                        )}
-                        {isBulkMode && selectedBulkInstances.length > 0 && !bulkMetadataReady && (
-                          <p className="text-xs text-muted-foreground">{t("torrents.loadingCommonCategories")}</p>
-                        )}
-                        {isBulkMode && selectedBulkInstances.length > 0 && bulkMetadataReady && Object.entries(categories || {}).length === 0 && (
-                          <p className="text-xs text-muted-foreground">{t("torrents.noCommonCategories")}</p>
                         )}
                       </>
                     )}
@@ -1539,7 +1178,7 @@ export function AddTorrentDialog({
                 {/* Tags */}
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center gap-2 w-full">
-                    <Label className="shrink-0">Tags</Label>
+                    <Label className="shrink-0">{t("addTorrentDialog.options.tags")}</Label>
                     <Input
                       id="newTag"
                       value={newTag}
@@ -1548,7 +1187,7 @@ export function AddTorrentDialog({
                         setNewTag(value)
                         setTagSearch(value) // Update search filter
                       }}
-                      placeholder={t("torrents.searchOrCreateTagsPlaceholder")}
+                      placeholder={t("addTorrentDialog.options.tagsPlaceholder")}
                       className="h-8 text-sm flex-1 min-w-0"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && newTag.trim()) {
@@ -1601,7 +1240,7 @@ export function AddTorrentDialog({
                         onClick={() => setSelectedTags([])}
                         className="h-8 px-2 text-xs"
                       >
-                        {t("torrents.clearAll")}
+                        {t("addTorrentDialog.options.clearAll")}
                       </Button>
                     )}
                   </div>
@@ -1610,7 +1249,9 @@ export function AddTorrentDialog({
                   {allAvailableTags && allAvailableTags.length > 0 && (
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">
-                        {t("torrents.availableTagsHint")} {tagSearch && `- filtering: "${tagSearch}"`}
+                        {tagSearch
+                          ? t("addTorrentDialog.options.availableTagsFiltered", { query: tagSearch })
+                          : t("addTorrentDialog.options.availableTags")}
                       </Label>
                       <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
                         {[...selectedTags.filter(tag => tagSearch === "" || tag.toLowerCase().includes(tagSearch.toLowerCase())),
@@ -1632,7 +1273,7 @@ export function AddTorrentDialog({
                             >
                               {tag}
                               {!allAvailableTags.includes(tag) && (
-                                <span className="ml-1 text-[10px] opacity-70">{t("torrents.newBadge")}</span>
+                                <span className="ml-1 text-[10px] opacity-70">{t("addTorrentDialog.options.newTag")}</span>
                               )}
                             </Badge>
                           ))}
@@ -1641,7 +1282,7 @@ export function AddTorrentDialog({
                         [...selectedTags, ...allAvailableTags]
                           .filter(tag => tagSearch === "" || tag.toLowerCase().includes(tagSearch.toLowerCase()))
                           .length === 0 && (
-                        <p className="text-xs text-muted-foreground">{t("torrents.noTagsMatch")} "{tagSearch}"</p>
+                        <p className="text-xs text-muted-foreground">{t("addTorrentDialog.options.noTagsMatch", { query: tagSearch })}</p>
                       )}
                     </div>
                   )}
@@ -1659,7 +1300,7 @@ export function AddTorrentDialog({
                         checked={field.state.value}
                         onCheckedChange={field.handleChange}
                       />
-                      <Label htmlFor="autoTMM">{t("torrents.automaticTorrentManagement")}</Label>
+                      <Label htmlFor="autoTMM">{t("addTorrentDialog.options.autoTmm")}</Label>
                     </div>
                   )}
                 </form.Field>
@@ -1673,11 +1314,11 @@ export function AddTorrentDialog({
                           <form.Field name="savePath">
                             {(field) => (
                               <div className="space-y-2">
-                                <Label htmlFor="savePath">{t("torrents.savePath")}</Label>
+                                <Label htmlFor="savePath">{t("addTorrentDialog.options.savePath")}</Label>
                                 <Input
                                   id="savePath"
                                   ref={supportsPathAutocomplete ? savePathInputRef : undefined}
-                                  placeholder={preferences?.save_path || t("torrents.leaveEmptyForDefault")}
+                                  placeholder={preferences?.save_path || t("addTorrentDialog.options.savePathPlaceholder")}
                                   autoComplete="off"
                                   spellCheck={false}
                                   value={field.state.value}
@@ -1716,7 +1357,7 @@ export function AddTorrentDialog({
                                 )}
 
                                 <p className="text-xs text-muted-foreground">
-                                  {t("torrents.manualSavePath")}
+                                  {t("addTorrentDialog.options.manualSavePath")}
                                 </p>
                               </div>
                             )}
@@ -1733,11 +1374,11 @@ export function AddTorrentDialog({
                                         checked={field.state.value}
                                         onCheckedChange={field.handleChange}
                                       />
-                                      <Label htmlFor="tempPathEnabled" className="text-sm font-medium">{t("torrents.useTempPath")}</Label>
+                                      <Label htmlFor="tempPathEnabled" className="text-sm font-medium">{t("addTorrentDialog.options.useTemporaryPath")}</Label>
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                        {t("torrents.tempPathDesc")}
-                                      </p>
+                                      {t("addTorrentDialog.options.useTemporaryPathDescription")}
+                                    </p>
                                   </div>
                                 )}
                               </form.Field>
@@ -1748,11 +1389,11 @@ export function AddTorrentDialog({
                                     {(tempPathEnabled) => {
                                       return (
                                         <div className="space-y-2 pl-4 border-l-2 border-primary border-opacity-50 data-[temp-path-enabled=true]:block hidden" data-temp-path-enabled={tempPathEnabled}>
-                                          <Label htmlFor="tempPath">{t("torrents.temporaryDownloadPath")}</Label>
+                                          <Label htmlFor="tempPath">{t("addTorrentDialog.options.tempPath")}</Label>
                                           <Input
                                             id="tempPath"
                                             ref={supportsPathAutocomplete ? tempPathInputRef : undefined}
-                                            placeholder={preferences?.temp_path || t("torrents.leaveEmptyForDefault")}
+                                            placeholder={preferences?.temp_path || t("addTorrentDialog.options.tempPathPlaceholder")}
                                             autoComplete="off"
                                             spellCheck={false}
                                             value={field.state.value}
@@ -1791,7 +1432,7 @@ export function AddTorrentDialog({
                                           )}
 
                                           <p className="text-xs text-muted-foreground">
-                                            {t("torrents.savePathHint")}
+                                            {t("addTorrentDialog.options.tempPathDescription")}
                                           </p>
                                         </div>
                                       )
@@ -1804,10 +1445,10 @@ export function AddTorrentDialog({
                         </>
                       ) : (
                         <div className="space-y-2">
-                          <Label>{t("torrents.savePath")}</Label>
+                          <Label>{t("addTorrentDialog.options.savePath")}</Label>
                           <div className="px-3 py-2 bg-muted rounded-md">
                             <p className="text-sm text-muted-foreground">
-                              {t("torrents.tmmHint")}
+                              {t("addTorrentDialog.options.autoTmmSavePathDescription")}
                             </p>
                           </div>
                         </div>
@@ -1819,7 +1460,7 @@ export function AddTorrentDialog({
 
                 {/* Advanced Options */}
                 <div className="space-y-4">
-                  <Label className="text-sm font-medium">{t("torrents.advancedOptions")}</Label>
+                  <Label className="text-sm font-medium">{t("addTorrentDialog.options.advancedOptions")}</Label>
                   {/* Sequential Download & First/Last Piece Priority */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <form.Field name="sequentialDownload">
@@ -1830,9 +1471,9 @@ export function AddTorrentDialog({
                             checked={field.state.value}
                             onCheckedChange={field.handleChange}
                           />
-                          <Label htmlFor="sequentialDownload">{t("torrents.sequentialDownload")}</Label>
+                          <Label htmlFor="sequentialDownload">{t("addTorrentDialog.options.sequentialDownload")}</Label>
                           <span className="text-xs text-muted-foreground ml-2">
-                            {t("torrents.usefulForMediaFiles")}
+                            {t("addTorrentDialog.options.sequentialDownloadDescription")}
                           </span>
                         </div>
                       )}
@@ -1847,9 +1488,9 @@ export function AddTorrentDialog({
                             checked={field.state.value}
                             onCheckedChange={field.handleChange}
                           />
-                          <Label htmlFor="firstLastPiecePrio">{t("torrents.piecePriority")}</Label>
+                          <Label htmlFor="firstLastPiecePrio">{t("addTorrentDialog.options.firstLastPiecePriority")}</Label>
                           <span className="text-xs text-muted-foreground ml-2">
-                            {t("torrents.piecePriorityHint")}
+                            {t("addTorrentDialog.options.firstLastPiecePriorityDescription")}
                           </span>
                         </div>
                       )}
@@ -1862,27 +1503,28 @@ export function AddTorrentDialog({
                     <form.Field name="limitDownloadSpeed">
                       {(field) => (
                         <div className="space-y-2">
-                          <Label htmlFor="limitDownloadSpeed">{t("torrents.downloadLimitLabel")}</Label>
+                          <Label htmlFor="limitDownloadSpeed">{t("addTorrentDialog.options.downloadLimit")}</Label>
                           <Input
                             id="limitDownloadSpeed"
                             type="number"
                             min="0"
-                            placeholder={t("torrents.unlimitedPlaceholder")}
+                            placeholder={t("addTorrentDialog.options.unlimitedPlaceholder")}
                             value={field.state.value || ""}
                             onChange={(e) => field.handleChange(parseInt(e.target.value) || 0)}
                           />
                         </div>
                       )}
                     </form.Field>
+
                     <form.Field name="limitUploadSpeed">
                       {(field) => (
                         <div className="space-y-2">
-                          <Label htmlFor="limitUploadSpeed">{t("torrents.uploadLimitLabel")}</Label>
+                          <Label htmlFor="limitUploadSpeed">{t("addTorrentDialog.options.uploadLimit")}</Label>
                           <Input
                             id="limitUploadSpeed"
                             type="number"
                             min="0"
-                            placeholder={t("torrents.unlimitedPlaceholder")}
+                            placeholder={t("addTorrentDialog.options.unlimitedPlaceholder")}
                             value={field.state.value || ""}
                             onChange={(e) => field.handleChange(parseInt(e.target.value) || 0)}
                           />
@@ -1896,13 +1538,13 @@ export function AddTorrentDialog({
                     <form.Field name="limitRatio">
                       {(field) => (
                         <div className="space-y-2">
-                          <Label htmlFor="limitRatio">{t("torrents.ratioLimit")}</Label>
+                          <Label htmlFor="limitRatio">{t("addTorrentDialog.options.ratioLimit")}</Label>
                           <Input
                             id="limitRatio"
                             type="number"
                             min="0"
                             step="0.1"
-                            placeholder={t("torrents.useGlobalPlaceholder")}
+                            placeholder={t("addTorrentDialog.options.useGlobalPlaceholder")}
                             value={field.state.value || ""}
                             onChange={(e) => field.handleChange(parseFloat(e.target.value) || 0)}
                           />
@@ -1913,12 +1555,12 @@ export function AddTorrentDialog({
                     <form.Field name="limitSeedTime">
                       {(field) => (
                         <div className="space-y-2">
-                          <Label htmlFor="limitSeedTime">{t("torrents.seedTimeLimitLabel")}</Label>
+                          <Label htmlFor="limitSeedTime">{t("addTorrentDialog.options.seedTimeLimit")}</Label>
                           <Input
                             id="limitSeedTime"
                             type="number"
                             min="0"
-                            placeholder={t("torrents.useGlobalPlaceholder")}
+                            placeholder={t("addTorrentDialog.options.useGlobalPlaceholder")}
                             value={field.state.value || ""}
                             onChange={(e) => field.handleChange(parseInt(e.target.value) || 0)}
                           />
@@ -1932,19 +1574,19 @@ export function AddTorrentDialog({
                     <form.Field name="contentLayout">
                       {(field) => (
                         <div className="space-y-2">
-                          <Label>{t("torrents.contentLayout")}</Label>
+                          <Label>{t("addTorrentDialog.options.contentLayout")}</Label>
                           <Select
                             value={field.state.value}
                             onValueChange={field.handleChange}
                           >
                             <SelectTrigger id="contentLayout">
-                              <SelectValue placeholder={t("torrents.useGlobalSetting")} />
+                              <SelectValue placeholder={t("addTorrentDialog.options.useGlobalSetting")} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="__global__">{t("torrents.useGlobalSetting")}</SelectItem>
-                              <SelectItem value="Original">{t("torrents.original")}</SelectItem>
-                              <SelectItem value="Subfolder">{t("torrents.createSubfolder")}</SelectItem>
-                              <SelectItem value="NoSubfolder">{t("torrents.dontCreateSubfolder")}</SelectItem>
+                              <SelectItem value="__global__">{t("addTorrentDialog.options.useGlobalSetting")}</SelectItem>
+                              <SelectItem value="Original">{t("addTorrentDialog.options.original")}</SelectItem>
+                              <SelectItem value="Subfolder">{t("addTorrentDialog.options.createSubfolder")}</SelectItem>
+                              <SelectItem value="NoSubfolder">{t("addTorrentDialog.options.noSubfolder")}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1955,10 +1597,10 @@ export function AddTorrentDialog({
                     <form.Field name="rename">
                       {(field) => (
                         <div className="space-y-2">
-                          <Label htmlFor="rename">{t("torrents.renameTorrent")}</Label>
+                          <Label htmlFor="rename">{t("addTorrentDialog.options.renameTorrent")}</Label>
                           <Input
                             id="rename"
-                            placeholder={t("torrents.leaveEmptyToUseOriginalName")}
+                            placeholder={t("addTorrentDialog.options.renamePlaceholder")}
                             value={field.state.value}
                             onChange={(e) => field.handleChange(e.target.value)}
                           />
@@ -1973,13 +1615,13 @@ export function AddTorrentDialog({
             {/* Auto-applied Settings Info - Compact */}
             {(preferences?.add_trackers_enabled && preferences?.add_trackers) || preferences?.excluded_file_names_enabled ? (
               <div className="bg-muted rounded-md p-3 text-xs text-muted-foreground">
-                <p className="font-medium mb-1">{t("torrents.autoApplied")}</p>
+                <p className="font-medium mb-1">{t("addTorrentDialog.options.autoAppliedTitle")}</p>
                 <div className="space-y-0.5">
                   {preferences?.add_trackers_enabled && preferences?.add_trackers && (
-                    <div>• Auto-add trackers</div>
+                    <div>{t("addTorrentDialog.options.autoAddTrackers")}</div>
                   )}
                   {preferences?.excluded_file_names_enabled && preferences?.excluded_file_names && (
-                    <div>• File exclusions: {preferences.excluded_file_names}</div>
+                    <div>{t("addTorrentDialog.options.fileExclusions", { value: preferences.excluded_file_names })}</div>
                   )}
                 </div>
               </div>
@@ -2001,8 +1643,7 @@ export function AddTorrentDialog({
               {({ canSubmit, isSubmitting, torrentFiles }) => {
                 const hasSelectedFiles = Array.isArray(torrentFiles) && torrentFiles.length > 0
                 const requiresFileSelection = activeTab === "file" && !hasSelectedFiles
-                const requiresInstanceSelection = isBulkMode && selectedBulkInstances.length === 0
-                const isDisabled = !canSubmit || isSubmitting || mutation.isPending || requiresFileSelection || requiresInstanceSelection
+                const isDisabled = !canSubmit || isSubmitting || mutation.isPending || requiresFileSelection
                 return (
                   <Button
                     type="submit"
@@ -2010,7 +1651,7 @@ export function AddTorrentDialog({
                     className="w-full sm:flex-1 h-11 sm:h-10 order-1 sm:order-2"
                     onClick={() => form.handleSubmit()}
                   >
-                    {isSubmitting || mutation.isPending ? t("torrents.adding") : isBulkMode ? t("torrents.bulkAddTorrent") : t("torrents.addTorrent")}
+                    {isSubmitting || mutation.isPending ? t("addTorrentDialog.footer.adding") : t("addTorrentDialog.footer.add")}
                   </Button>
                 )
               }}
@@ -2021,7 +1662,7 @@ export function AddTorrentDialog({
               className="w-full sm:w-auto px-6 sm:px-4 h-11 sm:h-10 order-2 sm:order-1"
               onClick={() => setOpen(false)}
             >
-              {t("common.cancel")}
+              {t("addTorrentDialog.footer.cancel")}
             </Button>
           </div>
         </div>

@@ -20,16 +20,16 @@ interface PathCellProps {
  * Shows "-" when no path is provided.
  */
 export function PathCell({ path, className }: PathCellProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("common")
   const hasPath = path != null && path !== ""
 
   const handleCopy = async () => {
     if (!hasPath) return
     try {
       await copyTextToClipboard(path)
-      toast.success(t("common.copiedToClipboard"))
+      toast.success(t("contextMenu.toast.torrentCopied", { ns: "torrents", label: t("actions.copyPath") }))
     } catch {
-      toast.error(t("common.copyFailed"))
+      toast.error(t("contextMenu.toast.failedToCopy", { ns: "torrents" }))
     }
   }
 
@@ -44,12 +44,10 @@ export function PathCell({ path, className }: PathCellProps) {
         disabled={!hasPath}
         className={cn(
           "flex-shrink-0 p-0.5 rounded transition-colors",
-          hasPath
-            ? "text-muted-foreground hover:text-foreground cursor-pointer"
-            : "text-muted-foreground/40 cursor-not-allowed"
+          hasPath? "text-muted-foreground hover:text-foreground cursor-pointer": "text-muted-foreground/40 cursor-not-allowed"
         )}
-        aria-label={t("common.copyPath")}
-        title={hasPath ? t("common.copyPath") : undefined}
+        aria-label={t("actions.copyPath")}
+        title={hasPath ? t("actions.copyPath") : undefined}
       >
         <Copy className="size-3.5" />
       </button>

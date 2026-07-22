@@ -13,14 +13,14 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
-  PopoverTrigger,
+  PopoverTrigger
 } from "@/components/ui/popover"
 import {
   Select,
@@ -30,16 +30,17 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
 import { usePersistedLogExclusions } from "@/hooks/usePersistedLogExclusions"
 import { api } from "@/lib/api"
-import { copyTextToClipboard } from "@/lib/utils"
+import { copyTextToClipboard, formatBytes } from "@/lib/utils"
 import type { LogSettingsUpdate } from "@/types"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertCircle, ChevronDown, Copy, FileText, Filter, Loader2, Lock, Search, Settings, X } from "lucide-react"
+import { AlertCircle, ChevronDown, Copy, Download, FileText, Filter, Loader2, Lock, Search, Settings, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 const LOG_LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] as const
 
@@ -52,17 +53,17 @@ function normalizeLogLevel(level: string | undefined): (typeof LOG_LEVELS)[numbe
 }
 
 function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<ReturnType<typeof api.getLogSettings>>> }) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("settings")
   const queryClient = useQueryClient()
 
   const updateMutation = useMutation({
     mutationFn: (update: LogSettingsUpdate) => api.updateLogSettings(update),
     onSuccess: (data) => {
       queryClient.setQueryData(["log-settings"], data)
-      toast.success(t("log.saveSuccess"))
+      toast.success(t("logs.toasts.settingsUpdated"))
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("log.saveError"))
+      toast.error(error instanceof Error ? error.message : t("logs.toasts.settingsFailed"))
     },
   })
 
@@ -112,7 +113,7 @@ function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<Retu
         {(field) => (
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <Label htmlFor="level" className="text-sm">{t("log.logLevel")}</Label>
+              <Label htmlFor="level" className="text-sm">{t("logs.configuration.level")}</Label>
               {isLocked("level") && (
                 <Badge variant="outline" className="gap-1 text-xs">
                   <Lock className="h-3 w-3" />
@@ -126,7 +127,7 @@ function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<Retu
               disabled={isLocked("level")}
             >
               <SelectTrigger id="level" className="h-9">
-                <SelectValue placeholder={t("log.selectLogLevel")} />
+                <SelectValue placeholder={t("logs.configuration.levelPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {LOG_LEVELS.map((level) => (
@@ -144,7 +145,7 @@ function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<Retu
         {(field) => (
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <Label htmlFor="path" className="text-sm">{t("log.logFilePath")}</Label>
+              <Label htmlFor="path" className="text-sm">{t("logs.configuration.path")}</Label>
               {isLocked("path") && (
                 <Badge variant="outline" className="gap-1 text-xs">
                   <Lock className="h-3 w-3" />
@@ -155,7 +156,7 @@ function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<Retu
             <Input
               id="path"
               className="h-9"
-              placeholder={t("log.logFilePathPlaceholder")}
+              placeholder={t("logs.configuration.pathPlaceholder")}
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               disabled={isLocked("path")}
@@ -169,7 +170,7 @@ function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<Retu
           {(field) => (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <Label htmlFor="maxSize" className="text-sm">{t("log.maxSize")}</Label>
+                <Label htmlFor="maxSize" className="text-sm">{t("logs.configuration.maxSize")}</Label>
                 {isLocked("maxSize") && (
                   <Badge variant="outline" className="gap-1 text-xs">
                     <Lock className="h-3 w-3" />
@@ -193,7 +194,7 @@ function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<Retu
           {(field) => (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <Label htmlFor="maxBackups" className="text-sm">{t("log.maxBackups")}</Label>
+                <Label htmlFor="maxBackups" className="text-sm">{t("logs.configuration.maxBackups")}</Label>
                 {isLocked("maxBackups") && (
                   <Badge variant="outline" className="gap-1 text-xs">
                     <Lock className="h-3 w-3" />
@@ -220,10 +221,10 @@ function LogSettingsFormInner({ settings }: { settings: NonNullable<Awaited<Retu
             {isSubmitting || updateMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t("log.saving")}
+                {t("logs.configuration.saving")}
               </>
             ) : (
-              t("log.saveSettings")
+              t("logs.configuration.saveSettings")
             )}
           </Button>
         )}
@@ -337,7 +338,7 @@ function LogEntry({
   onSelect?: () => void
   onMute?: () => void
 }) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("settings")
   const extraKeys = Object.keys(entry.extra)
   const isClickable = onSelect && entry.isJson
 
@@ -366,7 +367,7 @@ function LogEntry({
         type="button"
         onClick={onMute ? handleMute : undefined}
         disabled={!onMute}
-        title={onMute ? t("log.muteSimilar") : undefined}
+        title={onMute ? t("logs.viewer.muteSimilarEntries") : undefined}
         className={`group/mute shrink-0 w-12 h-4 inline-flex items-center justify-center text-[10px] font-medium uppercase rounded ${LEVEL_BADGE_COLORS[entry.level]} ${onMute ? "cursor-pointer" : ""}`}
       >
         <span className={onMute ? "group-hover/mute:hidden" : ""}>{entry.level}</span>
@@ -380,9 +381,7 @@ function LogEntry({
               <span className="text-muted-foreground/70">{key}</span>
               <span className="text-muted-foreground/40">=</span>
               <span className="text-muted-foreground/60">
-                {typeof entry.extra[key] === "string"
-                  ? entry.extra[key] as string
-                  : JSON.stringify(entry.extra[key])}
+                {typeof entry.extra[key] === "string"? entry.extra[key] as string: JSON.stringify(entry.extra[key])}
               </span>
             </span>
           ))}
@@ -459,7 +458,7 @@ function LogEntryDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("settings")
   // Memoize JSON stringification and highlighting to avoid re-tokenizing on unrelated renders
   const { prettyJson, highlightedJson } = useMemo(() => {
     if (!entry) return { prettyJson: "", highlightedJson: [] as React.ReactNode[] }
@@ -477,9 +476,9 @@ function LogEntryDialog({
     if (!prettyJson) return
     try {
       await copyTextToClipboard(prettyJson)
-      toast.success(t("log.copiedClipboard"))
+      toast.success(t("logs.toasts.jsonCopied"))
     } catch {
-      toast.error(t("log.failedCopyClipboard"))
+      toast.error(t("logs.toasts.copyFailed"))
     }
   }, [prettyJson, t])
 
@@ -487,9 +486,9 @@ function LogEntryDialog({
     if (!entry) return
     try {
       await copyTextToClipboard(entry.raw)
-      toast.success(t("log.copiedClipboard"))
+      toast.success(t("logs.toasts.rawCopied"))
     } catch {
-      toast.error(t("log.failedCopyClipboard"))
+      toast.error(t("logs.toasts.copyFailed"))
     }
   }, [entry, t])
 
@@ -498,7 +497,7 @@ function LogEntryDialog({
       <DialogContent className="!max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {t("log.logEntry")}
+            {t("logs.entryDialog.title")}
             {entry && (
               <span className={`text-xs font-medium uppercase px-1.5 py-0.5 rounded ${LEVEL_BADGE_COLORS[entry.level]}`}>
                 {entry.level}
@@ -506,7 +505,7 @@ function LogEntryDialog({
             )}
           </DialogTitle>
           <DialogDescription>
-            {entry?.time ? new Date(entry.time).toLocaleString() : t("log.rawLogLine")}
+            {entry?.time ? new Date(entry.time).toLocaleString() : t("logs.entryDialog.rawLine")}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[400px] overflow-auto rounded-md border bg-muted/30 p-4">
@@ -515,14 +514,14 @@ function LogEntryDialog({
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" size="sm" onClick={handleCopyRaw}>
             <Copy className="mr-2 h-4 w-4" />
-            {t("log.copyRaw")}
+            {t("logs.entryDialog.copyRaw")}
           </Button>
           <Button variant="outline" size="sm" onClick={handleCopyJson}>
             <Copy className="mr-2 h-4 w-4" />
-            {t("log.copyJson")}
+            {t("logs.entryDialog.copyJson")}
           </Button>
           <Button size="sm" onClick={() => onOpenChange(false)}>
-            {t("common.close")}
+            {t("logs.entryDialog.close")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -537,7 +536,7 @@ const LOG_SOFT_CAP = 1000
 const LOG_HARD_CAP = 10000
 
 function LiveLogViewer({ configPath }: { configPath?: string }) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("settings")
   const [lines, setLines] = useState<RawLogLine[]>([])
   const [autoScroll, setAutoScroll] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
@@ -600,7 +599,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
 
     es.onerror = () => {
       setIsConnected(false)
-      setError(t("log.connectionLost"))
+      setError("Connection lost. Reconnecting...")
       es.close()
       reconnectTimeoutRef.current = window.setTimeout(connect, 3000)
     }
@@ -691,7 +690,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
             className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
           />
           <span className="text-sm text-muted-foreground">
-            {isConnected ? t("log.connected") : t("log.disconnected")}
+            {isConnected ? t("logs.viewer.connected") : t("logs.viewer.disconnected")}
           </span>
           {error && (
             <span className="flex items-center gap-1 text-sm text-yellow-500">
@@ -705,7 +704,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
             <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder={t("log.searchLogs")}
+              placeholder={t("logs.viewer.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8 w-40 pl-7 pr-7 text-xs"
@@ -725,11 +724,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
               <Button variant="outline" size="sm" className="h-8 gap-1">
                 <Filter className="h-3.5 w-3.5" />
                 <span className="text-xs">
-                  {selectedLevels.size === ALL_LOG_LEVELS.length
-                    ? t("log.allLevels")
-                    : selectedLevels.size === 0
-                      ? t("log.none")
-                      : `${selectedLevels.size} ${selectedLevels.size > 1 ? t("log.levels") : t("log.level")}`}
+                  {selectedLevels.size === ALL_LOG_LEVELS.length ? t("logs.viewer.allLevels") : selectedLevels.size === 0 ? t("logs.viewer.none") : t("logs.viewer.levelCount", { count: selectedLevels.size })}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 opacity-50" />
               </Button>
@@ -742,7 +737,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
                   className="h-6 px-2 text-xs"
                   onClick={selectAll}
                 >
-                  {t("common.all")}
+                  {t("logs.viewer.all")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -750,7 +745,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
                   className="h-6 px-2 text-xs"
                   onClick={selectNone}
                 >
-                  {t("log.none")}
+                  {t("logs.viewer.none")}
                 </Button>
               </div>
               <div className="space-y-1">
@@ -777,20 +772,20 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 gap-1">
-                  <span className="text-xs">{logExclusions.length} {t("log.muted")}</span>
+                  <span className="text-xs">{t("logs.viewer.mutedCount", { count: logExclusions.length })}</span>
                   <ChevronDown className="h-3.5 w-3.5 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72 p-2" align="start">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-medium">{t("log.mutedMessages")}</span>
+                  <span className="text-xs font-medium">{t("logs.viewer.mutedMessages")}</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 text-xs"
                     onClick={() => setLogExclusions([])}
                   >
-                    {t("log.clearAll")}
+                    {t("logs.viewer.clearAll")}
                   </Button>
                 </div>
                 <div className="space-y-1 max-h-48 overflow-auto">
@@ -816,7 +811,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
             </Popover>
           )}
           <Button variant="outline" size="sm" onClick={handleClear}>
-            {t("log.clear")}
+            {t("logs.viewer.clear")}
           </Button>
           <div className="flex items-center gap-2">
             <Switch
@@ -825,7 +820,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
               onCheckedChange={setAutoScroll}
             />
             <Label htmlFor="autoscroll" className="text-sm">
-              {t("log.autoScroll")}
+              {t("logs.viewer.autoScroll")}
             </Label>
           </div>
         </div>
@@ -848,9 +843,7 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
             ))
           ) : (
             <span className="text-muted-foreground">
-              {lines.length > 0
-                ? t("log.noEntriesMatch")
-                : t("log.waitingForEntries")}
+              {lines.length > 0 ? t("logs.viewer.noEntriesMatch") : t("logs.viewer.waiting")}
             </span>
           )}
         </div>
@@ -859,11 +852,15 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
       <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-2">
           <span>
-            {t("log.showingEntries", { filtered: filteredEntries.length, total: lines.length })}
-            {autoScroll ? ` (${LOG_SOFT_CAP.toLocaleString()} ${t("log.maxEntries", { max: "" })})` : ` (${LOG_HARD_CAP.toLocaleString()} ${t("log.maxEntriesWhilePaused", { max: "" })})`}
+            {t("logs.viewer.showing", {
+              shown: filteredEntries.length,
+              total: lines.length,
+              max: autoScroll ? LOG_SOFT_CAP.toLocaleString() : LOG_HARD_CAP.toLocaleString(),
+              mode: autoScroll ? t("logs.viewer.maxLive") : t("logs.viewer.maxPaused"),
+            })}
           </span>
           {droppedWhilePaused && (
-            <span className="text-yellow-500">{t("log.oldestDropped")}</span>
+            <span className="text-yellow-500">{t("logs.viewer.oldestEntriesDropped")}</span>
           )}
         </span>
         {configPath && (
@@ -883,8 +880,70 @@ function LiveLogViewer({ configPath }: { configPath?: string }) {
   )
 }
 
+function LogFilesList() {
+  const { t } = useTranslation("settings")
+  const { formatDate } = useDateTimeFormatters()
+  const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set())
+  const { data: files } = useQuery({
+    queryKey: ["log-files"],
+    queryFn: () => api.getLogFiles(),
+    staleTime: 30 * 1000,
+  })
+
+  const handleDownload = async (filename: string) => {
+    setDownloadingFiles((prev) => new Set(prev).add(filename))
+    try {
+      await api.downloadLogFile(filename)
+    } catch {
+      toast.error(t("logs.files.toasts.downloadFailed", { filename }))
+    } finally {
+      setDownloadingFiles((prev) => {
+        const next = new Set(prev)
+        next.delete(filename)
+        return next
+      })
+    }
+  }
+
+  if (!files || files.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">{t("logs.files.title")}</h4>
+      <div className="divide-y rounded-md border">
+        {files.map((file) => (
+          <div key={file.name} className="flex items-center justify-between gap-4 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate font-mono text-sm" title={file.name}>{file.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatBytes(file.sizeBytes)} • {formatDate(new Date(file.modTime))}
+              </p>
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shrink-0"
+              disabled={downloadingFiles.has(file.name)}
+              onClick={() => handleDownload(file.name)}
+            >
+              {downloadingFiles.has(file.name) ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              <span className="sr-only">{t("logs.files.downloadSrOnly", { filename: file.name })}</span>
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function LogSettingsPanel() {
-  const { t } = useTranslation()
+  const { t } = useTranslation("settings")
   const { data: settings } = useQuery({
     queryKey: ["log-settings"],
     queryFn: () => api.getLogSettings(),
@@ -895,24 +954,24 @@ export function LogSettingsPanel() {
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <CardTitle>{t("log.logs")}</CardTitle>
+            <CardTitle>{t("logs.title")}</CardTitle>
             <CardDescription>
-              {t("log.logsDesc")}
+              {t("logs.description")}
             </CardDescription>
           </div>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon" className="h-8 w-8 shrink-0">
                 <Settings className="h-4 w-4" />
-                <span className="sr-only">{t("log.logConfiguration")}</span>
+                <span className="sr-only">{t("logs.settingsSrOnly")}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <h4 className="font-medium text-sm">{t("log.logConfiguration")}</h4>
+                  <h4 className="font-medium text-sm">{t("logs.configuration.title")}</h4>
                   <p className="text-xs text-muted-foreground">
-                    {t("log.logConfigurationDesc")}
+                    {t("logs.configuration.description")}
                   </p>
                 </div>
                 <LogSettingsForm />
@@ -921,8 +980,9 @@ export function LogSettingsPanel() {
           </Popover>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <LiveLogViewer configPath={settings?.configPath} />
+        <LogFilesList />
       </CardContent>
     </Card>
   )

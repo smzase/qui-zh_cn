@@ -1,4 +1,4 @@
-﻿﻿﻿﻿/*
+/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -31,7 +31,7 @@ export function InstanceSettingsButton({
   defaultTab,
   asButton = false,
 }: InstanceSettingsButtonProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   const [preferencesOpen, setPreferencesOpen] = useState(false)
 
   const handleClick = (e: React.MouseEvent) => {
@@ -52,13 +52,13 @@ export function InstanceSettingsButton({
                 size="icon"
                 className="h-7 w-7 p-0"
                 onClick={handleClick}
-                aria-label={t("instances.instanceSettings")}
+                aria-label={t("header.instanceSettings", { ns: "common" })}
               >
                 <Cog className="h-4 w-4" />
               </Button>
             ) : (
               <span
-                aria-label={t("instances.instanceSettings")}
+                aria-label={t("header.instanceSettings", { ns: "common" })}
                 role="button"
                 tabIndex={0}
                 className="cursor-pointer"
@@ -75,7 +75,7 @@ export function InstanceSettingsButton({
             )}
           </TooltipTrigger>
           <TooltipContent>
-            {t("instances.instanceSettings")}
+            {t("settingsButton.tooltip")}
           </TooltipContent>
         </Tooltip>
       )}

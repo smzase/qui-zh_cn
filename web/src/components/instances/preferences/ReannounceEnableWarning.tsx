@@ -12,20 +12,20 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { AlertTriangle } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 export function ReannounceEnableWarningAlert() {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   return (
     <Alert variant="warning" className="border-yellow-500/40 bg-yellow-500/10 text-yellow-950 dark:text-yellow-100">
       <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-      <AlertTitle>{t("reannounce.warningTitle")}</AlertTitle>
+      <AlertTitle>{t("preferences.reannounceWarning.alertTitle")}</AlertTitle>
       <AlertDescription className="space-y-1">
-        <p>{t("reannounce.warningDesc1")}</p>
-        <p>{t("reannounce.warningDesc2")}</p>
+        <p>{t("preferences.reannounceWarning.alertDescription1")}</p>
+        <p>{t("preferences.reannounceWarning.alertDescription2")}</p>
       </AlertDescription>
     </Alert>
   )
@@ -44,24 +44,24 @@ export function ReannounceEnableWarningDialog({
   onConfirm,
   confirming = false,
 }: ReannounceEnableWarningDialogProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("reannounce.enableConfirmTitle")}</AlertDialogTitle>
+          <AlertDialogTitle>{t("preferences.reannounceWarning.dialogTitle")}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3">
-              <p>{t("reannounce.enableConfirmDesc1")}</p>
-              <p>{t("reannounce.enableConfirmDesc2")}</p>
-              <p>{t("reannounce.enableConfirmDesc3")}</p>
+              <p>{t("preferences.reannounceWarning.dialogDescription1")}</p>
+              <p>{t("preferences.reannounceWarning.dialogDescription2")}</p>
+              <p>{t("preferences.reannounceWarning.dialogDescription3")}</p>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={confirming}>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel disabled={confirming}>{t("card.deleteDialog.cancel")}</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm} disabled={confirming}>
-            {confirming ? t("reannounce.enabling") : t("reannounce.enable")}
+            {confirming ? t("preferences.reannounceWarning.enabling") : t("preferences.reannounceWarning.enable")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

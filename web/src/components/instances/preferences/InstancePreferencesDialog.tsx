@@ -1,4 +1,4 @@
-﻿﻿﻿﻿/*
+/*
  * Copyright (c) 2025-2026, s0up and the autobrr contributors.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -28,8 +28,8 @@ import { cn, formatErrorMessage } from "@/lib/utils"
 import type { Instance } from "@/types"
 import { Clock, Cog, Folder, Gauge, MoreVertical, Power, Radar, RefreshCw, Server, Settings, Trash2, Upload, Wifi } from "lucide-react"
 import { Component, lazy, Suspense, useCallback, useMemo, useState, type ErrorInfo, type ReactNode } from "react"
-import { useTranslation, Trans } from "react-i18next"
 
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 // Lazy load tab content components - only Instance tab is eagerly loaded
@@ -37,23 +37,23 @@ import { InstanceSettingsPanel } from "./InstanceSettingsPanel"
 
 /** Loading fallback for lazy-loaded tab content */
 function TabLoadingFallback() {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   return (
     <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
-      <div className="text-sm text-muted-foreground">{t("torrents.loading")}</div>
+      <div className="text-sm text-muted-foreground">{t("preferences.dialog.loadingFallback")}</div>
     </div>
   )
 }
 
 /** Error fallback for lazy-loaded tab content */
 function TabErrorFallback({ onRetry }: { onRetry: () => void }) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-4" role="alert">
-      <p className="text-sm text-muted-foreground">{t("torrents.failedLoadSettings")}</p>
+      <p className="text-sm text-muted-foreground">{t("preferences.dialog.errorFallback")}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         <RefreshCw className="mr-2 h-4 w-4" />
-        {t("torrents.retry")}
+        {t("preferences.dialog.retry")}
       </Button>
     </div>
   )
@@ -137,7 +137,7 @@ export function InstancePreferencesDialog({
   instance,
   defaultTab,
 }: InstancePreferencesDialogProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   const {
     instances,
     deleteInstance,
@@ -199,13 +199,13 @@ export function InstancePreferencesDialog({
     const nextState = !currentInstance.isActive
     setInstanceStatus({ id: currentInstance.id, isActive: nextState }, {
       onSuccess: () => {
-        toast.success(nextState ? t("torrents.instanceEnabled") : t("torrents.instanceDisabledToast"), {
-          description: nextState ? t("torrents.instanceEnabledDesc") : t("torrents.instanceDisabledDesc"),
+        toast.success(nextState ? t("card.toast.instanceEnabledTitle") : t("card.toast.instanceDisabledTitle"), {
+          description: nextState ? t("card.toast.instanceEnabledDescription") : t("card.toast.instanceDisabledDescription"),
         })
       },
       onError: (error) => {
-        toast.error(t("torrents.statusUpdateFailed"), {
-          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents.statusUpdateFailedDesc"),
+        toast.error(t("card.toast.statusUpdateFailedTitle"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("card.toast.statusUpdateFailedDescription"),
         })
       },
     })
@@ -215,15 +215,15 @@ export function InstancePreferencesDialog({
     if (!currentInstance) return
     deleteInstance({ id: currentInstance.id, name: currentInstance.name }, {
       onSuccess: () => {
-        toast.success(t("torrents.instanceDeleted"), {
-          description: t("torrents.instanceDeletedDesc", { name: currentInstance.name }),
+        toast.success(t("card.toast.instanceDeletedTitle"), {
+          description: t("card.toast.instanceDeletedDescription", { name: currentInstance.name }),
         })
         setShowDeleteDialog(false)
         handleDeleted()
       },
       onError: (error) => {
-        toast.error(t("torrents.deleteFailed"), {
-          description: error instanceof Error ? formatErrorMessage(error.message) : t("torrents.deleteFailedDesc"),
+        toast.error(t("card.toast.deleteFailedTitle"), {
+          description: error instanceof Error ? formatErrorMessage(error.message) : t("card.toast.deleteFailedDescription"),
         })
         setShowDeleteDialog(false)
       },
@@ -239,7 +239,7 @@ export function InstancePreferencesDialog({
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Cog className="h-5 w-5" />
-              <span>{t("torrents.instanceSettings")}</span>
+              <span>{t("preferences.dialog.title")}</span>
               {currentInstance && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -247,7 +247,7 @@ export function InstancePreferencesDialog({
                       variant="ghost"
                       size="sm"
                       className="h-9 w-9 p-0 ml-1"
-                      aria-label="Instance actions"
+                      aria-label={t("preferences.dialog.actions.instanceActions")}
                     >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
@@ -258,7 +258,7 @@ export function InstancePreferencesDialog({
                       disabled={isStatusUpdating}
                     >
                       <Power className={cn("mr-2 h-4 w-4", !currentInstance.isActive && "text-destructive")} />
-                      {isStatusUpdating ? t("torrents.updating") : currentInstance.isActive ? t("torrents.disableInstance") : t("torrents.enableInstance")}
+                      {isStatusUpdating ? t("preferences.dialog.actions.updating") : currentInstance.isActive ? t("preferences.dialog.actions.disableInstance") : t("preferences.dialog.actions.enableInstance")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -267,21 +267,15 @@ export function InstancePreferencesDialog({
                       className="text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      {t("torrents.deleteInstance")}
+                      {t("preferences.dialog.actions.deleteInstance")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
             </DialogTitle>
             <DialogDescription>
-                <Trans
-                  i18nKey="torrents:configureSettingsFor"
-                  values={{ name: displayInstanceName }}
-                  components={{
-                    strong: <strong className="truncate max-w-xs inline-block align-bottom" title={displayInstanceName} />,
-                  }}
-                />
-              </DialogDescription>
+              {t("preferences.dialog.configureDescription")} <strong className="truncate max-w-xs inline-block align-bottom" title={displayInstanceName}>{displayInstanceName}</strong>
+            </DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue={defaultTab ?? "instance"} className="flex w-full min-h-0 flex-1 flex-col">
@@ -289,58 +283,58 @@ export function InstancePreferencesDialog({
               <TabsList className="flex w-full justify-start overflow-x-auto h-11 sm:h-9">
                 <TabsTrigger value="instance" className="flex items-center gap-1.5 shrink-0">
                   <Server className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.instance")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.instance")}</span>
                 </TabsTrigger>
                 <div className="h-6 w-px bg-muted-foreground/50 mx-1 sm:mx-2 self-center shrink-0" />
                 <TabsTrigger value="speed" className="flex items-center gap-1.5 shrink-0">
                   <Gauge className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.speed")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.speed")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="queue" className="flex items-center gap-1.5 shrink-0">
                   <Clock className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.queue")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.queue")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="files" className="flex items-center gap-1.5 shrink-0">
                   <Folder className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.files")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.files")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="seeding" className="flex items-center gap-1.5 shrink-0">
                   <Upload className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.seeding")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.seeding")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="connection" className="flex items-center gap-1.5 shrink-0">
                   <Wifi className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.connection")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.connection")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="discovery" className="flex items-center gap-1.5 shrink-0">
                   <Radar className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.discovery")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.discovery")}</span>
                 </TabsTrigger>
                 <TabsTrigger value="advanced" className="flex items-center gap-1.5 shrink-0">
                   <Settings className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("torrents.advanced")}</span>
+                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.advanced")}</span>
                 </TabsTrigger>
               </TabsList>
             </div>
 
             <PreferencesTabSection
               value="instance"
-              title={t("torrents.instanceConfiguration")}
-              description={t("torrents.instanceConfigurationDesc")}
+              title={t("preferences.dialog.sections.instanceConfig.title")}
+              description={t("preferences.dialog.sections.instanceConfig.description")}
             >
               {currentInstance ? (
                 <InstanceSettingsPanel instance={currentInstance} onSuccess={handleSuccess} />
               ) : (
                 <p className="text-sm text-muted-foreground py-8 text-center">
-                  Instance data not available. Please close and reopen this dialog.
+                  {t("preferences.dialog.instanceNotAvailable")}
                 </p>
               )}
             </PreferencesTabSection>
 
             <PreferencesTabSection
               value="speed"
-              title={t("torrents.speedLimits")}
-              description={t("torrents.speedLimitsDesc")}
+              title={t("preferences.dialog.sections.speedLimits.title")}
+              description={t("preferences.dialog.sections.speedLimits.description")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -351,8 +345,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="queue"
-              title={t("torrents.queueManagement")}
-              description={t("torrents.queueManagementDesc")}
+              title={t("preferences.dialog.sections.queueManagement.title")}
+              description={t("preferences.dialog.sections.queueManagement.description")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -363,8 +357,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="files"
-              title={t("torrents.fileManagement")}
-              description={t("torrents.fileManagementDesc")}
+              title={t("preferences.dialog.sections.fileManagement.title")}
+              description={t("preferences.dialog.sections.fileManagement.description")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -375,8 +369,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="seeding"
-              title={t("torrents.seedingLimits")}
-              description={t("torrents.seedingLimitsDesc")}
+              title={t("preferences.dialog.sections.seedingLimits.title")}
+              description={t("preferences.dialog.sections.seedingLimits.description")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -387,8 +381,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="connection"
-              title={t("torrents.connectionSettings")}
-              description={t("torrents.connectionSettingsDesc")}
+              title={t("preferences.dialog.sections.connectionSettings.title")}
+              description={t("preferences.dialog.sections.connectionSettings.description")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -399,8 +393,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="discovery"
-              title={t("torrents.networkDiscovery")}
-              description={t("torrents.networkDiscoveryDesc")}
+              title={t("preferences.dialog.sections.networkDiscovery.title")}
+              description={t("preferences.dialog.sections.networkDiscovery.description")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -411,8 +405,8 @@ export function InstancePreferencesDialog({
 
             <PreferencesTabSection
               value="advanced"
-              title={t("torrents.advancedSettings")}
-              description={t("torrents.advancedSettingsDesc")}
+              title={t("preferences.dialog.sections.advancedSettings.title")}
+              description={t("preferences.dialog.sections.advancedSettings.description")}
             >
               <TabErrorBoundary onRetry={handleLazyRetry}>
                 <Suspense fallback={<TabLoadingFallback />}>
@@ -428,19 +422,19 @@ export function InstancePreferencesDialog({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("torrents.deleteInstance")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("preferences.dialog.deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("torrents.deleteInstanceConfirm", { name: displayInstanceName })}
+              {t("preferences.dialog.deleteDialog.description", { name: displayInstanceName })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("preferences.dialog.deleteDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
             >
-              {t("common.delete")}
+              {t("preferences.dialog.deleteDialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

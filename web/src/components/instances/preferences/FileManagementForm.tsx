@@ -21,37 +21,37 @@ import { usePersistedStartPaused } from "@/hooks/usePersistedStartPaused"
 import { useIncognitoMode } from "@/lib/incognito"
 import { useForm } from "@tanstack/react-form"
 import React from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { PreferencesFormShell } from "./PreferencesFormShell"
 
-const getLegacyAutorunPlaceholders = (t: (key: string) => string): Array<{ token: string; label: string }> => [
-  { token: "%N", label: t("instances.placeholderTorrentName") },
-  { token: "%L", label: t("instances.placeholderCategory") },
-  { token: "%G", label: t("instances.placeholderTags") },
-  { token: "%F", label: t("instances.placeholderContentPath") },
-  { token: "%R", label: t("instances.placeholderRootPath") },
-  { token: "%D", label: t("instances.placeholderSavePath") },
-  { token: "%C", label: t("instances.placeholderNumFiles") },
-  { token: "%Z", label: t("instances.placeholderTorrentSize") },
-  { token: "%T", label: t("instances.placeholderCurrentTracker") },
-  { token: "%I", label: t("instances.placeholderInfoHashV1") },
+const LEGACY_AUTORUN_PLACEHOLDERS: Array<{ token: string; labelKey: string }> = [
+  { token: "%N", labelKey: "preferences.fileManagement.placeholderLabels.torrentName" },
+  { token: "%L", labelKey: "preferences.fileManagement.placeholderLabels.category" },
+  { token: "%G", labelKey: "preferences.fileManagement.placeholderLabels.tags" },
+  { token: "%F", labelKey: "preferences.fileManagement.placeholderLabels.contentPath" },
+  { token: "%R", labelKey: "preferences.fileManagement.placeholderLabels.rootPath" },
+  { token: "%D", labelKey: "preferences.fileManagement.placeholderLabels.savePath" },
+  { token: "%C", labelKey: "preferences.fileManagement.placeholderLabels.numberOfFiles" },
+  { token: "%Z", labelKey: "preferences.fileManagement.placeholderLabels.torrentSize" },
+  { token: "%T", labelKey: "preferences.fileManagement.placeholderLabels.currentTracker" },
+  { token: "%I", labelKey: "preferences.fileManagement.placeholderLabels.infoHashV1" },
 ]
 
-const getModernAutorunPlaceholders = (t: (key: string) => string): Array<{ token: string; label: string }> => [
-  { token: "%N", label: t("instances.placeholderTorrentName") },
-  { token: "%L", label: t("instances.placeholderCategory") },
-  { token: "%G", label: t("instances.placeholderTags") },
-  { token: "%F", label: t("instances.placeholderContentPath") },
-  { token: "%R", label: t("instances.placeholderRootPath") },
-  { token: "%D", label: t("instances.placeholderSavePath") },
-  { token: "%C", label: t("instances.placeholderNumFiles") },
-  { token: "%Z", label: t("instances.placeholderTorrentSize") },
-  { token: "%T", label: t("instances.placeholderCurrentTracker") },
-  { token: "%I", label: t("instances.placeholderInfoHashV1OrDash") },
-  { token: "%J", label: t("instances.placeholderInfoHashV2OrDash") },
-  { token: "%K", label: t("instances.placeholderTorrentId") },
+const MODERN_AUTORUN_PLACEHOLDERS: Array<{ token: string; labelKey: string }> = [
+  { token: "%N", labelKey: "preferences.fileManagement.placeholderLabels.torrentName" },
+  { token: "%L", labelKey: "preferences.fileManagement.placeholderLabels.category" },
+  { token: "%G", labelKey: "preferences.fileManagement.placeholderLabels.tags" },
+  { token: "%F", labelKey: "preferences.fileManagement.placeholderLabels.contentPath" },
+  { token: "%R", labelKey: "preferences.fileManagement.placeholderLabels.rootPath" },
+  { token: "%D", labelKey: "preferences.fileManagement.placeholderLabels.savePath" },
+  { token: "%C", labelKey: "preferences.fileManagement.placeholderLabels.numberOfFiles" },
+  { token: "%Z", labelKey: "preferences.fileManagement.placeholderLabels.torrentSize" },
+  { token: "%T", labelKey: "preferences.fileManagement.placeholderLabels.currentTracker" },
+  { token: "%I", labelKey: "preferences.fileManagement.placeholderLabels.infoHashV1Optional" },
+  { token: "%J", labelKey: "preferences.fileManagement.placeholderLabels.infoHashV2Optional" },
+  { token: "%K", labelKey: "preferences.fileManagement.placeholderLabels.torrentId" },
 ]
 
 const LEGACY_AUTORUN_PROGRAM_PLACEHOLDER = "/path/to/script \"%N\" \"%I\""
@@ -67,6 +67,7 @@ type WatchFolderConfig = {
 }
 
 function isWebAPIVersionAtLeast(version: string, minimum: string): boolean {
+  // WebAPI versions are "x.y.z". Compare each numeric part.
   const parse = (value: string) => value.trim().split(".").map(part => Number.parseInt(part, 10))
   const a = parse(version)
   const b = parse(minimum)
@@ -106,11 +107,7 @@ function toScanDirs(watchFolders: WatchFolderConfig[]): Record<string, number | 
       return acc
     }
 
-    acc[path] = folder.destination === "default-save-location"
-      ? OVERRIDE_WATCH_FOLDER_SAVE_MODE
-      : folder.destination === "other"
-        ? folder.otherPath
-        : DEFAULT_WATCH_FOLDER_MODE
+    acc[path] = folder.destination === "default-save-location"? OVERRIDE_WATCH_FOLDER_SAVE_MODE: folder.destination === "other"? folder.otherPath: DEFAULT_WATCH_FOLDER_MODE
 
     return acc
   }, {})
@@ -160,15 +157,17 @@ interface FileManagementFormProps {
 }
 
 export function FileManagementForm({ instanceId, onSuccess }: FileManagementFormProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   const { preferences, isLoading, updatePreferences, isUpdating } = useInstancePreferences(instanceId)
   const [startPausedEnabled, setStartPausedEnabled] = usePersistedStartPaused(instanceId, false)
   const { data: capabilities } = useInstanceCapabilities(instanceId)
   const [incognitoMode] = useIncognitoMode()
   const supportsSubcategories = capabilities?.supportsSubcategories ?? false
+  const subcategoriesAlwaysEnabled = capabilities?.subcategoriesAlwaysEnabled ?? false
+  const canToggleSubcategories = supportsSubcategories && !subcategoriesAlwaysEnabled
   const webAPIVersion = capabilities?.webAPIVersion?.trim() ?? ""
   const supportsAutorunOnTorrentAdded = isWebAPIVersionAtLeast(webAPIVersion, AUTORUN_ON_ADDED_MIN_WEBAPI_VERSION)
-  const autorunPlaceholders = supportsAutorunOnTorrentAdded ? getModernAutorunPlaceholders(t) : getLegacyAutorunPlaceholders(t)
+  const autorunPlaceholders = supportsAutorunOnTorrentAdded ? MODERN_AUTORUN_PLACEHOLDERS : LEGACY_AUTORUN_PLACEHOLDERS
   const autorunProgramPlaceholder = supportsAutorunOnTorrentAdded ? MODERN_AUTORUN_PROGRAM_PLACEHOLDER : LEGACY_AUTORUN_PROGRAM_PLACEHOLDER
 
   const form = useForm({
@@ -191,8 +190,11 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
     },
     onSubmit: async ({ value }) => {
       try {
+        // NOTE: Save start_paused_enabled to localStorage instead of qBittorrent
+        // This is a workaround because qBittorrent's API rejects this preference
         setStartPausedEnabled(value.start_paused_enabled)
 
+        // Update other preferences to qBittorrent (excluding start_paused_enabled)
         const qbittorrentPrefs: Record<string, unknown> = {
           auto_tmm_enabled: value.auto_tmm_enabled,
           torrent_changed_tmm_enabled: value.torrent_changed_tmm_enabled,
@@ -210,25 +212,28 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
           qbittorrentPrefs.autorun_on_torrent_added_enabled = value.autorun_on_torrent_added_enabled
           qbittorrentPrefs.autorun_on_torrent_added_program = value.autorun_on_torrent_added_program
         }
-        if (supportsSubcategories) {
+        if (canToggleSubcategories) {
           qbittorrentPrefs.use_subcategories = Boolean(value.use_subcategories)
         }
         updatePreferences(qbittorrentPrefs)
-        toast.success(t("instances.fileManagementUpdated"))
+        toast.success(t("preferences.fileManagement.toast.success"))
         onSuccess?.()
       } catch {
-        toast.error(t("instances.fileManagementUpdateFailed"))
+        toast.error(t("preferences.fileManagement.toast.error"))
       }
     },
   })
 
+  // Update form when preferences change
   React.useEffect(() => {
     if (preferences) {
       form.setFieldValue("auto_tmm_enabled", preferences.auto_tmm_enabled)
       form.setFieldValue("torrent_changed_tmm_enabled", preferences.torrent_changed_tmm_enabled ?? true)
       form.setFieldValue("save_path_changed_tmm_enabled", preferences.save_path_changed_tmm_enabled ?? true)
       form.setFieldValue("category_changed_tmm_enabled", preferences.category_changed_tmm_enabled ?? true)
-      if (supportsSubcategories) {
+      if (subcategoriesAlwaysEnabled) {
+        form.setFieldValue("use_subcategories", true)
+      } else if (supportsSubcategories) {
         form.setFieldValue("use_subcategories", Boolean(preferences.use_subcategories))
       } else {
         form.setFieldValue("use_subcategories", false)
@@ -243,8 +248,9 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
       form.setFieldValue("autorun_program", preferences.autorun_program ?? "")
       form.setFieldValue("watch_folders", getWatchFolders(preferences.scan_dirs))
     }
-  }, [preferences, form, supportsSubcategories])
+  }, [preferences, form, supportsSubcategories, subcategoriesAlwaysEnabled])
 
+  // Update form when localStorage start_paused_enabled changes
   React.useEffect(() => {
     form.setFieldValue("start_paused_enabled", startPausedEnabled)
   }, [startPausedEnabled, form])
@@ -252,7 +258,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
   if (isLoading) {
     return (
       <div className="text-center py-8" role="status" aria-live="polite">
-        <p className="text-sm text-muted-foreground">{t("instances.loadingFileManagement")}</p>
+        <p className="text-sm text-muted-foreground">{t("preferences.fileManagement.loading")}</p>
       </div>
     )
   }
@@ -260,7 +266,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
   if (!preferences) {
     return (
       <div className="text-center py-8" role="alert">
-        <p className="text-sm text-muted-foreground">{t("instances.failedLoadPreferences")}</p>
+        <p className="text-sm text-muted-foreground">{t("preferences.fileManagement.loadFailed")}</p>
       </div>
     )
   }
@@ -281,7 +287,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
               disabled={!canSubmit || isSubmitting || isUpdating}
               className="min-w-32"
             >
-              {isSubmitting || isUpdating ? t("instances.saving") : t("instances.save")}
+              {isSubmitting || isUpdating ? t("preferences.fileManagement.saving") : t("preferences.fileManagement.saveChanges")}
             </Button>
           )}
         </form.Subscribe>
@@ -292,10 +298,10 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
           <form.Field name="auto_tmm_enabled">
             {(field) => (
               <SwitchSetting
-                label={t("instances.automaticTorrentManagement")}
+                label={t("preferences.fileManagement.autoTorrentManagement")}
                 checked={field.state.value as boolean}
                 onCheckedChange={field.handleChange}
-                description={t("instances.automaticTorrentManagementDesc")}
+                description={t("preferences.fileManagement.autoTorrentManagementDescription")}
               />
             )}
           </form.Field>
@@ -307,10 +313,10 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                   <form.Field name="torrent_changed_tmm_enabled">
                     {(field) => (
                       <SwitchSetting
-                        label={t("instances.relocateOnCategoryChange")}
+                        label={t("preferences.fileManagement.relocateOnCategoryChange")}
                         checked={field.state.value as boolean}
                         onCheckedChange={field.handleChange}
-                        description={t("instances.relocateOnCategoryChangeDesc")}
+                        description={t("preferences.fileManagement.relocateOnCategoryChangeDescription")}
                       />
                     )}
                   </form.Field>
@@ -318,10 +324,10 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                   <form.Field name="save_path_changed_tmm_enabled">
                     {(field) => (
                       <SwitchSetting
-                        label={t("instances.relocateOnDefaultSavePathChange")}
+                        label={t("preferences.fileManagement.relocateOnDefaultSavePath")}
                         checked={field.state.value as boolean}
                         onCheckedChange={field.handleChange}
-                        description={t("instances.relocateOnDefaultSavePathChangeDesc")}
+                        description={t("preferences.fileManagement.relocateOnDefaultSavePathDescription")}
                       />
                     )}
                   </form.Field>
@@ -329,10 +335,10 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                   <form.Field name="category_changed_tmm_enabled">
                     {(field) => (
                       <SwitchSetting
-                        label={t("instances.relocateOnCategorySavePathChange")}
+                        label={t("preferences.fileManagement.relocateOnCategorySavePath")}
                         checked={field.state.value as boolean}
                         onCheckedChange={field.handleChange}
-                        description={t("instances.relocateOnCategorySavePathChangeDesc")}
+                        description={t("preferences.fileManagement.relocateOnCategorySavePathDescription")}
                       />
                     )}
                   </form.Field>
@@ -341,14 +347,14 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
             }
           </form.Subscribe>
 
-          {supportsSubcategories && (
+          {canToggleSubcategories && (
             <form.Field name="use_subcategories">
               {(field) => (
                 <SwitchSetting
-                  label={t("instances.enableSubcategories")}
+                  label={t("preferences.fileManagement.enableSubcategories")}
                   checked={field.state.value as boolean}
                   onCheckedChange={field.handleChange}
-                  description={t("instances.enableSubcategoriesDesc")}
+                  description={t("preferences.fileManagement.enableSubcategoriesDescription")}
                 />
               )}
             </form.Field>
@@ -357,10 +363,10 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
           <form.Field name="start_paused_enabled">
             {(field) => (
               <SwitchSetting
-                label={t("instances.startTorrentsPaused")}
+                label={t("preferences.fileManagement.startTorrentsPaused")}
                 checked={field.state.value as boolean}
                 onCheckedChange={field.handleChange}
-                description={t("instances.startTorrentsPausedDesc")}
+                description={t("preferences.fileManagement.startTorrentsPausedDescription")}
               />
             )}
           </form.Field>
@@ -368,14 +374,14 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
           <form.Field name="save_path">
             {(field) => (
               <div className="space-y-2">
-                <Label className="text-sm font-medium">{t("instances.defaultSavePath")}</Label>
+                <Label className="text-sm font-medium">{t("preferences.fileManagement.defaultSavePath")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  {t("instances.defaultSavePathDesc")}
+                  {t("preferences.fileManagement.defaultSavePathDescription")}
                 </p>
                 <Input
                   value={field.state.value as string}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="/downloads"
+                  placeholder={t("preferences.fileManagement.defaultSavePathPlaceholder")}
                   className={incognitoMode ? "blur-sm select-none" : ""}
                 />
               </div>
@@ -385,10 +391,10 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
           <form.Field name="temp_path_enabled">
             {(field) => (
               <SwitchSetting
-                label={t("instances.useTemporaryPath")}
+                label={t("preferences.fileManagement.useTempPath")}
                 checked={field.state.value as boolean}
                 onCheckedChange={field.handleChange}
-                description={t("instances.useTemporaryPathDesc")}
+                description={t("preferences.fileManagement.useTempPathDescription")}
               />
             )}
           </form.Field>
@@ -398,14 +404,14 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
               <form.Subscribe selector={(state) => state.values.temp_path_enabled}>
                 {(tempPathEnabled) => (
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">{t("instances.temporaryDownloadPath")}</Label>
+                    <Label className="text-sm font-medium">{t("preferences.fileManagement.tempDownloadPath")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      {t("instances.temporaryDownloadPathDesc")}
+                      {t("preferences.fileManagement.tempDownloadPathDescription")}
                     </p>
                     <Input
                       value={field.state.value as string}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="/temp-downloads"
+                      placeholder={t("preferences.fileManagement.tempDownloadPathPlaceholder")}
                       disabled={!tempPathEnabled}
                       className={incognitoMode ? "blur-sm select-none" : ""}
                     />
@@ -418,21 +424,21 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
           <form.Field name="torrent_content_layout">
             {(field) => (
               <div className="space-y-2">
-                <Label className="text-sm font-medium">{t("instances.defaultContentLayout")}</Label>
+                <Label className="text-sm font-medium">{t("preferences.fileManagement.defaultContentLayout")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  {t("instances.defaultContentLayoutDesc")}
+                  {t("preferences.fileManagement.defaultContentLayoutDescription")}
                 </p>
                 <Select
                   value={field.state.value as string}
                   onValueChange={field.handleChange}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t("instances.selectContentLayout")} />
+                    <SelectValue placeholder={t("preferences.fileManagement.selectContentLayout")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Original">{t("instances.original")}</SelectItem>
-                    <SelectItem value="Subfolder">{t("instances.createSubfolder")}</SelectItem>
-                    <SelectItem value="NoSubfolder">{t("instances.dontCreateSubfolder")}</SelectItem>
+                    <SelectItem value="Original">{t("preferences.fileManagement.contentLayoutOriginal")}</SelectItem>
+                    <SelectItem value="Subfolder">{t("preferences.fileManagement.contentLayoutSubfolder")}</SelectItem>
+                    <SelectItem value="NoSubfolder">{t("preferences.fileManagement.contentLayoutNoSubfolder")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -444,9 +450,9 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <Label className="text-sm font-medium">{t("instances.watchFolders")}</Label>
+                    <Label className="text-sm font-medium">{t("preferences.fileManagement.watchFolders.title")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      {t("instances.watchFoldersDesc")}
+                      {t("preferences.fileManagement.watchFolders.description")}
                     </p>
                   </div>
                   <Button
@@ -457,13 +463,13 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                       { path: "", destination: "default-save-location", otherPath: "" },
                     ])}
                   >
-                    {t("instances.addFolder")}
+                    {t("preferences.fileManagement.watchFolders.addFolder")}
                   </Button>
                 </div>
 
                 {watchFolders.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {t("instances.noWatchFolders")}
+                    {t("preferences.fileManagement.watchFolders.noFolders")}
                   </p>
                 )}
 
@@ -471,7 +477,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                   <div key={`watch-folder-${index}`} className="rounded-md border p-3 space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">{t("instances.monitoredFolder")}</Label>
+                        <Label className="text-sm font-medium">{t("preferences.fileManagement.watchFolders.monitoredFolderLabel")}</Label>
                         <Input
                           value={watchFolder.path}
                           onChange={(e) => {
@@ -479,13 +485,13 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                             next[index] = { ...next[index], path: e.target.value }
                             form.setFieldValue("watch_folders", next)
                           }}
-                          placeholder="/watchfolder"
+                          placeholder={t("preferences.fileManagement.watchFolders.monitoredFolderPlaceholder")}
                           className={incognitoMode ? "blur-sm select-none" : ""}
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">{t("instances.torrentDestination")}</Label>
+                        <Label className="text-sm font-medium">{t("preferences.fileManagement.watchFolders.destinationLabel")}</Label>
                         <Select
                           value={watchFolder.destination}
                           onValueChange={(value) => {
@@ -496,12 +502,12 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                           disabled={!watchFolder.path}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={t("instances.selectDestination")} />
+                            <SelectValue placeholder={t("preferences.fileManagement.watchFolders.selectDestination")} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="monitored-folder">{t("instances.destinationMonitoredFolder")}</SelectItem>
-                            <SelectItem value="default-save-location">{t("instances.destinationDefaultSaveLocation")}</SelectItem>
-                            <SelectItem value="other">{t("instances.destinationOther")}</SelectItem>
+                            <SelectItem value="monitored-folder">{t("preferences.fileManagement.watchFolders.destinationMonitored")}</SelectItem>
+                            <SelectItem value="default-save-location">{t("preferences.fileManagement.watchFolders.destinationDefault")}</SelectItem>
+                            <SelectItem value="other">{t("preferences.fileManagement.watchFolders.destinationOther")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -509,7 +515,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
 
                     {watchFolder.destination === "other" && (
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">{t("instances.customSavePath")}</Label>
+                        <Label className="text-sm font-medium">{t("preferences.fileManagement.watchFolders.customSavePathLabel")}</Label>
                         <Input
                           value={watchFolder.otherPath}
                           onChange={(e) => {
@@ -517,7 +523,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                             next[index] = { ...next[index], otherPath: e.target.value }
                             form.setFieldValue("watch_folders", next)
                           }}
-                          placeholder="foldername"
+                          placeholder={t("preferences.fileManagement.watchFolders.customSavePathPlaceholder")}
                           disabled={!watchFolder.path}
                           className={incognitoMode ? "blur-sm select-none" : ""}
                         />
@@ -530,7 +536,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                         variant="ghost"
                         onClick={() => form.setFieldValue("watch_folders", watchFolders.filter((_, i) => i !== index))}
                       >
-                        Remove
+                        {t("preferences.fileManagement.watchFolders.remove")}
                       </Button>
                     </div>
                   </div>
@@ -541,9 +547,13 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
 
           <Card className="bg-muted/20 border-muted/60">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">{t("instances.runExternalProgram")}</CardTitle>
+              <CardTitle className="text-base">{t("preferences.fileManagement.runExternalProgram")}</CardTitle>
               <CardDescription>
-                {t("instances.runExternalProgramDesc")}
+                <Trans
+                  ns="instances"
+                  i18nKey="preferences.fileManagement.runExternalProgramDescription"
+                  components={{ code: <code className="font-mono" /> }}
+                />
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -552,16 +562,16 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                   {(enabledField) => (
                     <div className="space-y-3">
                       <SwitchSetting
-                        label={t("instances.runOnTorrentAdded")}
+                        label={t("preferences.fileManagement.runOnTorrentAdded")}
                         checked={enabledField.state.value as boolean}
                         onCheckedChange={enabledField.handleChange}
-                        description={t("instances.runOnTorrentAddedDesc")}
+                        description={t("preferences.fileManagement.runOnTorrentAddedDescription")}
                       />
 
                       <form.Field name="autorun_on_torrent_added_program">
                         {(programField) => (
                           <div className="space-y-2 ml-6 pl-4 border-l-2 border-muted">
-                            <Label className="text-sm font-medium">{t("instances.command")}</Label>
+                            <Label className="text-sm font-medium">{t("preferences.fileManagement.command")}</Label>
                             <Input
                               value={programField.state.value as string}
                               onChange={(e) => programField.handleChange(e.target.value)}
@@ -570,7 +580,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                               className={incognitoMode ? "blur-sm select-none" : ""}
                             />
                             <p className="text-xs text-muted-foreground">
-                              {t("instances.autorunTip")}
+                              {t("preferences.fileManagement.autorunProgramTip")}
                             </p>
                           </div>
                         )}
@@ -580,9 +590,12 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                 </form.Field>
               ) : (
                 <div className="space-y-1 rounded-md border border-muted bg-background/40 p-3">
-                  <p className="text-sm font-medium">{t("instances.runOnTorrentAddedUnavailable")}</p>
+                  <p className="text-sm font-medium">{t("preferences.fileManagement.runOnTorrentAdded")}</p>
                   <p className="text-xs text-muted-foreground">
-                    {t("instances.runOnTorrentAddedUnavailableDesc", { minVersion: AUTORUN_ON_ADDED_MIN_WEBAPI_VERSION, currentVersion: webAPIVersion || "N/A" })}
+                    {t("preferences.fileManagement.autorunUnsupported", {
+                      minimum: AUTORUN_ON_ADDED_MIN_WEBAPI_VERSION,
+                      version: webAPIVersion || "no Web API version",
+                    })}
                   </p>
                 </div>
               )}
@@ -591,16 +604,16 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                 {(enabledField) => (
                   <div className="space-y-3">
                     <SwitchSetting
-                      label={t("instances.runOnTorrentFinished")}
+                      label={t("preferences.fileManagement.runOnTorrentFinished")}
                       checked={enabledField.state.value as boolean}
                       onCheckedChange={enabledField.handleChange}
-                      description={t("instances.runOnTorrentFinishedDesc")}
+                      description={t("preferences.fileManagement.runOnTorrentFinishedDescription")}
                     />
 
                     <form.Field name="autorun_program">
                       {(programField) => (
                         <div className="space-y-2 ml-6 pl-4 border-l-2 border-muted">
-                          <Label className="text-sm font-medium">{t("instances.command")}</Label>
+                          <Label className="text-sm font-medium">{t("preferences.fileManagement.command")}</Label>
                           <Input
                             value={programField.state.value as string}
                             onChange={(e) => programField.handleChange(e.target.value)}
@@ -609,7 +622,7 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
                             className={incognitoMode ? "blur-sm select-none" : ""}
                           />
                           <p className="text-xs text-muted-foreground">
-                            {t("instances.autorunTip")}
+                            {t("preferences.fileManagement.autorunProgramTip")}
                           </p>
                         </div>
                       )}
@@ -619,11 +632,11 @@ export function FileManagementForm({ instanceId, onSuccess }: FileManagementForm
               </form.Field>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">{t("instances.supportedPlaceholders")}</Label>
+                <Label className="text-sm font-medium">{t("preferences.fileManagement.supportedPlaceholders")}</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs text-muted-foreground">
                   {autorunPlaceholders.map((item) => (
                     <div key={item.token}>
-                      <code className="font-mono text-foreground">{item.token}</code> {item.label}
+                      <code className="font-mono text-foreground">{item.token}</code> {t(item.labelKey)}
                     </div>
                   ))}
                 </div>

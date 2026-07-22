@@ -17,7 +17,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   type SortingState,
-  useReactTable,
+  useReactTable
 } from "@tanstack/react-table"
 import { SortIcon } from "@/components/ui/sort-icon"
 import { Loader2 } from "lucide-react"
@@ -35,6 +35,17 @@ interface TrackersTableProps {
 
 const columnHelper = createColumnHelper<TorrentTracker>()
 
+function getColumnStyle(meta: unknown, size?: number) {
+  const columnMeta = meta as { fullWidth?: boolean }
+  if (columnMeta?.fullWidth) {
+    return { width: "100%" }
+  }
+  if (size) {
+    return { width: size }
+  }
+  return undefined
+}
+
 export const TrackersTable = memo(function TrackersTable({
   trackers,
   loading,
@@ -42,14 +53,14 @@ export const TrackersTable = memo(function TrackersTable({
   onEditTracker,
   supportsTrackerEditing = false,
 }: TrackersTableProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("torrents")
   // Default sort by status with disabled at bottom
   const [sorting, setSorting] = useState<SortingState>([{ id: "status", desc: false }])
   const { data: trackerIcons } = useTrackerIcons()
 
   const columns = useMemo(() => [
     columnHelper.accessor("status", {
-      header: t("torrents.status"),
+      header: t("trackersTable.status"),
       cell: (info) => getTrackerStatusBadge(info.getValue(), true),
       size: 90,
       // Custom sort: disabled (0) always at bottom
@@ -62,13 +73,13 @@ export const TrackersTable = memo(function TrackersTable({
       },
     }),
     columnHelper.accessor("url", {
-      header: t("torrents.tracker"),
+      header: t("trackersTable.tracker"),
       cell: (info) => {
         const url = info.getValue()
         const fullUrl = incognitoMode ? "https://tracker.example.com/announce" : url
 
         // Extract hostname for display, fall back to full value for non-URLs (DHT, PeX, LSD)
-        let hostname = ""
+        let hostname: string
         let isValidUrl = false
         if (incognitoMode) {
           hostname = "tracker.example.com"
@@ -104,7 +115,7 @@ export const TrackersTable = memo(function TrackersTable({
       },
     }),
     columnHelper.accessor("msg", {
-      header: t("torrents.message"),
+      header: t("trackersTable.message"),
       meta: { fullWidth: true },
       cell: (info) => {
         const msg = info.getValue()
@@ -121,26 +132,26 @@ export const TrackersTable = memo(function TrackersTable({
       },
     }),
     columnHelper.accessor("num_seeds", {
-      header: t("torrents.seeds"),
+      header: t("trackersTable.seeds"),
       cell: (info) => <span className="tabular-nums">{info.getValue()}</span>,
       size: 70,
     }),
     columnHelper.accessor("num_peers", {
-      header: t("torrents.peers"),
+      header: t("trackersTable.leeches"),
       cell: (info) => <span className="tabular-nums">{info.getValue()}</span>,
       size: 70,
     }),
     columnHelper.accessor("num_leeches", {
-      header: t("torrents.leeches"),
+      header: t("trackersTable.leeches"),
       cell: (info) => <span className="tabular-nums">{info.getValue()}</span>,
       size: 80,
     }),
     columnHelper.accessor("num_downloaded", {
-      header: t("torrents.dls"),
+      header: t("trackersTable.downloaded"),
       cell: (info) => <span className="tabular-nums">{info.getValue()}</span>,
       size: 60,
     }),
-  ], [incognitoMode, trackerIcons])
+  ], [incognitoMode, t, trackerIcons])
 
   const data = useMemo(() => trackers || [], [trackers])
 
@@ -164,7 +175,7 @@ export const TrackersTable = memo(function TrackersTable({
   if (!trackers || trackers.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        {t("torrents.noTrackersFound")}
+        {t("trackersTable.noTrackersFound")}
       </div>
     )
   }
@@ -183,13 +194,7 @@ export const TrackersTable = memo(function TrackersTable({
                       "px-3 py-2 text-left font-medium text-muted-foreground select-none whitespace-nowrap",
                       header.column.getCanSort() && "cursor-pointer hover:bg-muted/50"
                     )}
-                    style={
-                      (header.column.columnDef.meta as { fullWidth?: boolean })?.fullWidth
-                        ? { width: "100%" }
-                        : header.column.columnDef.size
-                          ? { width: header.getSize() }
-                          : undefined
-                    }
+                    style={getColumnStyle(header.column.columnDef.meta, header.column.columnDef.size ? header.getSize() : undefined)}
                     onClick={header.column.getToggleSortingHandler()}
                   >
                     <div className="flex items-center gap-1">
@@ -219,13 +224,7 @@ export const TrackersTable = memo(function TrackersTable({
                       <td
                         key={cell.id}
                         className="px-3 py-2"
-                        style={
-                          (cell.column.columnDef.meta as { fullWidth?: boolean })?.fullWidth
-                            ? { width: "100%" }
-                            : cell.column.columnDef.size
-                              ? { width: cell.column.getSize() }
-                              : undefined
-                        }
+                        style={getColumnStyle(cell.column.columnDef.meta, cell.column.columnDef.size ? cell.column.getSize() : undefined)}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>

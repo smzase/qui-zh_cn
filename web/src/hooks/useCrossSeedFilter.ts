@@ -16,13 +16,13 @@ interface UseCrossSeedFilterOptions {
 }
 
 export function useCrossSeedFilter({ instanceId, onFilterChange }: UseCrossSeedFilterOptions) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("crossseed")
   const [isFilteringCrossSeeds, setIsFilteringCrossSeeds] = useState(false)
   const isFilteringRef = useRef(false)
 
   const filterCrossSeeds = useCallback(async (torrents: Torrent[]) => {
     if (!onFilterChange) {
-      toast.error(t("crossSeed.filterUnavailable"))
+      toast.error(t("hooks.filter.unavailable"))
       return
     }
 
@@ -31,14 +31,14 @@ export function useCrossSeedFilter({ instanceId, onFilterChange }: UseCrossSeedF
     }
 
     if (torrents.length !== 1) {
-      toast.info(t("crossSeed.filterSingleOnly"))
+      toast.info(t("hooks.filter.singleSelectionOnly"))
       return
     }
 
     const selectedTorrent = torrents[0]
     isFilteringRef.current = true
     setIsFilteringCrossSeeds(true)
-    toast.info(t("crossSeed.identifyingCrossSeeds"))
+    toast.info(t("hooks.filter.identifying"))
 
     try {
       // Use backend API for proper release matching (rls library)
@@ -46,7 +46,7 @@ export function useCrossSeedFilter({ instanceId, onFilterChange }: UseCrossSeedF
       const matches = await api.getLocalCrossSeedMatches(instanceId, selectedTorrent.hash)
 
       if (matches.length === 0) {
-        toast.info(t("crossSeed.noCrossSeedsFound"))
+        toast.info(t("hooks.filter.noResults"))
         return
       }
 
@@ -67,15 +67,15 @@ export function useCrossSeedFilter({ instanceId, onFilterChange }: UseCrossSeedF
       }
 
       onFilterChange(newFilters)
-      toast.success(`Found ${matches.length} cross-seeded torrents (showing ${uniqueConditions.length} total)`)
+      toast.success(t("hooks.filter.found", { matches: matches.length, total: uniqueConditions.length }))
     } catch (error) {
       console.error("Failed to identify cross-seeded torrents:", error)
-      toast.error(t("crossSeed.filterFailed"))
+      toast.error(t("hooks.filter.failed"))
     } finally {
       isFilteringRef.current = false
       setIsFilteringCrossSeeds(false)
     }
-  }, [instanceId, onFilterChange])
+  }, [instanceId, onFilterChange, t])
 
   return { isFilteringCrossSeeds, filterCrossSeeds }
 }

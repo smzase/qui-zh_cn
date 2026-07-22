@@ -8,9 +8,9 @@ import { useForm } from "@tanstack/react-form"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { useInstancePreferences } from "@/hooks/useInstancePreferences"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { NumberInputWithUnlimited } from "@/components/forms/NumberInputWithUnlimited"
-import { useTranslation } from "react-i18next"
 
 import { PreferencesFormShell } from "./PreferencesFormShell"
 
@@ -56,7 +56,7 @@ interface QueueManagementFormProps {
 }
 
 export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFormProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation("instances")
   const { preferences, isLoading, updatePreferences, isUpdating } = useInstancePreferences(instanceId)
 
   const form = useForm({
@@ -70,10 +70,10 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
     onSubmit: async ({ value }) => {
       try {
         updatePreferences(value)
-        toast.success(t("instances.queueSettingsUpdated"))
+        toast.success(t("preferences.queueManagement.toast.success"))
         onSuccess?.()
       } catch {
-        toast.error(t("instances.queueSettingsUpdateFailed"))
+        toast.error(t("preferences.queueManagement.toast.error"))
       }
     },
   })
@@ -92,7 +92,7 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
-        <p className="text-sm text-muted-foreground">{t("instances.loadingQueueSettings")}</p>
+        <p className="text-sm text-muted-foreground">{t("preferences.queueManagement.loading")}</p>
       </div>
     )
   }
@@ -100,7 +100,7 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
   if (!preferences) {
     return (
       <div className="flex items-center justify-center py-8" role="alert">
-        <p className="text-sm text-muted-foreground">{t("instances.failedLoadPreferences")}</p>
+        <p className="text-sm text-muted-foreground">{t("preferences.queueManagement.loadFailed")}</p>
       </div>
     )
   }
@@ -121,7 +121,7 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
               disabled={!canSubmit || isSubmitting || isUpdating}
               className="min-w-32"
             >
-              {isSubmitting || isUpdating ? t("instances.saving") : t("instances.save")}
+              {isSubmitting || isUpdating ? t("preferences.common.saving") : t("preferences.common.saveChanges")}
             </Button>
           )}
         </form.Subscribe>
@@ -132,10 +132,10 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
           <form.Field name="queueing_enabled">
             {(field) => (
               <SwitchSetting
-                label={t("instances.enableQueueing")}
+                label={t("preferences.queueManagement.enableQueueing")}
                 checked={(field.state.value as boolean) ?? false}
                 onCheckedChange={field.handleChange}
-                description={t("instances.enableQueueingDesc")}
+                description={t("preferences.queueManagement.enableQueueingDescription")}
               />
             )}
           </form.Field>
@@ -146,7 +146,7 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
               validators={{
                 onChange: ({ value }) => {
                   if (value < -1) {
-                    return t("instances.valueMustBeGreaterThanMinus1")
+                    return t("preferences.queueManagement.validation.maxActiveDownloads")
                   }
                   return undefined
                 },
@@ -155,11 +155,11 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
               {(field) => (
                 <div className="space-y-2">
                   <NumberInputWithUnlimited
-                    label={t("instances.maxActiveDownloads")}
+                    label={t("preferences.queueManagement.maxActiveDownloads")}
                     value={(field.state.value as number) ?? 3}
                     onChange={field.handleChange}
                     max={99999}
-                    description={t("instances.maxActiveDownloadsDesc")}
+                    description={t("preferences.queueManagement.maxActiveDownloadsDescription")}
                     allowUnlimited={true}
                   />
                   {field.state.meta.errors.length > 0 && (
@@ -174,7 +174,7 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
               validators={{
                 onChange: ({ value }) => {
                   if (value < -1) {
-                    return t("instances.valueMustBeGreaterThanMinus1")
+                    return t("preferences.queueManagement.validation.maxActiveUploads")
                   }
                   return undefined
                 },
@@ -183,11 +183,11 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
               {(field) => (
                 <div className="space-y-2">
                   <NumberInputWithUnlimited
-                    label={t("instances.maxActiveUploads")}
+                    label={t("preferences.queueManagement.maxActiveUploads")}
                     value={(field.state.value as number) ?? 3}
                     onChange={field.handleChange}
                     max={99999}
-                    description={t("instances.maxActiveUploadsDesc")}
+                    description={t("preferences.queueManagement.maxActiveUploadsDescription")}
                     allowUnlimited={true}
                   />
                   {field.state.meta.errors.length > 0 && (
@@ -202,7 +202,7 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
               validators={{
                 onChange: ({ value }) => {
                   if (value < -1) {
-                    return t("instances.valueMustBeGreaterThanMinus1")
+                    return t("preferences.queueManagement.validation.maxActiveTorrents")
                   }
                   return undefined
                 },
@@ -211,11 +211,11 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
               {(field) => (
                 <div className="space-y-2">
                   <NumberInputWithUnlimited
-                    label={t("instances.maxActiveTorrents")}
+                    label={t("preferences.queueManagement.maxActiveTorrents")}
                     value={(field.state.value as number) ?? 5}
                     onChange={field.handleChange}
                     max={99999}
-                    description={t("instances.maxActiveTorrentsDesc")}
+                    description={t("preferences.queueManagement.maxActiveTorrentsDescription")}
                     allowUnlimited={true}
                   />
                   {field.state.meta.errors.length > 0 && (
@@ -228,11 +228,11 @@ export function QueueManagementForm({ instanceId, onSuccess }: QueueManagementFo
             <form.Field name="max_active_checking_torrents">
               {(field) => (
                 <NumberInputWithUnlimited
-                  label={t("instances.maxCheckingTorrents")}
+                  label={t("preferences.queueManagement.maxCheckingTorrents")}
                   value={(field.state.value as number) ?? 1}
                   onChange={field.handleChange}
                   max={99999}
-                  description={t("instances.maxCheckingTorrentsDesc")}
+                  description={t("preferences.queueManagement.maxCheckingTorrentsDescription")}
                   allowUnlimited={true}
                 />
               )}

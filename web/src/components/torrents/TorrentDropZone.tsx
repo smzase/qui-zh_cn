@@ -82,8 +82,8 @@ export const TorrentDropZone = forwardRef<HTMLDivElement, TorrentDropZoneProps>(
   { children, onDropPayload, overlayMessage, className, ...rest },
   ref
 ) {
-  const { t } = useTranslation()
-  const defaultOverlayMessage = overlayMessage ?? t("torrents.dropOverlay")
+  const { t } = useTranslation("torrents")
+  const effectiveOverlayMessage = overlayMessage ?? t("dropZone.overlayMessage")
   const [isDropTargetActive, setIsDropTargetActive] = useState(false)
   const dragDepthRef = useRef(0)
 
@@ -212,9 +212,9 @@ export const TorrentDropZone = forwardRef<HTMLDivElement, TorrentDropZoneProps>(
     }
 
     if (combinedText.trim().length > 0 || types.length > 0) {
-      toast.error(t("torrents.dropInvalid"))
+      toast.error(t("dropZone.unsupportedDrop"))
     }
-  }, [onDropPayload, resetDropState])
+  }, [onDropPayload, resetDropState, t])
 
   useEffect(() => {
     return () => {
@@ -235,7 +235,7 @@ export const TorrentDropZone = forwardRef<HTMLDivElement, TorrentDropZoneProps>(
       {isDropTargetActive && (
         <div className="pointer-events-none absolute inset-0 z-60 flex items-center justify-center rounded-md border border-dashed border-primary bg-background/80 backdrop-blur-md">
           <div className="text-center text-lg font-medium text-muted-foreground">
-            {defaultOverlayMessage}
+            {effectiveOverlayMessage}
           </div>
         </div>
       )}

@@ -17,20 +17,20 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
 import { useInstances } from "@/hooks/useInstances"
 import { api } from "@/lib/api"
 import type { ColumnFilter } from "@/lib/column-filter-utils"
 import { filterSearchResult } from "@/lib/column-filter-utils"
-import { getCategoriesForSearchType, getSearchTypeLabel, inferSearchTypeFromCategories, SEARCH_TYPE_OPTIONS, type SearchType } from "@/lib/search-derived-params"
+import { getCategoriesForSearchType, getSearchTypeLabel, getSearchTypeOptions, inferSearchTypeFromCategories, type SearchType } from "@/lib/search-derived-params"
 import { extractImdbId, extractTvdbId } from "@/lib/search-id-parsing"
 import { cn, formatBytes } from "@/lib/utils"
 import type { TorznabIndexer, TorznabRecentSearch, TorznabSearchRequest, TorznabSearchResponse, TorznabSearchResult } from "@/types"
 import { Link } from "@tanstack/react-router"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, ChevronDown, ChevronUp, Download, ExternalLink, Plus, RefreshCw, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -48,8 +48,8 @@ type AdvancedParamsState = {
 
 type AdvancedParamConfig = {
   key: keyof AdvancedParamsState
-  label: string
-  placeholder?: string
+  labelKey: string
+  placeholderKey?: string
   type: "text" | "number"
   min?: number
 }
@@ -66,32 +66,185 @@ const ADVANCED_PARAM_DEFAULTS: AdvancedParamsState = {
   offset: "",
 }
 
-const useSearchPlaceholders = (t: (key: string) => string): Record<SearchType, string> => ({
-  auto: t("searchPage.placeholderAuto"),
-  movies: t("searchPage.placeholderMovies"),
-  tv: t("searchPage.placeholderTv"),
-  music: t("searchPage.placeholderMusic"),
-  books: t("searchPage.placeholderBooks"),
-  apps: t("searchPage.placeholderApps"),
-  xxx: t("searchPage.placeholderXxx"),
-})
+const SEARCH_PLACEHOLDER_KEYS: Record<SearchType, string> = {
+  auto: "searchTypes.auto.placeholder",
+  movies: "searchTypes.movies.placeholder",
+  tv: "searchTypes.tv.placeholder",
+  music: "searchTypes.music.placeholder",
+  books: "searchTypes.books.placeholder",
+  apps: "searchTypes.apps.placeholder",
+  xxx: "searchTypes.xxx.placeholder",
+}
 
-const useAdvancedParamConfig = (t: (key: string) => string): AdvancedParamConfig[] => [
-  { key: "imdbId", label: t("searchPage.imdbId"), placeholder: "tt1234567", type: "text" },
-  { key: "tvdbId", label: t("searchPage.tvdbId"), placeholder: "12345", type: "text" },
-  { key: "year", label: t("searchPage.year"), placeholder: "2024", type: "number", min: 0 },
-  { key: "season", label: t("searchPage.season"), placeholder: "1", type: "number", min: 0 },
-  { key: "episode", label: t("searchPage.episode"), placeholder: "2", type: "number", min: 0 },
-  { key: "artist", label: t("searchPage.artist"), placeholder: "Nine Inch Nails", type: "text" },
-  { key: "album", label: t("searchPage.album"), placeholder: "The Fragile", type: "text" },
-  { key: "limit", label: t("searchPage.limit"), placeholder: "100", type: "number", min: 1 },
-  { key: "offset", label: t("searchPage.offset"), placeholder: "0", type: "number", min: 0 },
+const ADVANCED_PARAM_CONFIG: AdvancedParamConfig[] = [
+  { key: "imdbId", labelKey: "advanced.imdbId.label", placeholderKey: "advanced.imdbId.placeholder", type: "text" },
+  { key: "tvdbId", labelKey: "advanced.tvdbId.label", placeholderKey: "advanced.tvdbId.placeholder", type: "text" },
+  { key: "year", labelKey: "advanced.year.label", placeholderKey: "advanced.year.placeholder", type: "number", min: 0 },
+  { key: "season", labelKey: "advanced.season.label", placeholderKey: "advanced.season.placeholder", type: "number", min: 0 },
+  { key: "episode", labelKey: "advanced.episode.label", placeholderKey: "advanced.episode.placeholder", type: "number", min: 0 },
+  { key: "artist", labelKey: "advanced.artist.label", placeholderKey: "advanced.artist.placeholder", type: "text" },
+  { key: "album", labelKey: "advanced.album.label", placeholderKey: "advanced.album.placeholder", type: "text" },
+  { key: "limit", labelKey: "advanced.limit.label", placeholderKey: "advanced.limit.placeholder", type: "number", min: 1 },
+  { key: "offset", labelKey: "advanced.offset.label", placeholderKey: "advanced.offset.placeholder", type: "number", min: 0 },
 ]
 
 const LAST_USED_INSTANCE_KEY = "qui:search:lastInstanceId"
 
+const SEARCH_TABLE_GRID_TEMPLATE =
+  "minmax(240px, 1fr) 140px 100px 100px 140px 110px 140px 110px 100px 150px 80px"
+const SEARCH_TABLE_MIN_WIDTH = 1410
+const SEARCH_ROW_HEIGHT = 40
+const SEARCH_CARD_HEIGHT = 158
+
+const getSearchResultKey = (result: TorznabSearchResult) => {
+  const resultId = result.guid.trim() === "" ? result.downloadUrl : result.guid
+  return `${result.indexerId}-${resultId}`
+}
+
+type SearchTableRowProps = {
+  result: TorznabSearchResult
+  isSelected: boolean
+  isEven: boolean
+  height: number
+  translateY: number
+  categoryLabel: string
+  publishedLabel: string
+  onToggleSelection: (result: TorznabSearchResult) => void
+  onDownload: (result: TorznabSearchResult) => void
+  onViewDetails: (result: TorznabSearchResult) => void
+}
+
+const SearchTableRow = memo(function SearchTableRow({
+  result,
+  isSelected,
+  isEven,
+  height,
+  translateY,
+  categoryLabel,
+  publishedLabel,
+  onToggleSelection,
+  onDownload,
+  onViewDetails,
+}: SearchTableRowProps) {
+  const { t } = useTranslation("search")
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-selected={isSelected}
+      className={cn(
+        "grid cursor-pointer select-none transition-colors border-b",
+        isSelected? "bg-accent text-accent-foreground hover:bg-accent/90": isEven? "hover:bg-muted/60 bg-card/90 dark:bg-card/80": "hover:bg-muted/60 bg-background/70 dark:bg-background/30"
+      )}
+      style={{
+        gridTemplateColumns: SEARCH_TABLE_GRID_TEMPLATE,
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: `${height}px`,
+        transform: `translateY(${translateY}px)`,
+        contain: "layout style paint",
+      }}
+      onClick={() => onToggleSelection(result)}
+      onKeyDown={(event) => {
+        if (event.currentTarget !== event.target) {
+          return
+        }
+
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onToggleSelection(result)
+        }
+      }}
+    >
+      <div className={cn("px-2 flex items-center min-w-0 text-sm font-medium", isSelected && "text-accent-foreground")}>
+        <div className="truncate" title={result.title}>
+          {result.title}
+        </div>
+      </div>
+      <div className={cn("px-2 flex items-center min-w-0 text-sm truncate", isSelected && "text-accent-foreground")}>{result.indexer}</div>
+      <div className={cn("px-2 flex items-center text-sm", isSelected && "text-accent-foreground")}>{formatBytes(result.size)}</div>
+      <div className={cn("px-2 flex items-center", isSelected && "text-accent-foreground")}>
+        <Badge variant={result.seeders > 0 ? "default" : "secondary"}>
+          {result.seeders}
+        </Badge>
+      </div>
+      <div className={cn("px-2 flex items-center min-w-0 text-sm text-muted-foreground truncate", isSelected && "text-accent-foreground")}>
+        {categoryLabel}
+      </div>
+      <div className={cn("px-2 flex items-center min-w-0 text-sm", isSelected && "text-accent-foreground")}>
+        {result.source ? (
+          <Badge variant="outline">{result.source}</Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </div>
+      <div className={cn("px-2 flex items-center min-w-0 text-sm", isSelected && "text-accent-foreground")}>
+        {result.collection ? (
+          <Badge variant="outline" className="truncate max-w-full">{result.collection}</Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </div>
+      <div className={cn("px-2 flex items-center min-w-0 text-sm", isSelected && "text-accent-foreground")}>
+        {result.group ? (
+          <Badge variant="outline" className="truncate max-w-full">{result.group}</Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </div>
+      <div className={cn("px-2 flex items-center", isSelected && "text-accent-foreground")}>
+        {result.downloadVolumeFactor === 0 && (
+          <Badge variant="default">{t("results.free")}</Badge>
+        )}
+        {result.downloadVolumeFactor > 0 && result.downloadVolumeFactor < 1 && (
+          <Badge variant="secondary">{result.downloadVolumeFactor * 100}%</Badge>
+        )}
+      </div>
+      <div className={cn("px-2 flex items-center text-sm text-muted-foreground", isSelected && "text-accent-foreground")}>
+        {publishedLabel}
+      </div>
+      <div className="px-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onDownload(result)}
+              disabled={!result.downloadUrl}
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="sr-only">{t("card.download")}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("table.downloadTorrent")}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onViewDetails(result)}
+              disabled={!result.infoUrl}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              <span className="sr-only">{t("card.viewDetails")}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{result.infoUrl ? t("table.viewDetails") : t("table.noInfoUrl")}</TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
+  )
+})
+
 export function Search() {
-  const { t } = useTranslation()
+  const { t } = useTranslation("search")
   const SUGGESTION_BLUR_DELAY_MS = 100
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(false)
@@ -119,13 +272,23 @@ export function Search() {
   const [queryFocused, setQueryFocused] = useState(false)
   const [showAdvancedParams, setShowAdvancedParams] = useState(false)
   const [advancedParams, setAdvancedParams] = useState<AdvancedParamsState>(() => ({ ...ADVANCED_PARAM_DEFAULTS }))
-  const [selectedResultGuid, setSelectedResultGuid] = useState<string | null>(null)
-  const searchPlaceholders = useSearchPlaceholders(t)
-  const searchPlaceholder = useMemo(() => searchPlaceholders[searchType], [searchPlaceholders, searchType])
+  const [selectedResultKey, setSelectedResultKey] = useState<string | null>(null)
+  const searchTypeOptions = useMemo(() => getSearchTypeOptions(t), [t])
+  const searchPlaceholder = useMemo(() => t(SEARCH_PLACEHOLDER_KEYS[searchType]), [searchType, t])
+  const advancedParamConfig = useMemo(
+    () => ADVANCED_PARAM_CONFIG.map((config) => ({
+      ...config,
+      label: t(config.labelKey),
+      placeholder: config.placeholderKey ? t(config.placeholderKey) : undefined,
+    })),
+    [t]
+  )
   const hasAdvancedParams = useMemo(() => Object.values(advancedParams).some(value => value.trim() !== ""), [advancedParams])
   const queryInputRef = useRef<HTMLInputElement | null>(null)
   const blurTimeoutRef = useRef<number | null>(null)
   const rafIdRef = useRef<number | null>(null)
+  const tableScrollRef = useRef<HTMLDivElement | null>(null)
+  const cardsScrollRef = useRef<HTMLDivElement | null>(null)
   const { formatDate } = useDateTimeFormatters()
   const closeSuggestions = useCallback(() => {
     if (blurTimeoutRef.current !== null) {
@@ -147,8 +310,8 @@ export function Search() {
         window.sessionStorage.setItem(LAST_USED_INSTANCE_KEY, String(instanceId))
       }
     } catch (error) {
-        console.error("Failed to persist instance selection:", error)
-      }
+      console.error("Failed to persist instance selection", error)
+    }
   }, [])
 
   const handleAdvancedParamChange = useCallback((key: keyof AdvancedParamsState, value: string) => {
@@ -189,11 +352,12 @@ export function Search() {
     return instances.find(instance => instance.id === selectedInstanceId) ?? null
   }, [instances, selectedInstanceId])
   const totalIndexers = indexers.length
-  const indexerSummaryText = totalIndexers === 0
-    ? t("searchPage.noEnabledIndexersSearch")
-    : selectedIndexers.size === totalIndexers
-      ? `${t("common.all")} (${totalIndexers})`
-      : t("searchPage.selectedOfEnabled", { selected: selectedIndexers.size, total: totalIndexers })
+  let indexerSummaryText = t("indexerSummary.noEnabled")
+  if (totalIndexers > 0 && selectedIndexers.size === totalIndexers) {
+    indexerSummaryText = t("indexerSummary.allEnabled", { count: totalIndexers })
+  } else if (totalIndexers > 0) {
+    indexerSummaryText = t("indexerSummary.selected", { selected: selectedIndexers.size, total: totalIndexers })
+  }
 
   const REFRESH_COOLDOWN_MS = 30_000
   const refreshCooldownRemaining = Math.max(0, refreshCooldownUntil - Date.now())
@@ -221,11 +385,11 @@ export function Search() {
   const formatBackend = (backend: TorznabIndexer["backend"]) => {
     switch (backend) {
       case "prowlarr":
-        return t("searchPage.backendProwlarr")
+        return t("indexerSheet.backend.prowlarr")
       case "native":
-        return t("searchPage.backendNative")
+        return t("indexerSheet.backend.native")
       default:
-        return t("searchPage.backendJackett")
+        return t("indexerSheet.backend.jackett")
     }
   }
 
@@ -234,22 +398,22 @@ export function Search() {
 
     // Allow search with either query or advanced parameters
     if (!normalizedQuery && !hasAdvancedParams) {
-      toast.error(t("searchPage.pleaseEnterQuery"))
+      toast.error(t("toast.enterSearchQuery"))
       return false
     }
 
     if (selectedIndexers.size === 0) {
-      toast.error(t("searchPage.pleaseSelectIndexer"))
+      toast.error(t("toast.selectIndexer"))
       return false
     }
 
     if (indexers.length === 0) {
-      toast.error(t("searchPage.noEnabledIndexersSearch"))
+      toast.error(t("toast.noEnabledIndexers"))
       return false
     }
 
     return true
-  }, [indexers.length, query, selectedIndexers, hasAdvancedParams])
+  }, [t, indexers.length, query, selectedIndexers, hasAdvancedParams])
 
   const refreshRecentSearches = useCallback(async () => {
     try {
@@ -259,7 +423,7 @@ export function Search() {
       console.error("Load recent searches error:", error)
       setRecentSearches([])
     }
-  }, [api])
+  }, [])
 
   const latestReqIdRef = useRef(0)
   const runSearch = useCallback(
@@ -275,7 +439,7 @@ export function Search() {
       const detectedTvdbId = extractTvdbId(searchQuery)
       setLoading(true)
       setCacheMetadata(null)
-      setSelectedResultGuid(null)
+      setSelectedResultKey(null)
       setResults([])
       setTotal(0)
 
@@ -357,21 +521,21 @@ export function Search() {
         setCacheMetadata(response.cache ?? null)
 
         if (response.results.length === 0) {
-          toast.info(t("searchPage.noResultsFound"))
+          toast.info(t("toast.noResults"))
         } else {
-          const cacheSuffix = response.cache?.hit ? ` (${t("searchPage.cached")})` : ""
-          toast.success(t("searchPage.foundResults", { total: response.total, cacheSuffix }))
+          const cacheSuffix = response.cache?.hit ? t("toast.cached") : ""
+          toast.success(t("toast.foundResults", { total: response.total, suffix: cacheSuffix }))
         }
         void refreshRecentSearches()
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : t("common.unknown")
-        toast.error(t("searchPage.searchFailed", { error: errorMsg }))
+        const errorMsg = error instanceof Error ? error.message : "Unknown error"
+        toast.error(t("toast.searchFailed", { error: errorMsg }))
         console.error("Search error:", error)
       } finally {
         if (reqId === latestReqIdRef.current) setLoading(false)
       }
     },
-    [advancedParams, api, query, selectedIndexers, refreshRecentSearches, searchType]
+    [advancedParams, query, selectedIndexers, refreshRecentSearches, searchType, t]
   )
 
   // Build a category ID to name map from all indexers
@@ -413,11 +577,11 @@ export function Search() {
   }, [results])
 
   const freeleechOptions = [
-    { value: "true", label: t("searchPage.freeleechFree") },
-    { value: "0.25", label: t("searchPage.freeleech25") },
-    { value: "0.5", label: t("searchPage.freeleech50") },
-    { value: "0.75", label: t("searchPage.freeleech75") },
-    { value: "false", label: t("searchPage.freeleechNeutral") },
+    { value: "true", label: t("results.free") },
+    { value: "0.25", label: "25%" },
+    { value: "0.5", label: "50%" },
+    { value: "0.75", label: "75%" },
+    { value: "false", label: t("results.freeNeutral") },
   ]
 
   useEffect(() => {
@@ -448,14 +612,14 @@ export function Search() {
         // Select all enabled indexers by default
         setSelectedIndexers(new Set(enabledIndexers.map(idx => idx.id)))
       } catch (error) {
-      toast.error(t("searchPage.failedLoadIndexers"))
-      console.error("Load indexers error:", error)
-    } finally {
-      setLoadingIndexers(false)
-    }
+        toast.error(t("toast.failedToLoadIndexers"))
+        console.error("Load indexers error:", error)
+      } finally {
+        setLoadingIndexers(false)
+      }
     }
     loadIndexers()
-  }, [])
+  }, [t])
 
   useEffect(() => {
     refreshRecentSearches()
@@ -493,7 +657,7 @@ export function Search() {
           }
         }
       } catch (error) {
-        console.error(t("searchPage.failedLoadInstance"), error)
+        console.error("Failed to load instance selection", error)
       }
     }
 
@@ -666,22 +830,49 @@ export function Search() {
     return sorted
   }, [results, resultsFilter, columnFilters, sortColumn, sortOrder, categoryMap])
 
-  const selectedResult = useMemo(() => {
-    if (!selectedResultGuid) {
-      return null
-    }
-    return results.find(result => result.guid === selectedResultGuid) ?? null
-  }, [results, selectedResultGuid])
+  const tableVirtualizer = useVirtualizer({
+    count: filteredAndSortedResults.length,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: () => SEARCH_ROW_HEIGHT,
+    overscan: filteredAndSortedResults.length > 50000 ? 3 : filteredAndSortedResults.length > 10000 ? 5 : filteredAndSortedResults.length > 1000 ? 15 : 30,
+    getItemKey: useCallback(
+      (index: number) => getSearchResultKey(filteredAndSortedResults[index]),
+      [filteredAndSortedResults]
+    ),
+  })
+
+  const cardsVirtualizer = useVirtualizer({
+    count: filteredAndSortedResults.length,
+    getScrollElement: () => cardsScrollRef.current,
+    estimateSize: () => SEARCH_CARD_HEIGHT,
+    overscan: filteredAndSortedResults.length > 1000 ? 5 : 10,
+    getItemKey: useCallback(
+      (index: number) => getSearchResultKey(filteredAndSortedResults[index]),
+      [filteredAndSortedResults]
+    ),
+  })
 
   useEffect(() => {
-    if (!selectedResultGuid) {
+    tableVirtualizer.measure()
+    cardsVirtualizer.measure()
+  }, [filteredAndSortedResults.length, tableVirtualizer, cardsVirtualizer])
+
+  const selectedResult = useMemo(() => {
+    if (!selectedResultKey) {
+      return null
+    }
+    return results.find(result => getSearchResultKey(result) === selectedResultKey) ?? null
+  }, [results, selectedResultKey])
+
+  useEffect(() => {
+    if (!selectedResultKey) {
       return
     }
-    const stillVisible = filteredAndSortedResults.some(result => result.guid === selectedResultGuid)
+    const stillVisible = filteredAndSortedResults.some(result => getSearchResultKey(result) === selectedResultKey)
     if (!stillVisible) {
-      setSelectedResultGuid(null)
+      setSelectedResultKey(null)
     }
-  }, [filteredAndSortedResults, selectedResultGuid])
+  }, [filteredAndSortedResults, selectedResultKey])
 
   const suggestionMatches = useMemo(() => {
     const searches = recentSearches ?? []
@@ -705,12 +896,12 @@ export function Search() {
       return { label: "", variant: "outline" as const }
     }
     if (cacheMetadata.source === "hybrid") {
-      return { label: t("searchPage.cachePlusLive"), variant: "secondary" as const }
+      return { label: t("cache.cacheAndLive"), variant: "secondary" as const }
     }
     if (cacheMetadata.hit) {
-      return { label: t("searchPage.cacheHit"), variant: "secondary" as const }
+      return { label: t("cache.cacheHit"), variant: "secondary" as const }
     }
-    return { label: t("searchPage.liveFetch"), variant: "outline" as const }
+    return { label: t("cache.liveFetch"), variant: "outline" as const }
   }, [cacheMetadata, t])
 
   const handleSuggestionClick = useCallback((search: TorznabRecentSearch) => {
@@ -726,58 +917,59 @@ export function Search() {
     void runSearch({ queryOverride: normalized, searchTypeOverride: derivedType })
   }, [applyIndexerSelectionFromSuggestion, closeSuggestions, runSearch, validateSearchInputs])
 
-  const handleDownload = (result: TorznabSearchResult) => {
-    window.open(result.downloadUrl, "_blank")
-  }
+  const handleDownload = useCallback((result: TorznabSearchResult) => {
+    window.open(result.downloadUrl, "_blank", "noopener,noreferrer")
+  }, [])
 
   const handleAddTorrent = useCallback((result: TorznabSearchResult, overrideInstanceId?: number) => {
     const targetId = overrideInstanceId ?? selectedInstanceId
 
     if (!targetId) {
       if (!hasInstances) {
-        toast.error(t("searchPage.addInstanceSettings"))
+        toast.error(t("toast.addInstanceFirst"))
       } else {
-        toast.error(t("searchPage.chooseInstance"))
+        toast.error(t("toast.chooseInstance"))
         setInstanceMenuOpen(true)
       }
       return
     }
 
     if (!result.downloadUrl) {
-      toast.error(t("searchPage.noDownloadUrl"))
+      toast.error(t("toast.noDownloadUrl"))
       return
     }
 
     persistSelectedInstanceId(targetId)
     setAddDialogPayload({ type: "url", urls: [result.downloadUrl], indexerId: result.indexerId })
     setAddDialogOpen(true)
-  }, [hasInstances, persistSelectedInstanceId, selectedInstanceId, setInstanceMenuOpen])
+  }, [hasInstances, persistSelectedInstanceId, selectedInstanceId, setInstanceMenuOpen, t])
 
-  const handleViewDetails = (result: TorznabSearchResult) => {
+  const handleViewDetails = useCallback((result: TorznabSearchResult) => {
     if (!result.infoUrl) {
-      toast.error(t("searchPage.noAdditionalInfo"))
+      toast.error(t("toast.noInfoUrl"))
       return
     }
     try {
       const url = new URL(result.infoUrl)
       if (!["http:", "https:"].includes(url.protocol)) {
-        toast.error(t("searchPage.invalidUrlProtocol"))
+        toast.error(t("toast.invalidProtocol"))
         return
       }
     } catch {
-      toast.error(t("searchPage.invalidUrlFormat"))
+      toast.error(t("toast.invalidUrl"))
       return
     }
 
-    window.open(result.infoUrl, "_blank")
-  }
+    window.open(result.infoUrl, "_blank", "noopener,noreferrer")
+  }, [t])
 
-  const handleToggleResultSelection = (result: TorznabSearchResult) => {
-    setSelectedResultGuid(prev => prev === result.guid ? null : result.guid)
-  }
+  const handleToggleResultSelection = useCallback((result: TorznabSearchResult) => {
+    const resultKey = getSearchResultKey(result)
+    setSelectedResultKey(prev => prev === resultKey ? null : resultKey)
+  }, [])
 
   const handleClearSelection = () => {
-    setSelectedResultGuid(null)
+    setSelectedResultKey(null)
   }
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -787,21 +979,42 @@ export function Search() {
     }
   }
 
-  const addButtonTitle = targetInstance
-    ? t("searchPage.addTo", { name: targetInstance.name })
-    : hasInstances
-      ? t("searchPage.chooseInstance")
-      : t("searchPage.addInstanceSettings")
-  const primaryAddButtonLabel = targetInstance ? t("searchPage.addTo", { name: targetInstance.name }) : t("searchPage.addToInstance")
+  let addButtonTitle = t("toast.addInstanceFirst")
+  let primaryAddButtonLabel = t("card.addToInstance")
+  if (targetInstance) {
+    addButtonTitle = t("card.addToNamed", { name: targetInstance.name })
+    primaryAddButtonLabel = t("card.addToNamed", { name: targetInstance.name })
+  } else if (hasInstances) {
+    addButtonTitle = t("toast.chooseInstance")
+  }
   const instancesAvailable = hasInstances
+  let instanceSelectorLabel = t("instanceSelector.noInstances")
+  if (targetInstance?.connected) {
+    instanceSelectorLabel = t("instanceSelector.targetNamed", { name: targetInstance.name })
+  } else if (targetInstance) {
+    instanceSelectorLabel = t("instanceSelector.targetNamedOffline", { name: targetInstance.name })
+  } else if (instancesAvailable) {
+    instanceSelectorLabel = t("instanceSelector.chooseTarget")
+  }
+  const getInstanceActionLabel = (instance: { name: string; connected: boolean }) => {
+    if (instance.connected) {
+      return t("card.addToNamed", { name: instance.name })
+    }
+    return t("card.addToNamedOffline", { name: instance.name })
+  }
+
+  let refreshButtonTitle = t("results.refreshFromIndexers")
+  if (refreshCooldownRemaining > 0) {
+    refreshButtonTitle = t("results.refreshReadyIn", { seconds: Math.ceil(refreshCooldownRemaining / 1000) })
+  }
 
   return (
     <TooltipProvider>
       <div className="space-y-6 p-4 lg:p-6">
         <div className="flex-1 space-y-2">
-          <h1 className="text-2xl font-semibold">{t("searchPage.title")}</h1>
+          <h1 className="text-2xl font-semibold">{t("pageTitle")}</h1>
           <p className="text-sm text-muted-foreground">
-            {t("searchPage.description")}
+            {t("pageDescription")}
           </p>
         </div>
 
@@ -811,23 +1024,23 @@ export function Search() {
               <SheetTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-start">
                   <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span className="text-sm">{t("searchPage.indexers")}: {indexerSummaryText}</span>
+                  <span className="text-sm">{t("indexerSummary.label")}: {indexerSummaryText}</span>
                 </Button>
               </SheetTrigger>
 
               <SheetContent side="right" className="flex h-full max-h-dvh max-w-xl flex-col overflow-hidden p-0">
                 <SheetHeader>
-                  <SheetTitle>{t("searchPage.indexerSelection")}</SheetTitle>
-                  <SheetDescription>{t("searchPage.indexerSelectionDesc")}</SheetDescription>
+                  <SheetTitle>{t("indexerSheet.title")}</SheetTitle>
+                  <SheetDescription>{t("indexerSheet.description")}</SheetDescription>
                 </SheetHeader>
 
                 <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden px-4 pb-4">
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={handleSelectAll}>
-                      {t("searchPage.selectAll")}
+                      {t("indexerSheet.selectAll")}
                     </Button>
                     <Button type="button" variant="ghost" size="sm" onClick={handleDeselectAll}>
-                      {t("searchPage.clearSelection")}
+                      {t("indexerSheet.clearSelection")}
                     </Button>
                   </div>
 
@@ -870,7 +1083,7 @@ export function Search() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-xs text-muted-foreground">{t("searchPage.noCategories")}</p>
+                                  <p className="text-xs text-muted-foreground">{t("indexerSheet.noCategories")}</p>
                                 )}
                               </div>
                             </label>
@@ -883,11 +1096,11 @@ export function Search() {
 
                 <SheetFooter className="border-t bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
-                    {t("searchPage.selectedOfEnabled", { selected: selectedIndexers.size, total: indexers.length })}
+                    {t("indexerSheet.footer", { selected: selectedIndexers.size, total: indexers.length })}
                   </p>
                   <SheetClose asChild>
                     <Button type="button" size="sm">
-                      {t("searchPage.done")}
+                      {t("indexerSheet.done")}
                     </Button>
                   </SheetClose>
                 </SheetFooter>
@@ -904,13 +1117,7 @@ export function Search() {
                     disabled={loadingInstances || !instancesAvailable}
                     className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-start"
                   >
-                    <span className="text-sm">
-                      {targetInstance
-                        ? `${t("searchPage.targetInstance")}: ${targetInstance.name}${!targetInstance.connected ? ` (${t("searchPage.offline")})` : ""}`
-                        : instancesAvailable
-                          ? t("searchPage.chooseTarget")
-                          : t("searchPage.noInstances")}
-                    </span>
+                    <span className="text-sm">{instanceSelectorLabel}</span>
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -931,7 +1138,7 @@ export function Search() {
                           <div className="flex flex-col">
                             <span className="font-medium">{instance.name}</span>
                             {!instance.connected && (
-                              <span className="text-xs text-muted-foreground">{t("searchPage.offline")}</span>
+                              <span className="text-xs text-muted-foreground">{t("instanceSelector.offline")}</span>
                             )}
                           </div>
                         </DropdownMenuItem>
@@ -944,17 +1151,17 @@ export function Search() {
                         }}
                         disabled={!targetInstance}
                       >
-                        {t("searchPage.clearSelectionInstance")}
+                        {t("instanceSelector.clearSelection")}
                       </DropdownMenuItem>
                     </>
                   ) : (
-                    <DropdownMenuItem disabled>{t("searchPage.noInstancesConfigured")}</DropdownMenuItem>
+                    <DropdownMenuItem disabled>{t("instanceSelector.noInstancesConfigured")}</DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
               {!instancesAvailable && !loadingInstances && (
                 <p className="text-xs text-muted-foreground">
-                  {t("searchPage.addInstanceHint")}
+                  {t("instanceSelector.addInstanceNote")}
                 </p>
               )}
             </div>
@@ -967,13 +1174,13 @@ export function Search() {
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
                 <div className="flex items-center gap-2">
                   <div className="shrink-0 min-w-30 max-w-45">
-                    <Label htmlFor="search-type" className="sr-only">{t("searchPage.searchType")}</Label>
+                    <Label htmlFor="search-type" className="sr-only">{t("searchForm.searchType")}</Label>
                     <Select value={searchType} onValueChange={(value) => setSearchType(value as SearchType)}>
                       <SelectTrigger id="search-type" className="w-full">
-                        <SelectValue placeholder={t("searchPage.autoDetect")} />
+                        <SelectValue placeholder={t("searchTypes.auto.label")} />
                       </SelectTrigger>
                       <SelectContent>
-                        {SEARCH_TYPE_OPTIONS.map((option) => (
+                        {searchTypeOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -993,11 +1200,11 @@ export function Search() {
                       onClick={() => setShowAdvancedParams(prev => !prev)}
                     >
                       <SlidersHorizontal className="mr-2 h-4 w-4" />
-                      {t("searchPage.advanced")}
+                      {t("searchForm.advanced")}
                     </Button>
                     {hasAdvancedParams && (
                       <>
-                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">{t("searchPage.active")}</Badge>
+                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">{t("searchForm.active")}</Badge>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1005,7 +1212,7 @@ export function Search() {
                           className="text-muted-foreground"
                           onClick={handleResetAdvancedParams}
                         >
-                          {t("searchPage.clear")}
+                          {t("searchForm.clear")}
                         </Button>
                       </>
                     )}
@@ -1013,7 +1220,7 @@ export function Search() {
                 </div>
                 <div className="flex flex-1 items-center gap-2 min-w-0">
                   <div className="flex-1 relative min-w-0">
-                    <Label htmlFor="query" className="sr-only">{t("searchPage.searchQuery")}</Label>
+                    <Label htmlFor="query" className="sr-only">{t("searchForm.searchQuery")}</Label>
                     <Input
                       ref={queryInputRef}
                       id="query"
@@ -1047,7 +1254,7 @@ export function Search() {
                       <div className="absolute left-0 right-0 z-50 mt-1 rounded-md border bg-popover shadow-lg">
                         {suggestionMatches.map((search) => {
                           const suggestionType = inferSearchTypeFromCategories(search.categories)
-                          const suggestionTypeLabel = getSearchTypeLabel(suggestionType ?? "auto")
+                          const suggestionTypeLabel = getSearchTypeLabel(suggestionType ?? "auto", t)
                           return (
                             <button
                               type="button"
@@ -1060,7 +1267,11 @@ export function Search() {
                                 {search.query}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {suggestionTypeLabel} · {search.totalResults} {t("searchPage.results")} · {formatCacheTimestamp(search.lastUsedAt ?? search.cachedAt)}
+                                {t("historyMeta", {
+                                  type: suggestionTypeLabel,
+                                  count: search.totalResults,
+                                  timestamp: formatCacheTimestamp(search.lastUsedAt ?? search.cachedAt),
+                                })}
                               </div>
                             </button>
                           )
@@ -1074,7 +1285,7 @@ export function Search() {
                     className="shrink-0"
                   >
                     <SearchIcon className="mr-2 h-4 w-4" />
-                    {loading ? t("searchPage.searching") : t("searchPage.search")}
+                    {loading ? t("searchForm.searching") : t("searchForm.search")}
                   </Button>
                 </div>
               </div>
@@ -1083,7 +1294,7 @@ export function Search() {
               {showAdvancedParams && (
                 <div className="rounded-lg border bg-muted/40 p-4 space-y-4">
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {useAdvancedParamConfig(t).map(({ key, label, placeholder, type, min }) => (
+                    {advancedParamConfig.map(({ key, label, placeholder, type, min }) => (
                       <div key={key} className="space-y-1.5">
                         <Label htmlFor={`advanced-${key}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           {label}
@@ -1101,17 +1312,17 @@ export function Search() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {t("searchPage.optionalParams")}
+                    {t("searchForm.advancedNote")}
                   </p>
                 </div>
               )}
               {!loadingIndexers && indexers.length === 0 && (
                 <div className="text-sm text-muted-foreground">
-                  {t("searchPage.noEnabledIndexers")}{" "}
+                  {t("searchForm.noIndexers")}{" "}
                   <Link to="/settings" search={{ tab: "indexers" }} className="font-medium text-primary underline-offset-4 hover:underline">
-                    {t("searchPage.indexersPage")}
+                    {t("searchForm.indexersPage")}
                   </Link>
-                  {t("searchPage.addAndEnable")}
+                  .
                 </div>
               )}
 
@@ -1120,13 +1331,13 @@ export function Search() {
             {results.length > 0 && (
               <div className="mt-6">
                 <div className="mb-2 text-xs text-muted-foreground">
-                  {t("searchPage.showingResults", { filtered: filteredAndSortedResults.length, total })}
+                  {t("results.showing", { filtered: filteredAndSortedResults.length, total })}
                 </div>
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
                   <div className="w-full sm:min-w-50 sm:flex-1 min-w-0 relative">
                     <Input
                       type="text"
-                      placeholder={t("searchPage.filterResults")}
+                      placeholder={t("results.filterPlaceholder")}
                       value={resultsFilter}
                       onChange={(e) => setResultsFilter(e.target.value)}
                       className="pr-8"
@@ -1146,7 +1357,7 @@ export function Search() {
                               <X className="h-3.5 w-3.5 text-muted-foreground" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent>{t("searchPage.clearSearch")}</TooltipContent>
+                          <TooltipContent>{t("results.clearSearch")}</TooltipContent>
                         </Tooltip>
                       </div>
                     )}
@@ -1167,10 +1378,10 @@ export function Search() {
                           className="h-9"
                         >
                           <X className="h-4 w-4" />
-                          <span className="sr-only">{t("searchPage.clearAllColumnFilters")}</span>
+                          <span className="sr-only">{t("results.clearAllFilters")}</span>
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>{t("searchPage.clearAllColumnFilters")}</TooltipContent>
+                      <TooltipContent>{t("results.clearAllFilters")}</TooltipContent>
                     </Tooltip>
                   )}
                   {selectedResult && (
@@ -1198,7 +1409,7 @@ export function Search() {
                                 disabled={!instancesAvailable}
                               >
                                 <ChevronDown className="h-4 w-4" />
-                                <span className="sr-only">{t("searchPage.pickInstance")}</span>
+                                <span className="sr-only">{t("results.pickInstance")}</span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56">
@@ -1210,7 +1421,7 @@ export function Search() {
                                     handleAddTorrent(selectedResult, instance.id)
                                   }}
                                 >
-                                  {t("searchPage.addTo", { name: instance.name })}{!instance.connected ? ` (${t("searchPage.offline")})` : ""}
+                                  {getInstanceActionLabel(instance)}
                                 </DropdownMenuItem>
                               ))}
                             </DropdownMenuContent>
@@ -1222,14 +1433,14 @@ export function Search() {
                           size="sm"
                           onClick={handleClearSelection}
                         >
-                          {t("searchPage.clearSelection")}
+                          {t("results.clearSelectionButton")}
                         </Button>
                       </div>
                       <div className="sm:hidden">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button type="button" size="sm" variant="outline" className="w-full">
-                              {t("searchPage.actions")}
+                              {t("results.actions")}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -1245,7 +1456,7 @@ export function Search() {
                             {instancesAvailable && (
                               <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>
-                                  {t("searchPage.quickAddTo")}
+                                  {t("results.quickAddTo")}
                                 </DropdownMenuSubTrigger>
                                 <DropdownMenuSubContent>
                                   {instances?.map(instance => (
@@ -1256,7 +1467,7 @@ export function Search() {
                                         handleAddTorrent(selectedResult, instance.id)
                                       }}
                                     >
-                                      {t("searchPage.addTo", { name: instance.name })}{!instance.connected ? ` (${t("searchPage.offline")})` : ""}
+                                      {getInstanceActionLabel(instance)}
                                     </DropdownMenuItem>
                                   ))}
                                 </DropdownMenuSubContent>
@@ -1265,10 +1476,13 @@ export function Search() {
                             <DropdownMenuItem
                               onSelect={(event) => {
                                 event.preventDefault()
-                                handleDownload(selectedResult)
+                                if (selectedResult.downloadUrl) {
+                                  handleDownload(selectedResult)
+                                }
                               }}
+                              disabled={!selectedResult.downloadUrl}
                             >
-                              <Download className="mr-2 h-4 w-4" /> {t("searchPage.download")}
+                              <Download className="mr-2 h-4 w-4" /> {t("results.download")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onSelect={(event) => {
@@ -1279,7 +1493,7 @@ export function Search() {
                               }}
                               disabled={!selectedResult.infoUrl}
                             >
-                              <ExternalLink className="mr-2 h-4 w-4" /> {t("searchPage.viewDetails")}
+                              <ExternalLink className="mr-2 h-4 w-4" /> {t("results.viewDetails")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1299,9 +1513,12 @@ export function Search() {
                       {cacheMetadata && (
                         <TooltipContent>
                           <p className="text-xs">
-                            {t("searchPage.cached")} {formatCacheTimestamp(cacheMetadata.cachedAt)} · {t("searchPage.expires")} {formatCacheTimestamp(cacheMetadata.expiresAt)}
+                            {t("results.cachedSummary", {
+                              cached: formatCacheTimestamp(cacheMetadata.cachedAt),
+                              expires: formatCacheTimestamp(cacheMetadata.expiresAt),
+                            })}
                             <br />
-                            {t("searchPage.source")}: {cacheMetadata.source} · {t("searchPage.scope")}: {cacheMetadata.scope}
+                            {t("results.cacheSource", { source: cacheMetadata.source, scope: cacheMetadata.scope })}
                           </p>
                         </TooltipContent>
                       )}
@@ -1313,412 +1530,341 @@ export function Search() {
                       className={`h-7 w-7 opacity-40 transition-opacity hover:opacity-100 ${!showRefreshButton ? "invisible" : ""}`}
                       onClick={() => setRefreshConfirmOpen(true)}
                       disabled={!canForceRefresh}
-                      title={refreshCooldownRemaining > 0 ? t("searchPage.readyIn", { seconds: Math.ceil(refreshCooldownRemaining / 1000) }) : t("searchPage.refreshFromIndexers")}
+                      title={refreshButtonTitle}
                     >
                       <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                     </Button>
                   </div>
                 </div>
                 {/* Mobile: Card-based view */}
-                <div className="sm:hidden space-y-2 max-h-150 overflow-auto">
-                  {filteredAndSortedResults.map((result) => (
-                    <SearchResultCard
-                      key={result.guid}
-                      result={result}
-                      isSelected={selectedResultGuid === result.guid}
-                      onSelect={() => handleToggleResultSelection(result)}
-                      onAddTorrent={(overrideInstanceId) => handleAddTorrent(result, overrideInstanceId)}
-                      onDownload={() => handleDownload(result)}
-                      onViewDetails={() => handleViewDetails(result)}
-                      categoryName={categoryMap.get(result.categoryId) || result.categoryName || `Category ${result.categoryId}`}
-                      formatSize={formatBytes}
-                      formatDate={formatCacheTimestamp}
-                      instances={instances}
-                      hasInstances={hasInstances}
-                      targetInstanceName={targetInstance?.name}
-                    />
-                  ))}
+                <div ref={cardsScrollRef} className="sm:hidden max-h-150 overflow-auto will-change-transform contain-paint">
+                  <div style={{ height: `${cardsVirtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
+                    {cardsVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const result = filteredAndSortedResults[virtualRow.index]
+                      return (
+                        <div
+                          key={virtualRow.key}
+                          data-index={virtualRow.index}
+                          ref={cardsVirtualizer.measureElement}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            transform: `translateY(${virtualRow.start}px)`,
+                            paddingBottom: "8px",
+                            contain: "layout style",
+                          }}
+                        >
+                          <SearchResultCard
+                            result={result}
+                            isSelected={selectedResultKey === getSearchResultKey(result)}
+                            onSelect={() => handleToggleResultSelection(result)}
+                            onAddTorrent={(overrideInstanceId) => handleAddTorrent(result, overrideInstanceId)}
+                            onDownload={() => handleDownload(result)}
+                            onViewDetails={() => handleViewDetails(result)}
+                            categoryName={categoryMap.get(result.categoryId) || result.categoryName || t("results.categoryFallback", { id: result.categoryId })}
+                            formatSize={formatBytes}
+                            formatDate={formatCacheTimestamp}
+                            instances={instances}
+                            hasInstances={hasInstances}
+                            targetInstanceName={targetInstance?.name}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 {/* Desktop: Full table view */}
-                <div className="hidden sm:block max-h-150 overflow-auto border rounded-md">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-20 bg-card">
-                      <TableRow className="bg-card">
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("title")}>
-                            <span className="select-none">{t("searchPage.title")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("title")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="title"
-                                  columnName={t("searchPage.title")}
-                                  columnType="string"
-                                  currentFilter={columnFilters.title}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.title = filter
-                                      else delete next.title
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                <div ref={tableScrollRef} className="hidden sm:block max-h-150 overflow-auto border rounded-md will-change-transform contain-paint">
+                  <div style={{ position: "relative", minWidth: `${SEARCH_TABLE_MIN_WIDTH}px` }}>
+                    <div
+                      className="sticky top-0 z-20 grid bg-card border-b"
+                      style={{ gridTemplateColumns: SEARCH_TABLE_GRID_TEMPLATE }}
+                    >
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("title")}>
+                          <span className="select-none">{t("table.title")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("title")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="title"
+                                columnName={t("table.title")}
+                                columnType="string"
+                                currentFilter={columnFilters.title}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.title = filter
+                                    else delete next.title
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("indexer")}>
-                            <span className="select-none">{t("searchPage.indexer")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("indexer")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="indexer"
-                                  columnName={t("searchPage.indexer")}
-                                  columnType="enum"
-                                  options={indexerOptions}
-                                  currentFilter={columnFilters.indexer}
-                                  multiSelect={true}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.indexer = filter
-                                      else delete next.indexer
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("indexer")}>
+                          <span className="select-none">{t("table.indexer")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("indexer")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="indexer"
+                                columnName={t("table.indexer")}
+                                columnType="enum"
+                                options={indexerOptions}
+                                currentFilter={columnFilters.indexer}
+                                multiSelect={true}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.indexer = filter
+                                    else delete next.indexer
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("size")}>
-                            <span className="select-none">{t("searchPage.size")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("size")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="size"
-                                  columnName={t("searchPage.size")}
-                                  columnType="size"
-                                  currentFilter={columnFilters.size}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.size = filter
-                                      else delete next.size
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("size")}>
+                          <span className="select-none">{t("table.size")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("size")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="size"
+                                columnName={t("table.size")}
+                                columnType="size"
+                                currentFilter={columnFilters.size}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.size = filter
+                                    else delete next.size
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("seeders")}>
-                            <span className="select-none">{t("searchPage.seeders")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("seeders")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="seeders"
-                                  columnName={t("searchPage.seeders")}
-                                  columnType="number"
-                                  currentFilter={columnFilters.seeders}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.seeders = filter
-                                      else delete next.seeders
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("seeders")}>
+                          <span className="select-none">{t("table.seeders")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("seeders")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="seeders"
+                                columnName={t("table.seeders")}
+                                columnType="number"
+                                currentFilter={columnFilters.seeders}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.seeders = filter
+                                    else delete next.seeders
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("category")}>
-                            <span className="select-none">{t("searchPage.category")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("category")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="category"
-                                  columnName={t("searchPage.category")}
-                                  columnType="enum"
-                                  options={categoryOptions}
-                                  currentFilter={columnFilters.category}
-                                  multiSelect={true}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.category = filter
-                                      else delete next.category
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("category")}>
+                          <span className="select-none">{t("table.category")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("category")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="category"
+                                columnName={t("table.category")}
+                                columnType="enum"
+                                options={categoryOptions}
+                                currentFilter={columnFilters.category}
+                                multiSelect={true}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.category = filter
+                                    else delete next.category
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("source")}>
-                            <span className="select-none">{t("searchPage.sourceColumn")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("source")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="source"
-                                  columnName={t("searchPage.sourceColumn")}
-                                  columnType="enum"
-                                  options={sourceOptions}
-                                  currentFilter={columnFilters.source}
-                                  multiSelect={true}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.source = filter
-                                      else delete next.source
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("source")}>
+                          <span className="select-none">{t("table.source")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("source")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="source"
+                                columnName={t("table.source")}
+                                columnType="enum"
+                                options={sourceOptions}
+                                currentFilter={columnFilters.source}
+                                multiSelect={true}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.source = filter
+                                    else delete next.source
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("collection")}>
-                            <span className="select-none">{t("searchPage.collection")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("collection")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="collection"
-                                  columnName={t("searchPage.collection")}
-                                  columnType="string"
-                                  currentFilter={columnFilters.collection}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.collection = filter
-                                      else delete next.collection
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("collection")}>
+                          <span className="select-none">{t("table.collection")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("collection")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="collection"
+                                columnName={t("table.collection")}
+                                columnType="string"
+                                currentFilter={columnFilters.collection}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.collection = filter
+                                    else delete next.collection
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("group")}>
-                            <span className="select-none">{t("searchPage.group")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("group")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="group"
-                                  columnName={t("searchPage.group")}
-                                  columnType="string"
-                                  currentFilter={columnFilters.group}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.group = filter
-                                      else delete next.group
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("group")}>
+                          <span className="select-none">{t("table.group")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("group")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="group"
+                                columnName={t("table.group")}
+                                columnType="string"
+                                currentFilter={columnFilters.group}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.group = filter
+                                    else delete next.group
+                                    return next
+                                  })
+                                }}
+                              />
                             </div>
                           </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 select-none text-muted-foreground">
-                            <span>{t("searchPage.freeleech")}</span>
-                            <ColumnFilterPopover
-                              columnId="freeleech"
-                              columnName={t("searchPage.freeleech")}
-                              columnType="enum"
-                              options={freeleechOptions}
-                              currentFilter={columnFilters.freeleech}
-                              multiSelect={true}
-                              onApply={(filter) => {
-                                setColumnFilters(prev => {
-                                  const next = { ...prev }
-                                  if (filter) next.freeleech = filter
-                                  else delete next.freeleech
-                                  return next
-                                })
-                              }}
-                            />
-                          </div>
-                        </TableHead>
-                        <TableHead>
-                          <div className="group flex items-center justify-between gap-2 cursor-pointer select-none text-muted-foreground" onClick={() => handleSort("published")}>
-                            <span className="select-none">{t("searchPage.published")}</span>
-                            <div className="flex items-center gap-1">
-                              {getSortIcon("published")}
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ColumnFilterPopover
-                                  columnId="published"
-                                  columnName={t("searchPage.published")}
-                                  columnType="date"
-                                  currentFilter={columnFilters.published}
-                                  onApply={(filter) => {
-                                    setColumnFilters(prev => {
-                                      const next = { ...prev }
-                                      if (filter) next.published = filter
-                                      else delete next.published
-                                      return next
-                                    })
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </TableHead>
-                        <TableHead className="w-20">
-                          <span className="sr-only">{t("searchPage.actions")}</span>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredAndSortedResults.map((result) => {
-                        const isSelected = selectedResultGuid === result.guid
-                        return (
-                          <TableRow
-                            key={result.guid}
-                            className={cn(
-                              "cursor-pointer select-none transition-colors",
-                              isSelected? "bg-accent text-accent-foreground hover:bg-accent/90": "hover:bg-muted/60 odd:bg-background/70 even:bg-card/90 dark:odd:bg-background/30 dark:even:bg-card/80"
-                            )}
-                            role="button"
-                            tabIndex={0}
-                            aria-selected={isSelected}
-                            onClick={() => handleToggleResultSelection(result)}
-                            onKeyDown={(event) => {
-                              if (event.currentTarget !== event.target) {
-                                return
-                              }
-
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault()
-                                handleToggleResultSelection(result)
-                              }
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 select-none">
+                          <span>{t("table.freeleech")}</span>
+                          <ColumnFilterPopover
+                            columnId="freeleech"
+                            columnName={t("table.freeleech")}
+                            columnType="enum"
+                            options={freeleechOptions}
+                            currentFilter={columnFilters.freeleech}
+                            multiSelect={true}
+                            onApply={(filter) => {
+                              setColumnFilters(prev => {
+                                const next = { ...prev }
+                                if (filter) next.freeleech = filter
+                                else delete next.freeleech
+                                return next
+                              })
                             }}
-                          >
-                            <TableCell className={cn("font-medium max-w-md", isSelected && "text-accent-foreground")}>
-                              <div className="truncate" title={result.title}>
-                                {result.title}
-                              </div>
-                            </TableCell>
-                            <TableCell className={cn(isSelected && "text-accent-foreground")}>{result.indexer}</TableCell>
-                            <TableCell className={cn(isSelected && "text-accent-foreground")}>{formatBytes(result.size)}</TableCell>
-                            <TableCell className={cn(isSelected && "text-accent-foreground")}>
-                              <Badge variant={result.seeders > 0 ? "default" : "secondary"}>
-                                {result.seeders}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className={cn("text-sm text-muted-foreground", isSelected && "text-accent-foreground")}>
-                              {categoryMap.get(result.categoryId) || result.categoryName || t("searchPage.categoryId", { id: result.categoryId })}
-                            </TableCell>
-                            <TableCell className={cn("text-sm", isSelected && "text-accent-foreground")}>
-                              {result.source ? (
-                                <Badge variant="outline">{result.source}</Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className={cn("text-sm", isSelected && "text-accent-foreground")}>
-                              {result.collection ? (
-                                <Badge variant="outline">{result.collection}</Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className={cn("text-sm", isSelected && "text-accent-foreground")}>
-                              {result.group ? (
-                                <Badge variant="outline">{result.group}</Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className={cn(isSelected && "text-accent-foreground")}>
-                              {result.downloadVolumeFactor === 0 && (
-                                <Badge variant="default">{t("searchPage.free")}</Badge>
-                              )}
-                              {result.downloadVolumeFactor > 0 && result.downloadVolumeFactor < 1 && (
-                                <Badge variant="secondary">{result.downloadVolumeFactor * 100}%</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className={cn("text-sm text-muted-foreground", isSelected && "text-accent-foreground")}>
-                              {formatCacheTimestamp(result.publishDate)}
-                            </TableCell>
-                            <TableCell className="w-20 py-1" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={() => handleDownload(result)}
-                                      disabled={!result.downloadUrl}
-                                    >
-                                      <Download className="h-3.5 w-3.5" />
-                                      <span className="sr-only">{t("searchPage.download")}</span>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{t("searchPage.downloadTorrent")}</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={() => handleViewDetails(result)}
-                                      disabled={!result.infoUrl}
-                                    >
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                      <span className="sr-only">{t("searchPage.viewDetails")}</span>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>{result.infoUrl ? t("searchPage.viewDetails") : t("searchPage.noInfoUrl")}</TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                          />
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <div className="group flex w-full items-center justify-between gap-2 cursor-pointer select-none" onClick={() => handleSort("published")}>
+                          <span className="select-none">{t("table.published")}</span>
+                          <div className="flex items-center gap-1">
+                            {getSortIcon("published")}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ColumnFilterPopover
+                                columnId="published"
+                                columnName={t("table.published")}
+                                columnType="date"
+                                currentFilter={columnFilters.published}
+                                onApply={(filter) => {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev }
+                                    if (filter) next.published = filter
+                                    else delete next.published
+                                    return next
+                                  })
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="h-10 px-2 flex items-center text-sm font-medium text-muted-foreground">
+                        <span className="sr-only">{t("table.actions")}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ height: `${tableVirtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
+                      {tableVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const result = filteredAndSortedResults[virtualRow.index]
+                        return (
+                          <SearchTableRow
+                            key={virtualRow.key}
+                            result={result}
+                            isSelected={selectedResultKey === getSearchResultKey(result)}
+                            isEven={virtualRow.index % 2 === 0}
+                            height={virtualRow.size}
+                            translateY={virtualRow.start}
+                            categoryLabel={categoryMap.get(result.categoryId) || result.categoryName || t("results.categoryFallback", { id: result.categoryId })}
+                            publishedLabel={formatCacheTimestamp(result.publishDate)}
+                            onToggleSelection={handleToggleResultSelection}
+                            onDownload={handleDownload}
+                            onViewDetails={handleViewDetails}
+                          />
                         )
                       })}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {!loading && results.length === 0 && total === 0 && query && (
               <div className="mt-6 text-center text-muted-foreground">
-                {t("searchPage.noResultsFor", { query })}
+                {t("results.noResultsFor", { query })}
               </div>
             )}
 
             {!loading && !query && results.length == 0 && (
               <div className="mt-6 text-center text-muted-foreground">
-                {t("searchPage.enterSearchQuery")}
+                {t("results.enterQuery")}
               </div>
             )}
           </CardContent>
@@ -1737,18 +1883,18 @@ export function Search() {
         <AlertDialog open={refreshConfirmOpen} onOpenChange={setRefreshConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("searchPage.bypassCache")}</AlertDialogTitle>
+              <AlertDialogTitle>{t("refreshDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t("searchPage.bypassCacheDesc")}
+                {t("refreshDialog.description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={loading}>{t("searchPage.cancel")}</AlertDialogCancel>
+              <AlertDialogCancel disabled={loading}>{t("refreshDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleForceRefreshConfirm}
                 disabled={!canForceRefresh || loading}
               >
-                {t("searchPage.refreshNow")}
+                {t("refreshDialog.refreshNow")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
