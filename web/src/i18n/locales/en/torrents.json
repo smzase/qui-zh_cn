@@ -1292,6 +1292,7 @@
   "selectAtLeastOneInstance": "Select at least one instance",
   "noConnectedInstances": "No connected instances available",
   "loadingCommonCategories": "Loading common categories...",
+  "loadingMoreInstances": "Loaded {{loaded}}/{{total}} instances — still loading...",
   "noCommonCategories": "No common categories across selected instances",
   "addTorrentDialog": {
     "title": "Add New Torrent",

@@ -1232,6 +1232,7 @@
   "selectAtLeastOneInstance": "请至少选择一个实例",
   "noConnectedInstances": "没有已连接的实例",
   "loadingCommonCategories": "正在加载通用分类...",
+  "loadingMoreInstances": "已加载 {{loaded}}/{{total}} 个实例 — 仍在加载...",
   "noCommonCategories": "选中实例之间没有通用分类",
   "addTorrentDialog": {
     "title": "添加新种子",

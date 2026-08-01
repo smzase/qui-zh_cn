@@ -42,6 +42,7 @@ import { usePathAutocomplete } from "@/hooks/usePathAutocomplete"
 import { usePersistedBulkAddTorrentInstances } from "@/hooks/usePersistedBulkAddTorrentInstances"
 import { usePersistedStartPaused } from "@/hooks/usePersistedStartPaused"
 import { api } from "@/lib/api"
+import { getCachedInstanceMetadata, setCachedInstanceMetadata } from "@/lib/instance-metadata-cache"
 import { cn } from "@/lib/utils"
 import type { AddTorrentResponse, Category, InstanceResponse, Torrent } from "@/types"
 import { useForm } from "@tanstack/react-form"
@@ -187,11 +188,17 @@ async function fetchInstanceMetadata(instanceId: number): Promise<InstanceMetada
     api.getInstancePreferences(instanceId),
   ])
 
-  return {
+  const metadata: InstanceMetadata = {
     categories: categories ?? {},
     tags: Array.isArray(tags) ? tags : [],
     preferences,
   }
+
+  // Persist to localStorage so a slow/unavailable instance doesn't block
+  // the bulk-add dialog on next open.
+  setCachedInstanceMetadata(instanceId, metadata)
+
+  return metadata
 }
 
 function getCommonCategories(metadataList: InstanceMetadata[]): Record<string, Category> {
@@ -296,10 +303,13 @@ export function AddTorrentDialog({
       queryKey: ["instance-metadata", instance.id],
       enabled: isBulkMode && open,
       queryFn: () => fetchInstanceMetadata(instance.id),
+      placeholderData: () => getCachedInstanceMetadata(instance.id),
       staleTime: 60000,
       gcTime: 1800000,
       refetchInterval: 30000,
       refetchIntervalInBackground: false,
+      retry: 1,
+      retryDelay: 2000,
     })),
   })
   const loadedBulkMetadata = useMemo(
@@ -308,8 +318,14 @@ export function AddTorrentDialog({
       .filter((metadata): metadata is InstanceMetadata => Boolean(metadata)),
     [bulkMetadataQueries]
   )
+  // Progressive loading: show common categories as soon as at least one
+  // instance has data (from cache or fresh fetch). Don't block on the
+  // slowest instance — categories will update as more data arrives.
   const bulkMetadataReady = !isBulkMode ||
-    (selectedBulkInstances.length > 0 && loadedBulkMetadata.length === selectedBulkInstances.length)
+    (selectedBulkInstances.length > 0 && loadedBulkMetadata.length > 0)
+  const bulkMetadataLoadingMore = isBulkMode &&
+    loadedBulkMetadata.length > 0 &&
+    loadedBulkMetadata.length < selectedBulkInstances.length
   const bulkCategories = useMemo(
     () => bulkMetadataReady ? getCommonCategories(loadedBulkMetadata) : {},
     [bulkMetadataReady, loadedBulkMetadata]
@@ -1524,7 +1540,13 @@ export function AddTorrentDialog({
                         {isBulkMode && selectedBulkInstances.length > 0 && !bulkMetadataReady && (
                           <p className="text-xs text-muted-foreground">{t("loadingCommonCategories")}</p>
                         )}
-                        {isBulkMode && selectedBulkInstances.length > 0 && bulkMetadataReady && Object.entries(categories || {}).length === 0 && (
+                        {bulkMetadataLoadingMore && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            {t("loadingMoreInstances", { loaded: loadedBulkMetadata.length, total: selectedBulkInstances.length })}
+                          </p>
+                        )}
+                        {isBulkMode && selectedBulkInstances.length > 0 && bulkMetadataReady && !bulkMetadataLoadingMore && Object.entries(categories || {}).length === 0 && (
                           <p className="text-xs text-muted-foreground">{t("noCommonCategories")}</p>
                         )}
                       </>
