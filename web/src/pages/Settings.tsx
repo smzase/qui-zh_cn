@@ -15,7 +15,6 @@ import { supportedLanguages, languageNames, changeLanguage, type AppLanguage } f
 import { ExternalProgramsManager } from "@/components/settings/ExternalProgramsManager"
 import { LogSettingsPanel } from "@/components/settings/LogSettingsPanel"
 import { NotificationsManager } from "@/components/settings/NotificationsManager"
-import { LicenseManager } from "@/components/themes/LicenseManager.tsx"
 import { ThemeSelector } from "@/components/themes/ThemeSelector"
 import {
   AlertDialog,
@@ -1619,13 +1618,6 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
 
           {activeTab === "themes" && (
             <SettingsScrollPanel contentClassName={scrollPanelContentClassName}>
-              <div id="license-manager">
-                <LicenseManager
-                  checkoutStatus={search.checkout}
-                  checkoutPaymentStatus={search.status}
-                  onCheckoutConsumed={() => onSearchChange({ tab: "themes" })}
-                />
-              </div>
               <ThemeSelector />
             </SettingsScrollPanel>
           )}

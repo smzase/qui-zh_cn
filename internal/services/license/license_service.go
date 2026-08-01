@@ -432,7 +432,8 @@ func (s *Service) ensurePolarActivation(ctx context.Context, license *models.Pro
 
 // HasPremiumAccess checks if the user has premium access
 func (s *Service) HasPremiumAccess(ctx context.Context) (bool, error) {
-	return s.licenseRepo.HasPremiumAccess(ctx)
+	// All themes are free in this fork — always return true.
+	return true, nil
 }
 
 // RefreshAllLicenses validates all stored licenses against Polar API

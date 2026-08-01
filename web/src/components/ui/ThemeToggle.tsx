@@ -27,9 +27,7 @@ import {
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useHasPremiumAccess } from "@/hooks/useLicense.ts";
 import { useCustomThemes } from "@/hooks/useCustomThemes";
-import { canSwitchToPremiumTheme } from "@/lib/license-entitlement";
 
 // Constants
 const THEME_CHANGE_EVENT = "themechange";
@@ -63,16 +61,9 @@ const useThemeChange = () => {
 export const ThemeToggle: React.FC = () => {
   const { t } = useTranslation("common");
   const { currentMode, currentTheme, isDark } = useThemeChange();
-  const { hasPremiumAccess, isLoading, isError } = useHasPremiumAccess();
   const { customThemes } = useCustomThemes();
   const [open, setOpen] = useState(false);
   const [activeThemeId, setActiveThemeId] = useState<string | null>(null);
-
-  const canSwitchPremium = canSwitchToPremiumTheme({
-    hasPremiumAccess,
-    isError,
-    isLoading,
-  });
 
   const sortedThemes = useMemo(() => {
     const rank = (theme: Theme) => (theme.isCustom ? 2 : isThemePremium(theme.id) ? 1 : 0);
@@ -130,38 +121,14 @@ export const ThemeToggle: React.FC = () => {
   }, [t]);
 
   const handleThemeSelect = useCallback(async (themeId: string) => {
-    const isPremium = isThemePremium(themeId);
-    if (isPremium && !canSwitchPremium) {
-      if (isError) {
-        toast.error(t("themeToggle.unableToVerifyLicense"), {
-          description: t("themeToggle.licenseCheckFailed"),
-        });
-      } else {
-        toast.error(t("themeToggle.premiumThemeError"));
-      }
-      return;
-    }
-
     setOpen(false);
     await setTheme(themeId);
 
     const theme = getThemeById(themeId);
     toast.success(t("themeToggle.switchedToTheme", { theme: theme?.name || themeId }));
-  }, [canSwitchPremium, isError, t]);
+  }, [t]);
 
   const handleVariationSelect = useCallback(async (themeId: string, variationId: string) => {
-    const isPremium = isThemePremium(themeId);
-    if (isPremium && !canSwitchPremium) {
-      if (isError) {
-        toast.error(t("themeToggle.unableToVerifyLicense"), {
-          description: t("themeToggle.licenseCheckFailed"),
-        });
-      } else {
-        toast.error(t("themeToggle.premiumThemeError"));
-      }
-      return;
-    }
-
     await setTheme(themeId);
     await setThemeVariation(variationId);
 
@@ -169,7 +136,7 @@ export const ThemeToggle: React.FC = () => {
     toast.success(t("themeToggle.switchedToThemeVariation", { theme: theme?.name || themeId, variation: variationId }));
 
     setOpen(false);
-  }, [canSwitchPremium, isError, t]);
+  }, [t]);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -219,8 +186,6 @@ export const ThemeToggle: React.FC = () => {
         {/* Theme Selection */}
         <div className="px-2 py-1.5 text-sm font-medium">{t("themeToggle.theme")}</div>
         {sortedThemes.map((theme) => {
-          const isPremium = isThemePremium(theme.id);
-          const isLocked = isPremium && !canSwitchPremium;
           const colors = getPreviewColors(theme);
           const showVariations = activeThemeId === theme.id;
           const currentVariation = showVariations ? getThemeVariation(theme.id) : null;
@@ -239,11 +204,7 @@ export const ThemeToggle: React.FC = () => {
                   setActiveThemeId(theme.id);
                 }
               }}
-              className={cn(
-                "flex items-center gap-2",
-                isLocked && "opacity-60"
-              )}
-              disabled={isLocked}
+              className="flex items-center gap-2"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-1">
@@ -257,13 +218,9 @@ export const ThemeToggle: React.FC = () => {
                   />
                   <div className="flex items-center justify-between gap-1.5 flex-1">
                     <span>{theme.name}</span>
-                    {theme.isCustom ? (
+                    {theme.isCustom && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
                         {t("themeToggle.custom")}
-                      </span>
-                    ) : isPremium && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
-                        {t("themeToggle.premium")}
                       </span>
                     )}
                   </div>

@@ -347,7 +347,8 @@ func (s *Server) Handler() (*chi.Mux, error) {
 	backupsHandler := handlers.NewBackupsHandler(s.backupService)
 	trackerIconHandler := handlers.NewTrackerIconHandler(s.trackerIconService)
 	proxyHandler := proxy.NewHandler(s.clientPool, s.clientAPIKeyStore, s.instanceStore, s.syncManager, s.reannounceCache, s.reannounceService, s.config.Config.BaseURL)
-	licenseHandler := handlers.NewLicenseHandler(s.licenseService)
+	// License handler disabled — all themes are free in this fork.
+	// licenseHandler := handlers.NewLicenseHandler(s.licenseService)
 	themesHandler := handlers.NewThemesHandler(s.config, s.licenseService)
 	crossSeedHandler := handlers.NewCrossSeedHandler(
 		s.crossSeedService,
@@ -423,9 +424,10 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			r.Get("/auth/me", authHandler.GetCurrentUser)
 			r.Put("/auth/change-password", authHandler.ChangePassword)
 
-			r.Route("/license", licenseHandler.Routes)
+			// License API routes disabled — all themes are free in this fork.
+			// r.Route("/license", licenseHandler.Routes)
 
-			// Sideloaded custom themes (premium-gated inside the handler)
+			// Sideloaded custom themes (now free, no premium gating)
 			r.Get("/themes/custom", themesHandler.ListCustomThemes)
 
 			// Jackett routes (if configured)

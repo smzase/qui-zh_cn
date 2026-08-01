@@ -550,8 +550,10 @@ func (app *Application) runServer() {
 	licenseService := license.NewLicenseService(licenseRepo, polarClient, dodoClient, cfg.GetConfigDir())
 
 	go func() {
-		checker := license.NewLicenseChecker(licenseService)
-		checker.StartPeriodicChecks(context.Background())
+		// License periodic checks disabled — all themes are free in this fork.
+		// _ = license.NewLicenseChecker(licenseService)
+		// checker.StartPeriodicChecks(context.Background())
+		_ = licenseService // keep reference to avoid unused variable
 	}()
 
 	// Initialize qBittorrent client pool
