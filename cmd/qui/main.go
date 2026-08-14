@@ -534,6 +534,7 @@ func (app *Application) runServer() {
 	automationStore := models.NewAutomationStore(db)
 	trackerCustomizationStore := models.NewTrackerCustomizationStore(db)
 	dashboardSettingsStore := models.NewDashboardSettingsStore(db)
+	filterViewStore := models.NewFilterViewStore(db)
 	logExclusionsStore := models.NewLogExclusionsStore(db)
 
 	clientAPIKeyStore := models.NewClientAPIKeyStore(db)
@@ -713,7 +714,7 @@ func (app *Application) runServer() {
 	}
 
 	backupStore := models.NewBackupStore(db)
-	backupService := backups.NewService(backupStore, syncManager, jackettService, backups.Config{DataDir: cfg.GetDataDir()}, notificationService)
+	backupService := backups.NewService(backupStore, syncManager, jackettService, backups.Config{DataDir: cfg.GetDataDir(), BackupDir: cfg.GetBackupDir()}, notificationService)
 	backupService.SetActivityPublisher(activityHub)
 	backupService.Start(context.Background())
 	defer backupService.Stop()
@@ -754,11 +755,8 @@ func (app *Application) runServer() {
 
 				// Trigger connection by trying to get client
 				// This will populate the pool for GetClientOffline calls
-				_, err := clientPool.GetClient(connCtx, instanceID)
-				if err != nil {
+				if _, err := clientPool.GetClient(connCtx, instanceID); err != nil {
 					log.Debug().Err(err).Int("instanceID", instanceID).Msg("Failed to connect to instance on startup")
-				} else {
-					log.Debug().Int("instanceID", instanceID).Msg("Successfully connected to instance on startup")
 				}
 			}(instance.ID)
 		}
@@ -802,6 +800,7 @@ func (app *Application) runServer() {
 		AutomationService:                automationService,
 		TrackerCustomizationStore:        trackerCustomizationStore,
 		DashboardSettingsStore:           dashboardSettingsStore,
+		FilterViewStore:                  filterViewStore,
 		LogExclusionsStore:               logExclusionsStore,
 		NotificationTargetStore:          notificationTargetStore,
 		NotificationService:              notificationService,

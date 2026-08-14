@@ -56,7 +56,7 @@ type EvalContext struct {
 	TrackerDownSet map[string]struct{}
 	// TrackerErrorSet contains hashes of torrents with tracker errors (from SyncManager health counts)
 	TrackerErrorSet map[string]struct{}
-	// HardlinkScopeByHash maps torrent hash to its hardlink scope (none, torrents_only, outside_qbittorrent)
+	// HardlinkScopeByHash maps torrent hash to its hardlink scope (none, torrents_only, outside_qbittorrent, both)
 	HardlinkScopeByHash map[string]string
 	// HardlinkCrossScopeByHash maps torrent hash to its cross-instance hardlink scope.
 	// Same values as HardlinkScopeByHash but considers files from all instances.
@@ -112,6 +112,9 @@ type EvalContext struct {
 	// SameInstanceCrossSeedSeedingHashSet contains hashes of torrents that have a cross-seed
 	// seeding (Progress >= 1.0) on the same instance.
 	SameInstanceCrossSeedSeedingHashSet map[string]struct{}
+	// SameInstanceCrossSeedTagsByHash maps a torrent hash to the raw Tags strings of
+	// its same-instance cross-seeds (self excluded). Built when rules use CROSS_SEED_TAGS.
+	SameInstanceCrossSeedTagsByHash map[string][]string
 
 	// TrackerDisplayNameByDomain maps lowercase tracker domains to their display names.
 	// Used for UseTrackerAsTag with UseDisplayName option.
@@ -637,6 +640,19 @@ func evaluateLeaf(cond *RuleCondition, torrent qbt.Torrent, ctx *EvalContext) bo
 			_, seeding = ctx.SameInstanceCrossSeedSeedingHashSet[torrent.Hash]
 		}
 		return compareBool(seeding, cond)
+
+	case FieldCrossSeedTags:
+		// Tags across this torrent and its same-instance cross-seeds: positive
+		// operators match when ANY copy carries a matching tag, NOT_* when none
+		// does. Without member data this degrades to the torrent's own tags.
+		parts := make([]string, 0, 2)
+		if torrent.Tags != "" {
+			parts = append(parts, torrent.Tags)
+		}
+		if ctx != nil {
+			parts = append(parts, ctx.SameInstanceCrossSeedTagsByHash[torrent.Hash]...)
+		}
+		return compareTags(strings.Join(parts, ","), cond)
 
 	default:
 		return false
@@ -1219,15 +1235,26 @@ func compareBool(value bool, cond *RuleCondition) bool {
 	}
 }
 
-// compareHardlinkScope compares a hardlink scope value against the condition.
+// compareHardlinkScope compares a stored hardlink scope value against the condition.
 func compareHardlinkScope(value string, cond *RuleCondition) bool {
 	switch cond.Operator {
 	case OperatorEqual:
-		return strings.EqualFold(value, cond.Value)
+		return hardlinkScopeMatches(value, cond.Value)
 	case OperatorNotEqual:
-		return !strings.EqualFold(value, cond.Value)
+		return !hardlinkScopeMatches(value, cond.Value)
 	default:
 		return false
+	}
+}
+
+func hardlinkScopeMatches(value, condValue string) bool {
+	switch {
+	case strings.EqualFold(condValue, HardlinkScopeInsideQBitTorrent):
+		return value == HardlinkScopeTorrentsOnly || value == HardlinkScopeBoth
+	case strings.EqualFold(condValue, HardlinkScopeOutsideQBitTorrent):
+		return value == HardlinkScopeOutsideQBitTorrent || value == HardlinkScopeBoth
+	default:
+		return strings.EqualFold(value, condValue)
 	}
 }
 

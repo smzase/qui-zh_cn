@@ -28,7 +28,11 @@
     "showSidebar": "사이드바 표시",
     "hideSidebar": "사이드바 숨기기"
   },
+  "expand": "펼치기",
+  "collapse": "접기",
   "header": {
+    "showColumnFilters": "열 필터 표시",
+    "hideColumnFilters": "열 필터 숨기기",
     "currentInstance": "현재 인스턴스: {{name}}. 클릭하여 인스턴스를 전환합니다.",
     "connected": "연결됨",
     "disconnected": "연결 끊김",
@@ -161,6 +165,9 @@
       "chromium": "Chrome에서는 보통 주소 표시줄에 작은 프로토콜 핸들러 아이콘으로 표시됩니다. 아무것도 나타나지 않으면 chrome://settings/handlers에서 프로토콜 핸들러를 활성화하세요.",
       "default": "브라우저에서 메시지가 표시되면 등록을 완료하기 위해 수락해 주세요."
     }
+  },
+  "fieldHelp": {
+    "trigger": "자세한 정보"
   },
   "numberInput": {
     "unlimited": "무제한",

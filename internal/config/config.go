@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/autobrr/qui/internal/domain"
+	"github.com/autobrr/qui/pkg/httphelpers"
 )
 
 var envPrefix = "QUI__"
@@ -103,11 +104,12 @@ func (c *AppConfig) defaults() {
 	c.viper.SetDefault("baseUrl", "/")
 	c.viper.SetDefault("corsAllowedOrigins", []string{})
 	c.viper.SetDefault("sessionSecret", sessionSecret)
-	c.viper.SetDefault("logLevel", "INFO")
+	c.viper.SetDefault("logLevel", "DEBUG")
 	c.viper.SetDefault("logPath", "")
 	c.viper.SetDefault("logMaxSize", 50)
-	c.viper.SetDefault("logMaxBackups", 3)
-	c.viper.SetDefault("dataDir", "") // Empty means auto-detect (next to config file)
+	c.viper.SetDefault("logMaxBackups", 10)
+	c.viper.SetDefault("dataDir", "")   // Empty means auto-detect (next to config file)
+	c.viper.SetDefault("backupDir", "") // Empty means <dataDir>/backups
 	c.viper.SetDefault("databaseEngine", "sqlite")
 	c.viper.SetDefault("databaseDsn", "")
 	c.viper.SetDefault("databaseHost", "localhost")
@@ -213,6 +215,7 @@ func (c *AppConfig) loadFromEnv() {
 	c.viper.BindEnv("logMaxSize", envPrefix+"LOG_MAX_SIZE")
 	c.viper.BindEnv("logMaxBackups", envPrefix+"LOG_MAX_BACKUPS")
 	c.viper.BindEnv("dataDir", envPrefix+"DATA_DIR")
+	c.viper.BindEnv("backupDir", envPrefix+"BACKUP_DIR")
 	c.viper.BindEnv("databaseEngine", envPrefix+"DATABASE_ENGINE")
 	c.bindOrReadFromFile("databaseDsn", envPrefix+"DATABASE_DSN")
 	c.viper.BindEnv("databaseHost", envPrefix+"DATABASE_HOST")
@@ -320,7 +323,8 @@ func (c *AppConfig) applyDynamicChanges(previousAuthSettings authReloadSettings)
 func (c *AppConfig) hydrateConfigFromViper() {
 	c.Config.Host = c.viper.GetString("host")
 	c.Config.Port = c.viper.GetInt("port")
-	c.Config.BaseURL = c.viper.GetString("baseUrl")
+	// Canonical "/prefix/" form; the index.html redirect breaks on a slashless base.
+	c.Config.BaseURL = httphelpers.NormalizeBasePath(c.viper.GetString("baseUrl")) + "/"
 	c.Config.CORSAllowedOrigins = c.getNormalizedStringSlice("corsAllowedOrigins")
 	c.Config.SessionSecret = c.viper.GetString("sessionSecret")
 
@@ -330,6 +334,7 @@ func (c *AppConfig) hydrateConfigFromViper() {
 	c.Config.LogMaxBackups = c.viper.GetInt("logMaxBackups")
 
 	c.Config.DataDir = c.viper.GetString("dataDir")
+	c.Config.BackupDir = c.viper.GetString("backupDir")
 	c.Config.DatabaseEngine = c.viper.GetString("databaseEngine")
 	c.Config.DatabaseDSN = c.viper.GetString("databaseDsn")
 	c.Config.DatabaseHost = c.viper.GetString("databaseHost")
@@ -490,17 +495,26 @@ sessionSecret = "{{ .sessionSecret }}"
 #logPath = "log/qui.log"
 
 # Log rotation
-# Maximum log file size in megabytes before rotation
+# Size in MB that starts a rotation
 # Default: {{ .logMaxSize }}
 #logMaxSize = {{ .logMaxSize }}
 
-# Number of rotated log files to retain (0 keeps all)
+# Number of rotated log files that qui keeps (0 keeps all)
+# Rotated files are gzip-compressed. Measured on the logs of qui, a 50 MB file
+# compresses to 2 to 3 MB.
 # Default: {{ .logMaxBackups }}
 #logMaxBackups = {{ .logMaxBackups }}
 
 # Data directory (default: next to config file)
 # Database file (qui.db) will be created inside this directory
 #dataDir = "/var/db/qui"
+
+# Backup directory (default: <dataDir>/backups)
+# Backup manifests, archives and cached .torrent files are stored here.
+# A relative path is resolved against the config directory.
+# If you change this on an existing install, move the contents of
+# <dataDir>/backups into the new directory yourself.
+#backupDir = "/mnt/storage/qui-backups"
 
 # Custom themes directory (default: <config-dir>/themes, auto-created)
 # Drop sideloaded *.css theme files here. Listing requires premium access.
@@ -542,9 +556,11 @@ sessionSecret = "{{ .sessionSecret }}"
 #crossSeedRecoverErroredTorrents = false
 
 # Log level
-# Default: "INFO"
+# Default: "DEBUG"
 # Options: "ERROR", "DEBUG", "INFO", "WARN", "TRACE"
-logLevel = "{{ .logLevel }}"
+# DEBUG records sufficient detail to diagnose most reports.
+# TRACE adds per-request and per-sync-tick detail and makes the file grow quickly.
+#logLevel = "{{ .logLevel }}"
 
 # Prometheus Metrics
 # Enable Prometheus metrics on separate port (no authentication required)
@@ -795,6 +811,20 @@ func (c *AppConfig) GetDataDir() string {
 // SetDataDir sets the data directory (used by CLI flags)
 func (c *AppConfig) SetDataDir(dir string) {
 	c.dataDir = dir
+}
+
+// GetBackupDir returns the resolved backup root directory.
+// Empty config defaults to <dataDir>/backups; a relative override is resolved
+// against the config directory, an absolute override is used verbatim.
+func (c *AppConfig) GetBackupDir() string {
+	dir := strings.TrimSpace(c.Config.BackupDir)
+	if dir == "" {
+		return filepath.Join(c.dataDir, "backups")
+	}
+	if !filepath.IsAbs(dir) {
+		return filepath.Join(c.GetConfigDir(), dir)
+	}
+	return dir
 }
 
 // GetConfigDir returns the directory containing the config file

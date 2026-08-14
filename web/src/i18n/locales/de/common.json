@@ -28,7 +28,11 @@
     "showSidebar": "Sidebar anzeigen",
     "hideSidebar": "Sidebar ausblenden"
   },
+  "expand": "Erweitern",
+  "collapse": "Reduzieren",
   "header": {
+    "showColumnFilters": "Spaltenfilter anzeigen",
+    "hideColumnFilters": "Spaltenfilter ausblenden",
     "currentInstance": "Aktuelle Instanz: {{name}}. Zum Wechseln der Instanz klicken.",
     "connected": "Verbunden",
     "disconnected": "Getrennt",
@@ -161,6 +165,9 @@
       "chromium": "Chrome zeigt dies oft als kleines Protokoll-Handler-Symbol in der Adressleiste an; falls nichts erscheint, aktiviere die Protokoll-Handler unter chrome://settings/handlers.",
       "default": "Wenn dein Browser dich dazu auffordert, bestätige bitte, um die Registrierung abzuschließen."
     }
+  },
+  "fieldHelp": {
+    "trigger": "Weitere Informationen"
   },
   "numberInput": {
     "unlimited": "Unbegrenzt",

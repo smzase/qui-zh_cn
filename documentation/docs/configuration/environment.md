@@ -35,13 +35,15 @@ QUI__SESSION_SECRET=...       # Auto-generated if not set
 ## Logging
 
 ```bash
-QUI__LOG_LEVEL=INFO      # Options: ERROR, DEBUG, INFO, WARN, TRACE
+QUI__LOG_LEVEL=DEBUG     # Options: ERROR, DEBUG, INFO, WARN, TRACE (default: DEBUG)
 QUI__LOG_PATH=...        # Optional: log file path
-QUI__LOG_MAX_SIZE=50     # Optional: rotate when log file exceeds N megabytes (default: 50)
-QUI__LOG_MAX_BACKUPS=3   # Optional: retain N rotated files (default: 3, 0 keeps all)
+QUI__LOG_MAX_SIZE=50     # Optional: rotate when the log file is larger than N MB (default: 50)
+QUI__LOG_MAX_BACKUPS=10  # Optional: retain N rotated files (default: 10, 0 keeps all)
 ```
 
-When `logPath` is set the server writes to disk using size-based rotation. Adjust `logMaxSize` and `logMaxBackups` in `config.toml` or the corresponding environment variables to control the rotation thresholds and retention.
+When `logPath` is set, the server writes to disk with size-based rotation. Adjust `logMaxSize` and `logMaxBackups` in `config.toml`, or set the equivalent environment variables. Rotated files are gzip-compressed. Measured on the logs of qui, a 50 MB file compresses to 2 to 3 MB, thus ten backups use about 25 MB. The ratio depends on the content of your log.
+
+Rotation and retention apply only when `logPath` is set. If you run qui in Docker, it writes the logs to stdout by default. Rotation does not apply to these logs. To limit the size of the container log, set `QUI__LOG_PATH`. As an alternative, set the `max-size` option on the container log driver.
 
 ## Storage
 
@@ -50,6 +52,12 @@ QUI__DATA_DIR=...        # Optional: custom runtime data directory (default: nex
 ```
 
 `QUI__DATA_DIR` is always used for runtime assets (logs, tracker icon cache, etc.). With `QUI__DATABASE_ENGINE=sqlite`, `qui.db` is also stored there.
+
+```bash
+QUI__BACKUP_DIR=...      # Optional: custom backup directory (default: <dataDir>/backups)
+```
+
+`QUI__BACKUP_DIR` sets where qui writes [backup](../features/backups.md) manifests, archives, and cached `.torrent` files. Point it at separate storage, for example a redundant array or a network share. Then a failure of the data drive does not also remove your backups. If you change this on an existing install, move the contents of `<dataDir>/backups` to the new directory.
 
 ```bash
 QUI__CUSTOM_THEMES_DIR=...  # Optional: directory for sideloaded custom theme .css files (default: <config-dir>/themes)

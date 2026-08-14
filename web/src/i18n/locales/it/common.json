@@ -28,7 +28,11 @@
     "showSidebar": "Mostra barra laterale",
     "hideSidebar": "Nascondi barra laterale"
   },
+  "expand": "Espandi",
+  "collapse": "Comprimi",
   "header": {
+    "showColumnFilters": "Mostra filtri colonna",
+    "hideColumnFilters": "Nascondi filtri colonna",
     "currentInstance": "Istanza attuale: {{name}}. Clicca per cambiare istanza.",
     "connected": "Connesso",
     "disconnected": "Disconnesso",
@@ -161,6 +165,9 @@
       "chromium": "Chrome spesso lo mostra come una piccola icona di gestore di protocollo nella barra degli indirizzi; se non appare nulla, abilita i gestori di protocollo in chrome://settings/handlers.",
       "default": "Se il browser te lo chiede, accetta per completare la registrazione."
     }
+  },
+  "fieldHelp": {
+    "trigger": "Maggiori informazioni"
   },
   "numberInput": {
     "unlimited": "Illimitato",

@@ -124,9 +124,20 @@ qui 由志愿者开发和维护。您的支持将帮助我们持续改进项目�
 
 ## 贡献
 
-欢迎贡献代码。注意：本仓库仅限**协作者**创建 Pull Request。请先通过 Discussion/Issue（或 Discord）与我们协调变更事宜。
+欢迎贡献代码。
 
-开发与测试流程请参见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+开发与测试流程请参见 [`CONTRIBUTING.md`](.github/CONTRIBUTING.md)。
+
+## 其他界面
+
+如果 qui 不适合您的使用环境，以下项目提供了不同的选择：
+
+- [VueTorrent](https://github.com/VueTorrent/VueTorrent) 是一个现代化的响应式 WebUI。
+- [iQbit](https://github.com/ntoporcov/iQbit) 是一个侧重移动端的 WebUI 和 PWA。
+- [Flood](https://github.com/jesec/flood) 支持 qBittorrent 及其他 BT 客户端。
+- [qBitController](https://github.com/Bartuzen/qBitController) 是适用于 Android、iOS、Linux、macOS 和 Windows 的原生应用。
+
+qBittorrent Wiki 中还有更完整的[社区 WebUI 列表](https://github.com/qbittorrent/qBittorrent/wiki/List-of-known-alternate-WebUIs)。
 
 ## 许可证
 

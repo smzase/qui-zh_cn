@@ -685,6 +685,8 @@
     "expires": "Expires {{time}}",
     "refreshFromIndexers": "Refresh from indexers",
     "partialResults": "Partial results - some indexers did not respond",
+    "arrLookupFailed": "Metadata ID lookup failed - searched by title only, results may be incomplete",
+    "arrNoIds": "No metadata IDs found for this release - searched by title only",
     "searchScope": "Search Scope",
     "noIndexers": "No Torznab indexers available",
     "noIndexersHelp": "Add or enable Torznab indexers in Settings to search for cross-seeds.",
@@ -807,6 +809,32 @@
     }
   },
   "filterSidebar": {
+    "views": {
+      "title": "Views",
+      "empty": "No saved views yet. Choose some filters, then save them here.",
+      "saveCurrent": "Save current filters",
+      "actions": "View actions",
+      "updateFilters": "Update filters",
+      "rename": "Rename",
+      "delete": "Delete",
+      "undo": "Undo",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saveTitle": "Save view",
+      "saveDescription": "Save the current filter selection as a named view. Search, sorting and column filters are not included.",
+      "renameTitle": "Rename view",
+      "renameDescription": "Give this saved view a new name.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Stalled seeds",
+      "deleteTitle": "Delete view",
+      "deleteDescription": "Delete \"{{name}}\"? This cannot be undone.",
+      "toasts": {
+        "createFailed": "Failed to save view",
+        "updateFailed": "Failed to update view",
+        "deleteFailed": "Failed to delete view",
+        "updated": "\"{{name}}\" updated"
+      }
+    },
     "title": "Filters",
     "clearAll": "Clear all",
     "loading": "Loading...",
@@ -1372,9 +1400,6 @@
       "useGlobalPlaceholder": "0 = use global",
       "seedTimeLimit": "Seed time limit (minutes)",
       "contentLayout": "Content layout",
-      "syncLayout": "Sync layout",
-      "layoutSyncEnabled": "Layout sync is on. Column widths, visibility, order, and sorting are shared across instances.",
-      "layoutSyncDisabled": "Layout sync is off. Click to share this instance's column layout across instances.",
       "useGlobalSetting": "Use global setting",
       "original": "Original",
       "createSubfolder": "Create subfolder",
@@ -1465,6 +1490,9 @@
     "ratio": "Ratio:"
   },
   "tableView": {
+    "layoutSyncDisabled": "Layout sync is off. Click to share this instance's column layout across instances.",
+    "layoutSyncEnabled": "Layout sync is on. Column widths, visibility, order, and sorting are shared across instances.",
+    "syncLayout": "Sync layout",
     "ascending": "ascending",
     "changeSortField": "Change sort field",
     "clearAllColumnFilters": "Clear all column filters ({{count}})",

@@ -2117,6 +2117,97 @@ func TestEvaluateCondition_HardlinkScope(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "scope is both - outside_qbittorrent condition still matches (historical semantics)",
+			cond: &RuleCondition{
+				Field:    FieldHardlinkScope,
+				Operator: OperatorEqual,
+				Value:    HardlinkScopeOutsideQBitTorrent,
+			},
+			evalCtx: &EvalContext{
+				InstanceHasLocalAccess: true,
+				HardlinkScopeByHash:    map[string]string{"abc123": HardlinkScopeBoth},
+			},
+			expected: true,
+		},
+		{
+			name: "scope is both - inside_qbittorrent condition matches",
+			cond: &RuleCondition{
+				Field:    FieldHardlinkScope,
+				Operator: OperatorEqual,
+				Value:    HardlinkScopeInsideQBitTorrent,
+			},
+			evalCtx: &EvalContext{
+				InstanceHasLocalAccess: true,
+				HardlinkScopeByHash:    map[string]string{"abc123": HardlinkScopeBoth},
+			},
+			expected: true,
+		},
+		{
+			name: "scope is torrents_only - inside_qbittorrent condition matches",
+			cond: &RuleCondition{
+				Field:    FieldHardlinkScope,
+				Operator: OperatorEqual,
+				Value:    HardlinkScopeInsideQBitTorrent,
+			},
+			evalCtx: &EvalContext{
+				InstanceHasLocalAccess: true,
+				HardlinkScopeByHash:    map[string]string{"abc123": HardlinkScopeTorrentsOnly},
+			},
+			expected: true,
+		},
+		{
+			name: "scope is outside_qbittorrent - inside_qbittorrent condition does not match",
+			cond: &RuleCondition{
+				Field:    FieldHardlinkScope,
+				Operator: OperatorEqual,
+				Value:    HardlinkScopeInsideQBitTorrent,
+			},
+			evalCtx: &EvalContext{
+				InstanceHasLocalAccess: true,
+				HardlinkScopeByHash:    map[string]string{"abc123": HardlinkScopeOutsideQBitTorrent},
+			},
+			expected: false,
+		},
+		{
+			name: "scope is none - inside_qbittorrent condition does not match",
+			cond: &RuleCondition{
+				Field:    FieldHardlinkScope,
+				Operator: OperatorEqual,
+				Value:    HardlinkScopeInsideQBitTorrent,
+			},
+			evalCtx: &EvalContext{
+				InstanceHasLocalAccess: true,
+				HardlinkScopeByHash:    map[string]string{"abc123": HardlinkScopeNone},
+			},
+			expected: false,
+		},
+		{
+			name: "scope is both - not outside_qbittorrent condition does not match",
+			cond: &RuleCondition{
+				Field:    FieldHardlinkScope,
+				Operator: OperatorNotEqual,
+				Value:    HardlinkScopeOutsideQBitTorrent,
+			},
+			evalCtx: &EvalContext{
+				InstanceHasLocalAccess: true,
+				HardlinkScopeByHash:    map[string]string{"abc123": HardlinkScopeBoth},
+			},
+			expected: false,
+		},
+		{
+			name: "scope is both - equal both matches",
+			cond: &RuleCondition{
+				Field:    FieldHardlinkScope,
+				Operator: OperatorEqual,
+				Value:    HardlinkScopeBoth,
+			},
+			evalCtx: &EvalContext{
+				InstanceHasLocalAccess: true,
+				HardlinkScopeByHash:    map[string]string{"abc123": HardlinkScopeBoth},
+			},
+			expected: true,
+		},
+		{
 			name: "scope is not outside_qbittorrent - match (none)",
 			cond: &RuleCondition{
 				Field:    FieldHardlinkScope,
@@ -3627,6 +3718,102 @@ func TestEvaluateCondition_TrackerStatusAndMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := EvaluateConditionWithContext(tt.cond, tt.torrent, nil, 0)
+			if got != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestEvaluateCondition_CrossSeedTags(t *testing.T) {
+	memberCtx := &EvalContext{
+		SameInstanceCrossSeedTagsByHash: map[string][]string{
+			"abc123": {"archived, permaseed", "other-copy-tag"},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		cond     *RuleCondition
+		torrent  qbt.Torrent
+		ctx      *EvalContext
+		expected bool
+	}{
+		{
+			name:     "self-only fallback with nil ctx",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorEqual, Value: "noHL"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: "cross-seed, noHL"},
+			ctx:      nil,
+			expected: true,
+		},
+		{
+			name:     "self-only fallback with empty ctx",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorEqual, Value: "noHL"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: "cross-seed, noHL"},
+			ctx:      &EvalContext{},
+			expected: true,
+		},
+		{
+			name:     "hash absent from member map degrades to self tags",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorEqual, Value: "archived"},
+			torrent:  qbt.Torrent{Hash: "lone_torrent", Tags: "racing"},
+			ctx:      memberCtx,
+			expected: false,
+		},
+		{
+			name:     "equal matches member-only tag",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorEqual, Value: "archived"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: "racing"},
+			ctx:      memberCtx,
+			expected: true,
+		},
+		{
+			name:     "contains matches member-only tag substring",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorContains, Value: "perma"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: ""},
+			ctx:      memberCtx,
+			expected: true,
+		},
+		{
+			name:     "empty self tags with tagged member still matches",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorEqual, Value: "other-copy-tag"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: ""},
+			ctx:      memberCtx,
+			expected: true,
+		},
+		{
+			name:     "not contains false when a member carries the tag",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorNotContains, Value: "archived"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: "racing"},
+			ctx:      memberCtx,
+			expected: false,
+		},
+		{
+			name:     "not contains true when no copy carries the tag",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorNotContains, Value: "missing-everywhere"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: "racing"},
+			ctx:      memberCtx,
+			expected: true,
+		},
+		{
+			name:     "not equal false when a member carries the exact tag",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorNotEqual, Value: "other-copy-tag"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: "racing"},
+			ctx:      memberCtx,
+			expected: false,
+		},
+		{
+			name:     "regex matches over joined tag string",
+			cond:     &RuleCondition{Field: FieldCrossSeedTags, Operator: OperatorMatches, Value: "perma.*"},
+			torrent:  qbt.Torrent{Hash: "abc123", Tags: "racing"},
+			ctx:      memberCtx,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EvaluateConditionWithContext(tt.cond, tt.torrent, tt.ctx, 0)
 			if got != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, got)
 			}

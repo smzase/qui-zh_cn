@@ -28,7 +28,11 @@
     "showSidebar": "Afficher la barre latérale",
     "hideSidebar": "Masquer la barre latérale"
   },
+  "expand": "Développer",
+  "collapse": "Réduire",
   "header": {
+    "showColumnFilters": "Afficher les filtres de colonne",
+    "hideColumnFilters": "Masquer les filtres de colonne",
     "currentInstance": "Instance actuelle : {{name}}. Cliquez pour changer d'instance.",
     "connected": "Connecté",
     "disconnected": "Déconnecté",
@@ -161,6 +165,9 @@
       "chromium": "Chrome affiche souvent cela comme une petite icône dans la barre d'adresse ; si rien n'apparaît, activez-le via chrome://settings/handlers.",
       "default": "Si votre navigateur vous y invite, veuillez accepter pour finaliser l'enregistrement."
     }
+  },
+  "fieldHelp": {
+    "trigger": "Plus d'informations"
   },
   "numberInput": {
     "unlimited": "Illimité",

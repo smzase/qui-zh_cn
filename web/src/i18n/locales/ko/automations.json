@@ -210,6 +210,7 @@
       "SEEDING_ON_OTHER_INSTANCE": "다른 인스턴스에서 시딩 중",
       "EXISTS_ON_SAME_INSTANCE": "동일 인스턴스에 Cross-seed 존재",
       "SEEDING_ON_SAME_INSTANCE": "동일 인스턴스에서 Cross-seed 시딩 중",
+      "CROSS_SEED_TAGS": "크로스시드 태그",
       "HARDLINK_SCOPE": "하드링크 범위"
     },
     "fieldGroups": {
@@ -263,7 +264,9 @@
     "hardlinkScopes": {
       "none": "없음",
       "torrents_only": "다른 토렌트만",
-      "outside_qbittorrent": "qBittorrent 외부 (라이브러리/가져오기)"
+      "inside_qbittorrent": "qBittorrent 내부 (외부 링크가 있어도 포함)",
+      "outside_qbittorrent": "qBittorrent 외부 (라이브러리/가져오기)",
+      "both": "qBittorrent 내부 + 외부"
     },
     "trackerStatuses": {
       "not_contacted": "접속 시도 안 함",

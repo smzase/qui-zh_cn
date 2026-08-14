@@ -266,7 +266,6 @@
         "discord": "discord://token@id"
       },
       "enabled": "활성화됨",
-      "enabledDescription": "이 대상에 대한 전송을 전환합니다.",
       "events": "이벤트",
       "selectAll": "모두 선택",
       "select": "선택",
@@ -831,6 +830,13 @@
         "created": "{{count}}개 생성됨",
         "updated": "{{count}}개 업데이트됨",
         "failed": "{{count}}개 실패"
+      },
+      "savedConnections": {
+        "title": "저장된 연결",
+        "description": "이전에 가져온 서버를 사용하세요. API 키는 서버에 보관됩니다.",
+        "manual": "직접 입력",
+        "storedKey": "이 서버에 저장된 API 키를 사용합니다.",
+        "indexerCount_other": "인덱서 {{count}}개"
       }
     },
     "table": {

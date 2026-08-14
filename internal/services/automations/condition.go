@@ -120,6 +120,7 @@ const (
 	FieldSeedingOnOtherInstance = models.FieldSeedingOnOtherInstance
 	FieldExistsOnSameInstance   = models.FieldExistsOnSameInstance
 	FieldSeedingOnSameInstance  = models.FieldSeedingOnSameInstance
+	FieldCrossSeedTags          = models.FieldCrossSeedTags
 
 	// Enum-like fields
 	FieldHardlinkScope      = models.FieldHardlinkScope
@@ -129,6 +130,8 @@ const (
 	HardlinkScopeNone               = models.HardlinkScopeNone
 	HardlinkScopeTorrentsOnly       = models.HardlinkScopeTorrentsOnly
 	HardlinkScopeOutsideQBitTorrent = models.HardlinkScopeOutsideQBitTorrent
+	HardlinkScopeBoth               = models.HardlinkScopeBoth
+	HardlinkScopeInsideQBitTorrent  = models.HardlinkScopeInsideQBitTorrent
 
 	// Delete modes
 	DeleteModeNone                        = models.DeleteModeNone

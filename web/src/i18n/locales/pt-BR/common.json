@@ -28,7 +28,11 @@
     "showSidebar": "Mostrar barra lateral",
     "hideSidebar": "Ocultar barra lateral"
   },
+  "expand": "Expandir",
+  "collapse": "Recolher",
   "header": {
+    "showColumnFilters": "Mostrar filtros de coluna",
+    "hideColumnFilters": "Ocultar filtros de coluna",
     "currentInstance": "Instância atual: {{name}}. Clique para trocar de instância.",
     "connected": "Conectado",
     "disconnected": "Desconectado",
@@ -161,6 +165,9 @@
       "chromium": "O Chrome geralmente mostra isso como um pequeno ícone de manipulador de protocolo na barra de endereços; se nada aparecer, ative os manipuladores de protocolo em chrome://settings/handlers.",
       "default": "Se solicitado pelo seu navegador, por favor aceite para concluir o registro."
     }
+  },
+  "fieldHelp": {
+    "trigger": "Mais informações"
   },
   "numberInput": {
     "unlimited": "Ilimitado",

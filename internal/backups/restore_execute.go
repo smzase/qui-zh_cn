@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -276,15 +275,19 @@ func (s *Service) applyTorrentPlan(ctx context.Context, plan *RestorePlan, appli
 		if opts.SkipHashCheck {
 			options["skip_checking"] = "true"
 		}
+		categoryManaged := false
 		if spec.Manifest.Category != nil {
 			category := strings.TrimSpace(*spec.Manifest.Category)
 			if category != "" {
 				options["category"] = category
+				categoryManaged = true
 			}
 		}
 		if len(spec.Manifest.Tags) > 0 {
 			options["tags"] = strings.Join(spec.Manifest.Tags, ",")
 		}
+		// Category and tags ride on the add. A post-add SetCategory raced the
+		// sync cache and failed for a torrent qB had accepted (#2259).
 
 		// Pin the captured per-torrent save path so torrents whose on-disk
 		// location diverges from their category (cross-seed hardlinks, manual
@@ -299,6 +302,11 @@ func (s *Service) applyTorrentPlan(ctx context.Context, plan *RestorePlan, appli
 			options["autoTMM"] = "false"
 			options["savepath"] = savePath
 			pinned = true
+		} else if categoryManaged {
+			// A missing per-torrent path means capture proved the category path
+			// can reproduce placement. qB does not select that path merely because
+			// category is present on add; Auto TMM must be requested explicitly.
+			options["autoTMM"] = "true"
 		}
 
 		if _, err := s.torrentWriter.AddTorrent(ctx, instanceID, payload, options); err != nil {
@@ -308,20 +316,6 @@ func (s *Service) applyTorrentPlan(ctx context.Context, plan *RestorePlan, appli
 		}
 		if pinned {
 			pinnedSavePaths++
-		}
-
-		desiredCategory := normalizeCategory(spec.Manifest.Category)
-		if desiredCategory != "" {
-			if err := s.torrentWriter.SetCategory(ctx, instanceID, []string{spec.Manifest.Hash}, desiredCategory); err != nil {
-				appendRestoreError(errs, "set_category", spec.Manifest.Hash, err)
-			}
-		}
-
-		if len(spec.Manifest.Tags) > 0 {
-			tagPayload := strings.Join(spec.Manifest.Tags, ",")
-			if err := s.torrentWriter.SetTags(ctx, instanceID, []string{spec.Manifest.Hash}, tagPayload); err != nil {
-				appendRestoreError(errs, "set_tags", spec.Manifest.Hash, err)
-			}
 		}
 
 		applied.Torrents.Added = append(applied.Torrents.Added, spec.Manifest.Hash)
@@ -451,44 +445,15 @@ func shouldSkipTorrent(hash string, exclude map[string]struct{}) bool {
 }
 
 func (s *Service) loadTorrentBlobData(blobPath string) ([]byte, error) {
-	dataDir := strings.TrimSpace(s.cfg.DataDir)
-	if dataDir == "" {
-		return nil, errors.New("backup data directory not configured")
+	abs := s.ResolveBackupPath(blobPath)
+	if abs == "" {
+		return nil, fmt.Errorf("invalid torrent blob path %q", blobPath)
 	}
-	cleanRel := filepath.Clean(blobPath)
-	cleanRel = strings.TrimPrefix(cleanRel, string(filepath.Separator))
-
-	baseAbs, err := filepath.Abs(dataDir)
+	data, err := os.ReadFile(abs)
 	if err != nil {
-		return nil, fmt.Errorf("resolve data directory: %w", err)
-	}
-
-	resolve := func(rel string) ([]byte, error) {
-		abs, err := filepath.Abs(filepath.Join(baseAbs, rel))
-		if err != nil {
-			return nil, err
-		}
-		if !strings.HasPrefix(abs, baseAbs+string(filepath.Separator)) && abs != baseAbs {
-			return nil, fmt.Errorf("invalid blob path %q", rel)
-		}
-		return os.ReadFile(abs)
-	}
-
-	data, err := resolve(cleanRel)
-	if err == nil {
-		return data, nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("read torrent blob %q: %w", blobPath, err)
 	}
-
-	altRel := filepath.ToSlash(filepath.Join("backups", cleanRel))
-	data, altErr := resolve(altRel)
-	if altErr == nil {
-		return data, nil
-	}
-
-	return nil, fmt.Errorf("read torrent blob %q: %w", blobPath, err)
+	return data, nil
 }
 
 func appendRestoreError(errs *[]RestoreError, operation, target string, err error) {

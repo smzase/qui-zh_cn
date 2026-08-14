@@ -210,6 +210,7 @@
       "SEEDING_ON_OTHER_INSTANCE": "Semeando em Outra Instância",
       "EXISTS_ON_SAME_INSTANCE": "Cross-seed Existe na Mesma Instância",
       "SEEDING_ON_SAME_INSTANCE": "Cross-seed Semeando na Mesma Instância",
+      "CROSS_SEED_TAGS": "Tags de cross-seed",
       "HARDLINK_SCOPE": "Escopo de Hardlink"
     },
     "fieldGroups": {
@@ -263,7 +264,9 @@
     "hardlinkScopes": {
       "none": "Nenhum",
       "torrents_only": "Apenas outros torrents",
-      "outside_qbittorrent": "Fora do qBittorrent (biblioteca/importação)"
+      "inside_qbittorrent": "Dentro do qBittorrent (mesmo se também vinculado fora)",
+      "outside_qbittorrent": "Fora do qBittorrent (biblioteca/importação)",
+      "both": "Dentro + fora do qBittorrent"
     },
     "trackerStatuses": {
       "not_contacted": "Não contatado",

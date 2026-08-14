@@ -266,7 +266,6 @@
         "discord": "discord://token@id"
       },
       "enabled": "Aktiviert",
-      "enabledDescription": "Zustellung für dieses Ziel umschalten.",
       "events": "Ereignisse",
       "selectAll": "Alle auswählen",
       "select": "Auswählen",
@@ -833,6 +832,14 @@
         "created": "{{count}} erstellt",
         "updated": "{{count}} aktualisiert",
         "failed": "{{count}} fehlgeschlagen"
+      },
+      "savedConnections": {
+        "title": "Gespeicherte Verbindungen",
+        "description": "Einen bereits importierten Server verwenden. Der API-Key bleibt auf dem Server.",
+        "manual": "Manuell eingeben",
+        "storedKey": "Der gespeicherte API-Key für diesen Server wird verwendet.",
+        "indexerCount_one": "{{count}} Indexer",
+        "indexerCount_other": "{{count}} Indexer"
       }
     },
     "table": {

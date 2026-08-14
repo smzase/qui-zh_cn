@@ -77,11 +77,15 @@ export interface CrossSeedTorrentSearchResult {
   matchScore: number
 }
 
+/** Set when the ARR external-ID lookup could not supply IDs and the search ran title-only. */
+export type CrossSeedQueryDegradedReason = "arr_lookup_failed" | "arr_no_ids"
+
 export interface CrossSeedTorrentSearchResponse {
   sourceTorrent: CrossSeedTorrentInfo
   results: CrossSeedTorrentSearchResult[]
   cache?: TorznabSearchCacheMetadata
   partial?: boolean
+  queryDegraded?: CrossSeedQueryDegradedReason
 }
 
 export interface CrossSeedTorrentSearchSelection {
@@ -148,6 +152,11 @@ export interface SeasonPackCategoryRule {
   category: string
 }
 
+export interface CategoryMappingRule {
+  categories: string[]
+  contentType: string
+}
+
 export interface CrossSeedAutomationSettings {
   enabled: boolean
   runIntervalMinutes: number
@@ -166,7 +175,7 @@ export interface CrossSeedAutomationSettings {
   webhookSourceExcludeCategories: string[]
   webhookSourceExcludeTags: string[]
   findIndividualEpisodes: boolean
-  sizeMismatchTolerancePercent: number
+  autoResumeMaxDownloadMb: number
   useCategoryFromIndexer: boolean
   useCrossCategoryAffix: boolean
   categoryAffixMode: "prefix" | "suffix"
@@ -174,6 +183,8 @@ export interface CrossSeedAutomationSettings {
   useCustomCategory: boolean
   customCategory: string
   runExternalProgramId?: number | null
+  // Category mapping: force the search category by qBittorrent category
+  categoryMappingRules: CategoryMappingRule[]
   // Source-specific tagging
   rssAutomationTags: string[]
   seededSearchTags: string[]
@@ -186,6 +197,7 @@ export interface CrossSeedAutomationSettings {
   skipAutoResumeCompletion: boolean
   skipAutoResumeWebhook: boolean
   skipRecheck: boolean
+  rescueTitleMismatches: boolean
   skipPieceBoundarySafetyCheck: boolean
   // Hardlink mode settings
   useHardlinks: boolean
@@ -197,6 +209,7 @@ export interface CrossSeedAutomationSettings {
   orpheusApiKey: string
   // Season pack settings
   seasonPackEnabled: boolean
+  seasonPackAutomationEnabled: boolean
   seasonPackSkipRepackCompare: boolean
   seasonPackSimplifyHdrCompare: boolean
   seasonPackSimplifyWebCompare: boolean
@@ -229,7 +242,7 @@ export interface CrossSeedAutomationSettingsPatch {
   webhookSourceExcludeCategories?: string[]
   webhookSourceExcludeTags?: string[]
   findIndividualEpisodes?: boolean
-  sizeMismatchTolerancePercent?: number
+  autoResumeMaxDownloadMb?: number
   useCategoryFromIndexer?: boolean
   useCrossCategoryAffix?: boolean
   categoryAffixMode?: "prefix" | "suffix"
@@ -237,6 +250,8 @@ export interface CrossSeedAutomationSettingsPatch {
   useCustomCategory?: boolean
   customCategory?: string
   runExternalProgramId?: number | null
+  // Category mapping: force the search category by qBittorrent category
+  categoryMappingRules?: CategoryMappingRule[]
   // Source-specific tagging
   rssAutomationTags?: string[]
   seededSearchTags?: string[]
@@ -249,6 +264,7 @@ export interface CrossSeedAutomationSettingsPatch {
   skipAutoResumeCompletion?: boolean
   skipAutoResumeWebhook?: boolean
   skipRecheck?: boolean
+  rescueTitleMismatches?: boolean
   skipPieceBoundarySafetyCheck?: boolean
   // Hardlink mode settings
   useHardlinks?: boolean
@@ -260,6 +276,7 @@ export interface CrossSeedAutomationSettingsPatch {
   orpheusApiKey?: string
   // Season pack settings
   seasonPackEnabled?: boolean
+  seasonPackAutomationEnabled?: boolean
   seasonPackSkipRepackCompare?: boolean
   seasonPackSimplifyHdrCompare?: boolean
   seasonPackSimplifyWebCompare?: boolean

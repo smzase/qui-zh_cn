@@ -28,7 +28,11 @@
     "showSidebar": "Zobrazit postranní panel",
     "hideSidebar": "Skrýt postranní panel"
   },
+  "expand": "Rozbalit",
+  "collapse": "Sbalit",
   "header": {
+    "showColumnFilters": "Zobrazit filtry sloupců",
+    "hideColumnFilters": "Skrýt filtry sloupců",
     "currentInstance": "Aktuální instance: {{name}}. Klikněte pro přepnutí instance.",
     "connected": "Připojeno",
     "disconnected": "Odpojeno",
@@ -161,6 +165,9 @@
       "chromium": "Chrome to často zobrazuje jako malou ikonu v adresním řádku prohlížeče; pokud se nic nezobrazí, povolte manipulaci protokolů v chrome://settings/handlers.",
       "default": "Pokud váš prohlížeč požádá o registraci, prosím, přijměte ji."
     }
+  },
+  "fieldHelp": {
+    "trigger": "Více informací"
   },
   "numberInput": {
     "unlimited": "Neomezené",

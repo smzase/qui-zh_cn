@@ -266,7 +266,6 @@
         "discord": "discord://token@id"
       },
       "enabled": "Activé",
-      "enabledDescription": "Activer la distribution pour cette cible.",
       "events": "Événements",
       "selectAll": "Tout sélectionner",
       "select": "Sélectionner",
@@ -833,6 +832,14 @@
         "created": "{{count}} créés",
         "updated": "{{count}} mis à jour",
         "failed": "{{count}} échoués"
+      },
+      "savedConnections": {
+        "title": "Connexions enregistrées",
+        "description": "Utilisez un serveur déjà importé. La clé API reste sur le serveur.",
+        "manual": "Saisie manuelle",
+        "storedKey": "La clé API enregistrée pour ce serveur est utilisée.",
+        "indexerCount_one": "{{count}} indexeur",
+        "indexerCount_other": "{{count}} indexeurs"
       }
     },
     "table": {
