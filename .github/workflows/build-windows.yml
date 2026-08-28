@@ -143,31 +143,8 @@ jobs:
             ./cmd/qui
           chmod +x qui_linux_${{ matrix.goarch }}
 
-      - name: Generate systemd service file
-        run: |
-          cat > qui.service <<'EOF'
-          [Unit]
-          Description=qui service
-          Wants=network.target
-          After=network.target network.service
-
-          [Service]
-          Type=simple
-          ExecStart=/usr/bin/qui
-          Restart=on-failure
-          RestartSec=15s
-          StartLimitIntervalSec=300
-          StartLimitBurst=20
-          LimitNOFILE=8096
-
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-
       - name: Upload Linux binary
         uses: actions/upload-artifact@v7
         with:
           name: qui-linux-${{ matrix.goarch }}
-          path: |
-            qui_linux_${{ matrix.goarch }}
-            qui.service
+          path: qui_linux_${{ matrix.goarch }}
