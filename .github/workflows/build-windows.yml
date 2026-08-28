@@ -139,12 +139,12 @@ jobs:
         run: |
           go build -trimpath \
             -ldflags "-s -w -X github.com/autobrr/qui/internal/buildinfo.Version=$VERSION -X github.com/autobrr/qui/internal/buildinfo.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X github.com/autobrr/qui/internal/buildinfo.Commit=$(git rev-parse HEAD)" \
-            -o qui_linux_${{ matrix.goarch }} \
+            -o qui \
             ./cmd/qui
-          chmod +x qui_linux_${{ matrix.goarch }}
+          chmod +x qui
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v7
         with:
           name: qui-linux-${{ matrix.goarch }}
-          path: qui_linux_${{ matrix.goarch }}
+          path: qui
