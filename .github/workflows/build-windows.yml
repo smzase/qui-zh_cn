@@ -1,4 +1,4 @@
-name: Build Windows Binary
+name: Build Windows and Linux Binaries
 
 on:
   workflow_dispatch:
@@ -103,3 +103,71 @@ jobs:
         with:
           name: qui-windows-amd64
           path: qui_windows_amd64.exe
+
+  build-linux:
+    name: Build Linux binary (${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    needs: [web]
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: ["amd64", "386"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download web production build
+        uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build Linux binary
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ github.event.inputs.version || 'dev' }}
+        run: |
+          go build -trimpath \
+            -ldflags "-s -w -X github.com/autobrr/qui/internal/buildinfo.Version=$VERSION -X github.com/autobrr/qui/internal/buildinfo.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X github.com/autobrr/qui/internal/buildinfo.Commit=$(git rev-parse HEAD)" \
+            -o qui_linux_${{ matrix.goarch }} \
+            ./cmd/qui
+          chmod +x qui_linux_${{ matrix.goarch }}
+
+      - name: Generate systemd service file
+        run: |
+          cat > qui.service <<'EOF'
+          [Unit]
+          Description=qui service
+          Wants=network.target
+          After=network.target network.service
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/qui
+          Restart=on-failure
+          RestartSec=15s
+          StartLimitIntervalSec=300
+          StartLimitBurst=20
+          LimitNOFILE=8096
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+      - name: Upload Linux binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: qui-linux-${{ matrix.goarch }}
+          path: |
+            qui_linux_${{ matrix.goarch }}
+            qui.service
