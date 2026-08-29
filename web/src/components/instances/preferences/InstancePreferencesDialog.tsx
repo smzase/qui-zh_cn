@@ -148,6 +148,7 @@ export function InstancePreferencesDialog({
   } = useInstances()
   const currentInstance = instances?.find(i => i.id === instanceId) ?? instance
   const displayInstanceName = currentInstance?.name ?? instanceName
+  const isTransmission = currentInstance?.clientType === "transmission"
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [lazyRetryKey, setLazyRetryKey] = useState(0)
 
@@ -181,6 +182,10 @@ export function InstancePreferencesDialog({
   )
   const AdvancedNetworkForm = useMemo(
     () => lazy(() => import("./AdvancedNetworkForm").then(m => ({ default: m.AdvancedNetworkForm }))),
+    [lazyRetryKey]
+  )
+  const TransmissionPreferencesForm = useMemo(
+    () => lazy(() => import("./TransmissionPreferencesForm").then(m => ({ default: m.TransmissionPreferencesForm }))),
     [lazyRetryKey]
   )
 
@@ -278,42 +283,57 @@ export function InstancePreferencesDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue={defaultTab ?? "instance"} className="flex w-full min-h-0 flex-1 flex-col">
+          <Tabs
+            defaultValue={isTransmission && defaultTab !== "instance" ? "instance" : defaultTab ?? "instance"}
+            className="flex w-full min-h-0 flex-1 flex-col"
+          >
             <div className="relative shrink-0">
               <TabsList className="flex w-full justify-start overflow-x-auto h-11 sm:h-9">
                 <TabsTrigger value="instance" className="flex items-center gap-1.5 shrink-0">
                   <Server className="h-4 w-4" />
                   <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.instance")}</span>
                 </TabsTrigger>
-                <div className="h-6 w-px bg-muted-foreground/50 mx-1 sm:mx-2 self-center shrink-0" />
-                <TabsTrigger value="speed" className="flex items-center gap-1.5 shrink-0">
-                  <Gauge className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.speed")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="queue" className="flex items-center gap-1.5 shrink-0">
-                  <Clock className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.queue")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="files" className="flex items-center gap-1.5 shrink-0">
-                  <Folder className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.files")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="seeding" className="flex items-center gap-1.5 shrink-0">
-                  <Upload className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.seeding")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="connection" className="flex items-center gap-1.5 shrink-0">
-                  <Wifi className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.connection")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="discovery" className="flex items-center gap-1.5 shrink-0">
-                  <Radar className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.discovery")}</span>
-                </TabsTrigger>
-                <TabsTrigger value="advanced" className="flex items-center gap-1.5 shrink-0">
-                  <Settings className="h-4 w-4" />
-                  <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.advanced")}</span>
-                </TabsTrigger>
+                {isTransmission ? (
+                  <>
+                    <div className="h-6 w-px bg-muted-foreground/50 mx-1 sm:mx-2 self-center shrink-0" />
+                    <TabsTrigger value="transmission" className="flex items-center gap-1.5 shrink-0">
+                      <Settings className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.transmission")}</span>
+                    </TabsTrigger>
+                  </>
+                ) : (
+                  <>
+                    <div className="h-6 w-px bg-muted-foreground/50 mx-1 sm:mx-2 self-center shrink-0" />
+                    <TabsTrigger value="speed" className="flex items-center gap-1.5 shrink-0">
+                      <Gauge className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.speed")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="queue" className="flex items-center gap-1.5 shrink-0">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.queue")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="files" className="flex items-center gap-1.5 shrink-0">
+                      <Folder className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.files")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="seeding" className="flex items-center gap-1.5 shrink-0">
+                      <Upload className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.seeding")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="connection" className="flex items-center gap-1.5 shrink-0">
+                      <Wifi className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.connection")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="discovery" className="flex items-center gap-1.5 shrink-0">
+                      <Radar className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.discovery")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="advanced" className="flex items-center gap-1.5 shrink-0">
+                      <Settings className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.advanced")}</span>
+                    </TabsTrigger>
+                  </>
+                )}
               </TabsList>
             </div>
 
@@ -331,89 +351,105 @@ export function InstancePreferencesDialog({
               )}
             </PreferencesTabSection>
 
-            <PreferencesTabSection
-              value="speed"
-              title={t("preferences.dialog.sections.speedLimits.title")}
-              description={t("preferences.dialog.sections.speedLimits.description")}
-            >
-              <TabErrorBoundary onRetry={handleLazyRetry}>
-                <Suspense fallback={<TabLoadingFallback />}>
-                  <SpeedLimitsForm instanceId={instanceId} onSuccess={handleSuccess} />
-                </Suspense>
-              </TabErrorBoundary>
-            </PreferencesTabSection>
+            {isTransmission ? (
+              <PreferencesTabSection
+                value="transmission"
+                title={t("preferences.dialog.sections.transmission.title")}
+                description={t("preferences.dialog.sections.transmission.description")}
+              >
+                <TabErrorBoundary onRetry={handleLazyRetry}>
+                  <Suspense fallback={<TabLoadingFallback />}>
+                    <TransmissionPreferencesForm instanceId={instanceId} onSuccess={handleSuccess} />
+                  </Suspense>
+                </TabErrorBoundary>
+              </PreferencesTabSection>
+            ) : (
+              <>
+                <PreferencesTabSection
+                  value="speed"
+                  title={t("preferences.dialog.sections.speedLimits.title")}
+                  description={t("preferences.dialog.sections.speedLimits.description")}
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <SpeedLimitsForm instanceId={instanceId} onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
 
-            <PreferencesTabSection
-              value="queue"
-              title={t("preferences.dialog.sections.queueManagement.title")}
-              description={t("preferences.dialog.sections.queueManagement.description")}
-            >
-              <TabErrorBoundary onRetry={handleLazyRetry}>
-                <Suspense fallback={<TabLoadingFallback />}>
-                  <QueueManagementForm instanceId={instanceId} onSuccess={handleSuccess} />
-                </Suspense>
-              </TabErrorBoundary>
-            </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="queue"
+                  title={t("preferences.dialog.sections.queueManagement.title")}
+                  description={t("preferences.dialog.sections.queueManagement.description")}
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <QueueManagementForm instanceId={instanceId} onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
 
-            <PreferencesTabSection
-              value="files"
-              title={t("preferences.dialog.sections.fileManagement.title")}
-              description={t("preferences.dialog.sections.fileManagement.description")}
-            >
-              <TabErrorBoundary onRetry={handleLazyRetry}>
-                <Suspense fallback={<TabLoadingFallback />}>
-                  <FileManagementForm instanceId={instanceId} onSuccess={handleSuccess} />
-                </Suspense>
-              </TabErrorBoundary>
-            </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="files"
+                  title={t("preferences.dialog.sections.fileManagement.title")}
+                  description={t("preferences.dialog.sections.fileManagement.description")}
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <FileManagementForm instanceId={instanceId} onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
 
-            <PreferencesTabSection
-              value="seeding"
-              title={t("preferences.dialog.sections.seedingLimits.title")}
-              description={t("preferences.dialog.sections.seedingLimits.description")}
-            >
-              <TabErrorBoundary onRetry={handleLazyRetry}>
-                <Suspense fallback={<TabLoadingFallback />}>
-                  <SeedingLimitsForm instanceId={instanceId} onSuccess={handleSuccess} />
-                </Suspense>
-              </TabErrorBoundary>
-            </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="seeding"
+                  title={t("preferences.dialog.sections.seedingLimits.title")}
+                  description={t("preferences.dialog.sections.seedingLimits.description")}
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <SeedingLimitsForm instanceId={instanceId} onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
 
-            <PreferencesTabSection
-              value="connection"
-              title={t("preferences.dialog.sections.connectionSettings.title")}
-              description={t("preferences.dialog.sections.connectionSettings.description")}
-            >
-              <TabErrorBoundary onRetry={handleLazyRetry}>
-                <Suspense fallback={<TabLoadingFallback />}>
-                  <ConnectionSettingsForm instanceId={instanceId} onSuccess={handleSuccess} />
-                </Suspense>
-              </TabErrorBoundary>
-            </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="connection"
+                  title={t("preferences.dialog.sections.connectionSettings.title")}
+                  description={t("preferences.dialog.sections.connectionSettings.description")}
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <ConnectionSettingsForm instanceId={instanceId} onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
 
-            <PreferencesTabSection
-              value="discovery"
-              title={t("preferences.dialog.sections.networkDiscovery.title")}
-              description={t("preferences.dialog.sections.networkDiscovery.description")}
-            >
-              <TabErrorBoundary onRetry={handleLazyRetry}>
-                <Suspense fallback={<TabLoadingFallback />}>
-                  <NetworkDiscoveryForm instanceId={instanceId} onSuccess={handleSuccess} />
-                </Suspense>
-              </TabErrorBoundary>
-            </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="discovery"
+                  title={t("preferences.dialog.sections.networkDiscovery.title")}
+                  description={t("preferences.dialog.sections.networkDiscovery.description")}
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <NetworkDiscoveryForm instanceId={instanceId} onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
 
-            <PreferencesTabSection
-              value="advanced"
-              title={t("preferences.dialog.sections.advancedSettings.title")}
-              description={t("preferences.dialog.sections.advancedSettings.description")}
-            >
-              <TabErrorBoundary onRetry={handleLazyRetry}>
-                <Suspense fallback={<TabLoadingFallback />}>
-                  <AdvancedNetworkForm instanceId={instanceId} onSuccess={handleSuccess} />
-                </Suspense>
-              </TabErrorBoundary>
-            </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="advanced"
+                  title={t("preferences.dialog.sections.advancedSettings.title")}
+                  description={t("preferences.dialog.sections.advancedSettings.description")}
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <AdvancedNetworkForm instanceId={instanceId} onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
+              </>
+            )}
 
           </Tabs>
         </DialogContent>

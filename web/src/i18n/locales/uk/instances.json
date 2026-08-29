@@ -195,7 +195,8 @@
         "seeding": "Роздавання",
         "connection": "Підключення",
         "discovery": "Відкриття",
-        "advanced": "Розширені"
+        "advanced": "Розширені",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
@@ -229,6 +230,10 @@
         "advancedSettings": {
           "title": "Розширені налаштування",
           "description": "Налаштування продуктивності, дискового I/O, керування пірами та налаштування безпеки"
+        },
+        "transmission": {
+          "title": "Налаштування демона",
+          "description": "Налаштуйте параметри сеансу демона Transmission: торенти, швидкість, піри та мережа"
         }
       }
     },
@@ -1691,6 +1696,78 @@
     "shareLimit": {
       "global": "Глобальний",
       "unlimited": "Без обмежень"
+    },
+    "transmission": {
+      "loading": "Завантаження налаштувань демона...",
+      "loadFailed": "Не вдалося завантажити налаштування демона",
+      "toast": {
+        "success": "Налаштування демона збережено",
+        "error": "Не вдалося зберегти налаштування демона"
+      },
+      "torrents": {
+        "title": "Торенти",
+        "downloadDir": "Завантажувати до",
+        "tempFolder": "Використовувати тимчасову папку",
+        "tempFolderPath": "Шлях до тимчасової папки",
+        "startAdded": "Починати після додавання",
+        "appendPart": "Додавати «.part» до назв незавершених файлів",
+        "downloadQueue": "Обмежити розмір черги завантажень",
+        "downloadQueueSize": "Розмір черги завантажень",
+        "stopRatio": "Припиняти роздачу за співвідношенням",
+        "stopRatioValue": "Межа співвідношення",
+        "stopIdle": "Припиняти роздачу за бездіяльності",
+        "stopIdleValue": "Хвилин бездіяльності",
+        "minutes": "хв"
+      },
+      "speed": {
+        "title": "Швидкість",
+        "uploadLimit": "Обмежити швидкість віддачі",
+        "uploadLimitValue": "Межа віддачі",
+        "downloadLimit": "Обмежити швидкість завантаження",
+        "downloadLimitValue": "Межа завантаження",
+        "kbps": "кБ/с",
+        "altLimits": "Використовувати альтернативні обмеження швидкості",
+        "altUpload": "Альтернативна межа віддачі",
+        "altUploadUnit": "кБ/с віддача",
+        "altDownload": "Альтернативна межа завантаження",
+        "altDownloadUnit": "кБ/с завантаження",
+        "schedule": "Використовувати запланований час",
+        "from": "Від",
+        "to": "До",
+        "onDays": "У дні",
+        "everyday": "Щодня",
+        "weekdays": "Будні",
+        "weekends": "Вихідні"
+      },
+      "peers": {
+        "title": "Піри",
+        "maxPeersPerTorrent": "Макс. пірів на торент",
+        "maxPeersOverall": "Макс. пірів загалом",
+        "encryption": "Режим шифрування",
+        "encryptionPrefer": "Надавати перевагу шифруванню",
+        "encryptionAllow": "Дозволити шифрування",
+        "encryptionRequire": "Вимагати шифрування",
+        "blocklistEnable": "Увімкнути список блокувань",
+        "blocklistUrl": "URL списку блокувань",
+        "blocklistUpdate": "Оновити",
+        "blocklistUpdated_one": "Список блокувань оновлено: {{count}} правило",
+        "blocklistUpdated_many": "Список блокувань оновлено: {{count}} правил",
+        "blocklistUpdated_other": "Список блокувань оновлено: {{count}} правил",
+        "blocklistSize_one": "Список блокувань містить {{count}} правило",
+        "blocklistSize_many": "Список блокувань містить {{count}} правил",
+        "blocklistSize_other": "Список блокувань містить {{count}} правил",
+        "blocklistUpdated_few": "Список блокувань оновлено: {{count}} правила",
+        "blocklistSize_few": "Список блокувань містить {{count}} правила"
+      },
+      "network": {
+        "title": "Мережа",
+        "peerPort": "Порт прослуховування пірів",
+        "randomizePort": "Випадковий порт при запуску",
+        "portForwarding": "Використовувати перенаправлення портів роутера",
+        "utp": "Увімкнути uTP для зв'язку з пірами",
+        "defaultTrackers": "Трекери за замовчуванням для публічних торентів",
+        "defaultTrackersHelp": "Трекери, що використовуються для всіх публічних торентів. Додайте резервний URL у рядок після основного URL; новий основний URL починайте після порожнього рядка."
+      }
     }
   },
   "backups": {

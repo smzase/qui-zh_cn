@@ -195,12 +195,17 @@
         "seeding": "做种",
         "connection": "连接",
         "discovery": "发现",
-        "advanced": "高级"
+        "advanced": "高级",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
           "title": "实例配置",
           "description": "配置连接设置、认证和访问选项"
+        },
+        "transmission": {
+          "title": "守护进程偏好设置",
+          "description": "配置 Transmission 守护进程的会话设置：种子、速度、节点和网络"
         },
         "speedLimits": {
           "title": "速度限制",
@@ -273,6 +278,72 @@
     "common": {
       "saveChanges": "保存更改",
       "saving": "保存中..."
+    },
+    "transmission": {
+      "loading": "正在加载守护进程设置...",
+      "loadFailed": "加载守护进程设置失败",
+      "toast": {
+        "success": "守护进程设置已保存",
+        "error": "保存守护进程设置失败"
+      },
+      "torrents": {
+        "title": "种子",
+        "downloadDir": "下载到",
+        "tempFolder": "使用临时文件夹",
+        "tempFolderPath": "临时文件夹路径",
+        "startAdded": "添加后立即开始",
+        "appendPart": "为未完成文件的文件名添加 \".part\" 后缀",
+        "downloadQueue": "限制下载队列大小",
+        "downloadQueueSize": "下载队列大小",
+        "stopRatio": "达到分享率后停止做种",
+        "stopRatioValue": "分享率上限",
+        "stopIdle": "空闲后停止做种",
+        "stopIdleValue": "空闲分钟数",
+        "minutes": "分钟"
+      },
+      "speed": {
+        "title": "速度",
+        "uploadLimit": "限制上传速度",
+        "uploadLimitValue": "上传限制",
+        "downloadLimit": "限制下载速度",
+        "downloadLimitValue": "下载限制",
+        "kbps": "kB/s",
+        "altLimits": "使用备用速度限制",
+        "altUpload": "备用上传限制",
+        "altUploadUnit": "kB/s 上传",
+        "altDownload": "备用下载限制",
+        "altDownloadUnit": "kB/s 下载",
+        "schedule": "使用计划时段",
+        "from": "从",
+        "to": "到",
+        "onDays": "生效日",
+        "everyday": "每天",
+        "weekdays": "工作日",
+        "weekends": "周末"
+      },
+      "peers": {
+        "title": "节点",
+        "maxPeersPerTorrent": "每个种子最大节点数",
+        "maxPeersOverall": "全局最大节点数",
+        "encryption": "加密模式",
+        "encryptionPrefer": "优先加密",
+        "encryptionAllow": "允许加密",
+        "encryptionRequire": "强制加密",
+        "blocklistEnable": "启用屏蔽列表",
+        "blocklistUrl": "屏蔽列表 URL",
+        "blocklistUpdate": "更新",
+        "blocklistUpdated_other": "屏蔽列表已更新：{{count}} 条规则",
+        "blocklistSize_other": "屏蔽列表共有 {{count}} 条规则"
+      },
+      "network": {
+        "title": "网络",
+        "peerPort": "节点监听端口",
+        "randomizePort": "启动时随机端口",
+        "portForwarding": "使用路由器端口转发",
+        "utp": "启用 uTP 与节点通信",
+        "defaultTrackers": "默认公共 Tracker",
+        "defaultTrackersHelp": "应用于所有公共种子的 Tracker。备份 URL 紧跟主 URL 的下一行；空一行后开始新的主 URL。"
+      }
     },
     "speedLimits": {
       "loading": "正在加载速度限制...",

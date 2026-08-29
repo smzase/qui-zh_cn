@@ -167,3 +167,54 @@ export interface InstanceCapabilities {
   supportsShareLimitsMode?: boolean
   webAPIVersion?: string
 }
+
+/**
+ * Transmission daemon session settings exposed through qui's
+ * Transmission-only preferences surface. Keys use the daemon's own
+ * spelling so values pass through unmodified. Fields the daemon does
+ * not report (version-specific options) are absent.
+ */
+export interface TransmissionPreferences {
+  // Torrents
+  "download-dir"?: string
+  "incomplete-dir"?: string
+  "incomplete-dir-enabled"?: boolean
+  "start-added"?: boolean
+  "rename-partial"?: boolean
+  "download-queue-enabled"?: boolean
+  "download-queue-size"?: number
+  "seed-queue-enabled"?: boolean
+  "seed-queue-size"?: number
+  "seedRatioLimit"?: number
+  "seedRatioLimited"?: boolean
+  "idle-seeding-limit"?: number
+  "idle-seeding-limit-enabled"?: boolean
+  // Speed
+  "speed-limit-up"?: number
+  "speed-limit-up-enabled"?: boolean
+  "speed-limit-down"?: number
+  "speed-limit-down-enabled"?: boolean
+  "alt-speed-enabled"?: boolean
+  "alt-speed-up"?: number
+  "alt-speed-down"?: number
+  "alt-speed-time-enabled"?: boolean
+  "alt-speed-time-begin"?: number
+  "alt-speed-time-end"?: number
+  "alt-speed-time-day"?: number
+  // Peers
+  "peer-limit-per-torrent"?: number
+  "peer-limit-global"?: number
+  encryption?: number
+  "pex-enabled"?: boolean
+  "dht-enabled"?: boolean
+  "lpd-enabled"?: boolean
+  "blocklist-enabled"?: boolean
+  "blocklist-url"?: string
+  "blocklist-size"?: number
+  // Network
+  "peer-port"?: number
+  "peer-port-random-on-start"?: boolean
+  "port-forwarding-enabled"?: boolean
+  "utp-enabled"?: boolean
+  "default-trackers"?: string
+}

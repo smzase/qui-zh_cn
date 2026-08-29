@@ -195,7 +195,8 @@
         "seeding": "시딩",
         "connection": "연결",
         "discovery": "검색",
-        "advanced": "고급"
+        "advanced": "고급",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
@@ -229,6 +230,10 @@
         "advancedSettings": {
           "title": "고급 설정",
           "description": "성능 조정, 디스크 I/O, 피어 관리 및 보안 설정"
+        },
+        "transmission": {
+          "title": "데몬 환경설정",
+          "description": "Transmission 데몬 세션 설정 구성: 토렌트, 속도, 피어, 네트워크"
         }
       }
     },
@@ -1634,6 +1639,72 @@
     "shareLimit": {
       "global": "전역",
       "unlimited": "무제한"
+    },
+    "transmission": {
+      "loading": "데몬 환경설정을 불러오는 중...",
+      "loadFailed": "데몬 환경설정을 불러오지 못했습니다",
+      "toast": {
+        "success": "데몬 환경설정이 저장되었습니다",
+        "error": "데몬 환경설정을 저장하지 못했습니다"
+      },
+      "torrents": {
+        "title": "토렌트",
+        "downloadDir": "다운로드 위치",
+        "tempFolder": "임시 폴더 사용",
+        "tempFolderPath": "임시 폴더 경로",
+        "startAdded": "추가 시 시작",
+        "appendPart": "완료되지 않은 파일 이름에 \".part\" 추가",
+        "downloadQueue": "다운로드 대기열 크기 제한",
+        "downloadQueueSize": "다운로드 대기열 크기",
+        "stopRatio": "공유 비율 도달 시 시딩 중지",
+        "stopRatioValue": "공유 비율 제한",
+        "stopIdle": "유휴 상태일 때 시딩 중지",
+        "stopIdleValue": "유휴 시간(분)",
+        "minutes": "분"
+      },
+      "speed": {
+        "title": "속도",
+        "uploadLimit": "업로드 속도 제한",
+        "uploadLimitValue": "업로드 제한",
+        "downloadLimit": "다운로드 속도 제한",
+        "downloadLimitValue": "다운로드 제한",
+        "kbps": "kB/s",
+        "altLimits": "대체 속도 제한 사용",
+        "altUpload": "대체 업로드 제한",
+        "altUploadUnit": "kB/s 업로드",
+        "altDownload": "대체 다운로드 제한",
+        "altDownloadUnit": "kB/s 다운로드",
+        "schedule": "예약 시간 사용",
+        "from": "시작",
+        "to": "종료",
+        "onDays": "요일",
+        "everyday": "매일",
+        "weekdays": "주중",
+        "weekends": "주말"
+      },
+      "peers": {
+        "title": "피어",
+        "maxPeersPerTorrent": "토렌트당 최대 피어",
+        "maxPeersOverall": "전체 최대 피어",
+        "encryption": "암호화 모드",
+        "encryptionPrefer": "암호화 선호",
+        "encryptionAllow": "암호화 허용",
+        "encryptionRequire": "암호화 필수",
+        "blocklistEnable": "차단 목록 활성화",
+        "blocklistUrl": "차단 목록 URL",
+        "blocklistUpdate": "업데이트",
+        "blocklistUpdated_other": "차단 목록 업데이트됨: 규칙 {{count}}개",
+        "blocklistSize_other": "차단 목록에 규칙 {{count}}개가 있습니다"
+      },
+      "network": {
+        "title": "네트워크",
+        "peerPort": "피어 수신 포트",
+        "randomizePort": "시작 시 임의 포트 사용",
+        "portForwarding": "라우터 포트 포워딩 사용",
+        "utp": "피어 통신에 uTP 사용",
+        "defaultTrackers": "기본 공개 트래커",
+        "defaultTrackersHelp": "모든 공개 토렌트에 사용할 트래커입니다. 백업 URL은 기본 URL 다음 줄에 추가하고, 빈 줄 뒤에 새 기본 URL을 시작하세요."
+      }
     }
   },
   "backups": {

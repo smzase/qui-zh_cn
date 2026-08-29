@@ -195,7 +195,8 @@
         "seeding": "Partage",
         "connection": "Connexion",
         "discovery": "Découverte",
-        "advanced": "Avancé"
+        "advanced": "Avancé",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
@@ -229,6 +230,10 @@
         "advancedSettings": {
           "title": "Paramètres avancés",
           "description": "Optimisation des performances, E/S disque, gestion des pairs et sécurité"
+        },
+        "transmission": {
+          "title": "Préférences du démon",
+          "description": "Configurer les paramètres de session du démon Transmission : torrents, vitesse, pairs et réseau"
         }
       }
     },
@@ -1653,6 +1658,74 @@
       "saveChanges": "Enregistrer les modifications",
       "collapse": "Réduire",
       "expand": "Développer"
+    },
+    "transmission": {
+      "loading": "Chargement des préférences du démon...",
+      "loadFailed": "Échec du chargement des préférences du démon",
+      "toast": {
+        "success": "Préférences du démon enregistrées",
+        "error": "Échec de l'enregistrement des préférences du démon"
+      },
+      "torrents": {
+        "title": "Torrents",
+        "downloadDir": "Télécharger dans",
+        "tempFolder": "Utiliser un dossier temporaire",
+        "tempFolderPath": "Chemin du dossier temporaire",
+        "startAdded": "Démarrer à l'ajout",
+        "appendPart": "Ajouter « .part » au nom des fichiers incomplets",
+        "downloadQueue": "Limiter la taille de la file de téléchargement",
+        "downloadQueueSize": "Taille de la file de téléchargement",
+        "stopRatio": "Arrêter de partager au ratio",
+        "stopRatioValue": "Limite de ratio",
+        "stopIdle": "Arrêter de partager si inactif",
+        "stopIdleValue": "Minutes d'inactivité",
+        "minutes": "min"
+      },
+      "speed": {
+        "title": "Vitesse",
+        "uploadLimit": "Limiter la vitesse d'envoi",
+        "uploadLimitValue": "Limite d'envoi",
+        "downloadLimit": "Limiter la vitesse de téléchargement",
+        "downloadLimitValue": "Limite de téléchargement",
+        "kbps": "ko/s",
+        "altLimits": "Utiliser les limites de vitesse alternatives",
+        "altUpload": "Limite alternative d'envoi",
+        "altUploadUnit": "ko/s envoi",
+        "altDownload": "Limite alternative de téléchargement",
+        "altDownloadUnit": "ko/s téléchargement",
+        "schedule": "Utiliser des plages planifiées",
+        "from": "De",
+        "to": "À",
+        "onDays": "Jours",
+        "everyday": "Tous les jours",
+        "weekdays": "Jours ouvrés",
+        "weekends": "Week-ends"
+      },
+      "peers": {
+        "title": "Pairs",
+        "maxPeersPerTorrent": "Pairs max par torrent",
+        "maxPeersOverall": "Pairs max au total",
+        "encryption": "Mode de chiffrement",
+        "encryptionPrefer": "Préférer le chiffrement",
+        "encryptionAllow": "Autoriser le chiffrement",
+        "encryptionRequire": "Exiger le chiffrement",
+        "blocklistEnable": "Activer la liste de blocage",
+        "blocklistUrl": "URL de la liste de blocage",
+        "blocklistUpdate": "Mettre à jour",
+        "blocklistUpdated_one": "Liste de blocage mise à jour : {{count}} règle",
+        "blocklistUpdated_other": "Liste de blocage mise à jour : {{count}} règles",
+        "blocklistSize_one": "La liste de blocage contient {{count}} règle",
+        "blocklistSize_other": "La liste de blocage contient {{count}} règles"
+      },
+      "network": {
+        "title": "Réseau",
+        "peerPort": "Port d'écoute des pairs",
+        "randomizePort": "Port aléatoire au démarrage",
+        "portForwarding": "Utiliser la redirection de port du routeur",
+        "utp": "Activer uTP pour la communication avec les pairs",
+        "defaultTrackers": "Trackers publics par défaut",
+        "defaultTrackersHelp": "Trackers à utiliser sur tous les torrents publics. Ajoutez une URL de secours sur la ligne suivant une URL principale ; commencez une nouvelle URL principale après une ligne vide."
+      }
     }
   },
   "backups": {

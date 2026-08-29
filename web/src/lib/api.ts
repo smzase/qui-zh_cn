@@ -123,6 +123,7 @@ import type {
   TrackerCustomization,
   TrackerCustomizationInput,
   TransferInfo,
+  TransmissionPreferences,
   BuiltinTheme,
   ThemeSettings,
   User,
@@ -2092,6 +2093,27 @@ class ApiClient {
 
   async getAlternativeSpeedLimitsMode(instanceId: number): Promise<{ enabled: boolean }> {
     return this.request<{ enabled: boolean }>(`/instances/${instanceId}/alternative-speed-limits`)
+  }
+
+  // Transmission daemon session settings
+  async getTransmissionPreferences(instanceId: number): Promise<TransmissionPreferences> {
+    return this.request<TransmissionPreferences>(`/instances/${instanceId}/transmission-preferences`)
+  }
+
+  async updateTransmissionPreferences(
+    instanceId: number,
+    settings: Partial<TransmissionPreferences>
+  ): Promise<TransmissionPreferences> {
+    return this.request<TransmissionPreferences>(`/instances/${instanceId}/transmission-preferences`, {
+      method: "PATCH",
+      body: JSON.stringify(settings),
+    })
+  }
+
+  async updateTransmissionBlocklist(instanceId: number): Promise<{ "blocklist-size": number }> {
+    return this.request<{ "blocklist-size": number }>(`/instances/${instanceId}/transmission-preferences/blocklist-update`, {
+      method: "POST",
+    })
   }
 
   async toggleAlternativeSpeedLimits(instanceId: number): Promise<{ enabled: boolean }> {

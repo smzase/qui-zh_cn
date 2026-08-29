@@ -195,7 +195,8 @@
         "seeding": "Seeding",
         "connection": "Verbindung",
         "discovery": "Discovery",
-        "advanced": "Erweitert"
+        "advanced": "Erweitert",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
@@ -229,6 +230,10 @@
         "advancedSettings": {
           "title": "Erweiterte Einstellungen",
           "description": "Performance-Tuning, Festplatten-I/O, Peer-Verwaltung und Sicherheitseinstellungen"
+        },
+        "transmission": {
+          "title": "Daemon-Einstellungen",
+          "description": "Konfiguriere die Transmission-Daemon-Sitzungseinstellungen: Torrents, Geschwindigkeit, Peers und Netzwerk"
         }
       }
     },
@@ -1653,6 +1658,74 @@
     "shareLimit": {
       "global": "Global",
       "unlimited": "Unbegrenzt"
+    },
+    "transmission": {
+      "loading": "Daemon-Einstellungen werden geladen...",
+      "loadFailed": "Daemon-Einstellungen konnten nicht geladen werden",
+      "toast": {
+        "success": "Daemon-Einstellungen gespeichert",
+        "error": "Daemon-Einstellungen konnten nicht gespeichert werden"
+      },
+      "torrents": {
+        "title": "Torrents",
+        "downloadDir": "Herunterladen nach",
+        "tempFolder": "Temporären Ordner verwenden",
+        "tempFolderPath": "Pfad des temporären Ordners",
+        "startAdded": "Beim Hinzufügen starten",
+        "appendPart": "„.part“ an Namen unvollständiger Dateien anhängen",
+        "downloadQueue": "Download-Warteschlangengröße begrenzen",
+        "downloadQueueSize": "Download-Warteschlangengröße",
+        "stopRatio": "Seeden bei Ratio beenden",
+        "stopRatioValue": "Ratio-Limit",
+        "stopIdle": "Seeden bei Inaktivität beenden",
+        "stopIdleValue": "Inaktive Minuten",
+        "minutes": "Min."
+      },
+      "speed": {
+        "title": "Geschwindigkeit",
+        "uploadLimit": "Upload-Geschwindigkeit begrenzen",
+        "uploadLimitValue": "Upload-Limit",
+        "downloadLimit": "Download-Geschwindigkeit begrenzen",
+        "downloadLimitValue": "Download-Limit",
+        "kbps": "kB/s",
+        "altLimits": "Alternative Geschwindigkeitslimits verwenden",
+        "altUpload": "Alternatives Upload-Limit",
+        "altUploadUnit": "kB/s Upload",
+        "altDownload": "Alternatives Download-Limit",
+        "altDownloadUnit": "kB/s Download",
+        "schedule": "Geplante Zeiten verwenden",
+        "from": "Von",
+        "to": "Bis",
+        "onDays": "An Tagen",
+        "everyday": "Jeden Tag",
+        "weekdays": "Werktags",
+        "weekends": "Am Wochenende"
+      },
+      "peers": {
+        "title": "Peers",
+        "maxPeersPerTorrent": "Max. Peers pro Torrent",
+        "maxPeersOverall": "Max. Peers insgesamt",
+        "encryption": "Verschlüsselungsmodus",
+        "encryptionPrefer": "Verschlüsselung bevorzugen",
+        "encryptionAllow": "Verschlüsselung zulassen",
+        "encryptionRequire": "Verschlüsselung erzwingen",
+        "blocklistEnable": "Blocklist aktivieren",
+        "blocklistUrl": "Blocklist-URL",
+        "blocklistUpdate": "Aktualisieren",
+        "blocklistUpdated_one": "Blocklist aktualisiert: {{count}} Regel",
+        "blocklistUpdated_other": "Blocklist aktualisiert: {{count}} Regeln",
+        "blocklistSize_one": "Blocklist enthält {{count}} Regel",
+        "blocklistSize_other": "Blocklist enthält {{count}} Regeln"
+      },
+      "network": {
+        "title": "Netzwerk",
+        "peerPort": "Peer-Port",
+        "randomizePort": "Port beim Start zufällig wählen",
+        "portForwarding": "Portweiterleitung des Routers verwenden",
+        "utp": "uTP für Peer-Kommunikation aktivieren",
+        "defaultTrackers": "Standard-öffentliche Tracker",
+        "defaultTrackersHelp": "Tracker, die für alle öffentlichen Torrents verwendet werden. Füge eine Backup-URL in der Zeile nach einer Haupt-URL ein; eine neue Haupt-URL beginnt nach einer Leerzeile."
+      }
     }
   },
   "backups": {

@@ -14,6 +14,17 @@ qui talks to Transmission through its RPC interface (the same one `transmission-
 
 Authentication uses the daemon's RPC credentials (`rpc-username` and `rpc-password` in `settings.json`). If the daemon has `rpc-authentication-required` disabled, choose **None**.
 
+## Daemon preferences
+
+The instance preferences dialog shows a Transmission-specific **Daemon Preferences** tab instead of the qBittorrent preference tabs. It mirrors the daemon's own four groups:
+
+- **Torrents**: download directory, temporary folder, start when added, appending `.part` to incomplete files, download queue size, and the stop-seeding ratio/idle limits.
+- **Speed**: upload/download limits, alternative speed limits, and their scheduled times.
+- **Peers**: per-torrent and global peer limits, encryption mode, PEX/DHT/LPD, and the blocklist (including a manual update button).
+- **Network**: the peer listening port, port randomization, router port forwarding, uTP, and the default public trackers list.
+
+Only the fields the daemon reports are shown, so version-specific options hide themselves automatically.
+
 Feature availability follows what Transmission exposes, so qui hides or rejects what has no equivalent:
 
 - **Categories** map to Transmission labels. The first label of a torrent becomes its category; additional labels surface as tags. Categories created in qui are remembered until the client restarts unless a torrent uses them, because Transmission only knows labels that are assigned to torrents.

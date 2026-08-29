@@ -195,7 +195,8 @@
         "seeding": "Seeding",
         "connection": "Conexão",
         "discovery": "Descoberta",
-        "advanced": "Avançado"
+        "advanced": "Avançado",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
@@ -229,6 +230,10 @@
         "advancedSettings": {
           "title": "Configurações Avançadas",
           "description": "Ajustes de desempenho, disco, pares e configurações de segurança"
+        },
+        "transmission": {
+          "title": "Preferências do daemon",
+          "description": "Configure as definições de sessão do daemon Transmission: torrents, velocidade, peers e rede"
         }
       }
     },
@@ -1653,6 +1658,74 @@
     "shareLimit": {
       "global": "Do Servidor",
       "unlimited": "Infinito"
+    },
+    "transmission": {
+      "loading": "Carregando preferências do daemon...",
+      "loadFailed": "Falha ao carregar preferências do daemon",
+      "toast": {
+        "success": "Preferências do daemon salvas",
+        "error": "Falha ao salvar preferências do daemon"
+      },
+      "torrents": {
+        "title": "Torrents",
+        "downloadDir": "Baixar em",
+        "tempFolder": "Usar pasta temporária",
+        "tempFolderPath": "Caminho da pasta temporária",
+        "startAdded": "Iniciar ao adicionar",
+        "appendPart": "Adicionar «.part» ao nome de arquivos incompletos",
+        "downloadQueue": "Limitar tamanho da fila de downloads",
+        "downloadQueueSize": "Tamanho da fila de downloads",
+        "stopRatio": "Parar de semear na proporção",
+        "stopRatioValue": "Limite de proporção",
+        "stopIdle": "Parar de semear se ocioso",
+        "stopIdleValue": "Minutos de ociosidade",
+        "minutes": "min"
+      },
+      "speed": {
+        "title": "Velocidade",
+        "uploadLimit": "Limitar velocidade de envio",
+        "uploadLimitValue": "Limite de envio",
+        "downloadLimit": "Limitar velocidade de download",
+        "downloadLimitValue": "Limite de download",
+        "kbps": "kB/s",
+        "altLimits": "Usar limites de velocidade alternativos",
+        "altUpload": "Limite alternativo de envio",
+        "altUploadUnit": "kB/s envio",
+        "altDownload": "Limite alternativo de download",
+        "altDownloadUnit": "kB/s download",
+        "schedule": "Usar horários programados",
+        "from": "De",
+        "to": "Até",
+        "onDays": "Nos dias",
+        "everyday": "Todos os dias",
+        "weekdays": "Dias úteis",
+        "weekends": "Fins de semana"
+      },
+      "peers": {
+        "title": "Peers",
+        "maxPeersPerTorrent": "Máx. de peers por torrent",
+        "maxPeersOverall": "Máx. de peers no total",
+        "encryption": "Modo de criptografia",
+        "encryptionPrefer": "Preferir criptografia",
+        "encryptionAllow": "Permitir criptografia",
+        "encryptionRequire": "Exigir criptografia",
+        "blocklistEnable": "Ativar blocklist",
+        "blocklistUrl": "URL da blocklist",
+        "blocklistUpdate": "Atualizar",
+        "blocklistUpdated_one": "Blocklist atualizada: {{count}} regra",
+        "blocklistUpdated_other": "Blocklist atualizada: {{count}} regras",
+        "blocklistSize_one": "A blocklist contém {{count}} regra",
+        "blocklistSize_other": "A blocklist contém {{count}} regras"
+      },
+      "network": {
+        "title": "Rede",
+        "peerPort": "Porta de escuta de peers",
+        "randomizePort": "Porta aleatória ao iniciar",
+        "portForwarding": "Usar redirecionamento de porta do roteador",
+        "utp": "Habilitar uTP para comunicação com peers",
+        "defaultTrackers": "Trackers públicos padrão",
+        "defaultTrackersHelp": "Trackers para usar em todos os torrents públicos. Adicione uma URL de backup na linha seguinte a uma URL primária; comece uma nova URL primária após uma linha em branco."
+      }
     }
   },
   "backups": {

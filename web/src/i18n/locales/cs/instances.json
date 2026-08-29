@@ -195,7 +195,8 @@
         "seeding": "Sdílení",
         "connection": "Připojení",
         "discovery": "Nalezení",
-        "advanced": "Pokročilé"
+        "advanced": "Pokročilé",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
@@ -229,6 +230,10 @@
         "advancedSettings": {
           "title": "Pokročilé nastavení",
           "description": "Ladění výkonu, disk I/O, správa peerů a nastavení zabezpečení"
+        },
+        "transmission": {
+          "title": "Předvolby démona",
+          "description": "Nakonfigurujte nastavení relace démona Transmission: torrenty, rychlost, peery a síť"
         }
       }
     },
@@ -1653,6 +1658,74 @@
     "shareLimit": {
       "global": "Globální",
       "unlimited": "Neomezeno"
+    },
+    "transmission": {
+      "loading": "Načítání předvoleb démona...",
+      "loadFailed": "Nepodařilo se načíst předvolby démona",
+      "toast": {
+        "success": "Předvolby démona uloženy",
+        "error": "Nepodařilo se uložit předvolby démona"
+      },
+      "torrents": {
+        "title": "Torrenty",
+        "downloadDir": "Stahovat do",
+        "tempFolder": "Použít dočasnou složku",
+        "tempFolderPath": "Cesta k dočasné složce",
+        "startAdded": "Spustit po přidání",
+        "appendPart": "Přidat „.part“ k názvům nedokončených souborů",
+        "downloadQueue": "Omezit velikost stahovací fronty",
+        "downloadQueueSize": "Velikost stahovací fronty",
+        "stopRatio": "Zastavit seedování při poměru",
+        "stopRatioValue": "Limit poměru",
+        "stopIdle": "Zastavit seedování při nečinnosti",
+        "stopIdleValue": "Minuty nečinnosti",
+        "minutes": "min"
+      },
+      "speed": {
+        "title": "Rychlost",
+        "uploadLimit": "Omezit rychlost odesílání",
+        "uploadLimitValue": "Limit odesílání",
+        "downloadLimit": "Omezit rychlost stahování",
+        "downloadLimitValue": "Limit stahování",
+        "kbps": "kB/s",
+        "altLimits": "Použít alternativní rychlostní limity",
+        "altUpload": "Alternativní limit odesílání",
+        "altUploadUnit": "kB/s odesílání",
+        "altDownload": "Alternativní limit stahování",
+        "altDownloadUnit": "kB/s stahování",
+        "schedule": "Použít naplánované časy",
+        "from": "Od",
+        "to": "Do",
+        "onDays": "Ve dnech",
+        "everyday": "Každý den",
+        "weekdays": "Pracovní dny",
+        "weekends": "Víkendy"
+      },
+      "peers": {
+        "title": "Peery",
+        "maxPeersPerTorrent": "Max. peerů na torrent",
+        "maxPeersOverall": "Max. peerů celkem",
+        "encryption": "Režim šifrování",
+        "encryptionPrefer": "Preferovat šifrování",
+        "encryptionAllow": "Povolit šifrování",
+        "encryptionRequire": "Vyžadovat šifrování",
+        "blocklistEnable": "Povolit blocklist",
+        "blocklistUrl": "URL blocklistu",
+        "blocklistUpdate": "Aktualizovat",
+        "blocklistUpdated_one": "Blocklist aktualizován: {{count}} pravidlo",
+        "blocklistUpdated_other": "Blocklist aktualizován: {{count}} pravidel",
+        "blocklistSize_one": "Blocklist obsahuje {{count}} pravidlo",
+        "blocklistSize_other": "Blocklist obsahuje {{count}} pravidel"
+      },
+      "network": {
+        "title": "Síť",
+        "peerPort": "Naslouchací port peerů",
+        "randomizePort": "Náhodný port při spuštění",
+        "portForwarding": "Použít přesměrování portů z routeru",
+        "utp": "Povolit uTP pro komunikaci s peery",
+        "defaultTrackers": "Výchozí veřejné trackery",
+        "defaultTrackersHelp": "Trackery používané u všech veřejných torrentů. Záložní URL přidejte na řádek za hlavní URL; nová hlavní URL začíná po prázdném řádku."
+      }
     }
   },
   "backups": {

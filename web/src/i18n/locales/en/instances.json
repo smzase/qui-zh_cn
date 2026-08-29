@@ -195,12 +195,17 @@
         "seeding": "Seeding",
         "connection": "Connect",
         "discovery": "Discovery",
-        "advanced": "Advanced"
+        "advanced": "Advanced",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
           "title": "Instance Configuration",
           "description": "Configure connection settings, authentication, and access options"
+        },
+        "transmission": {
+          "title": "Daemon Preferences",
+          "description": "Configure the Transmission daemon session settings: torrents, speed, peers, and network"
         },
         "speedLimits": {
           "title": "Speed Limits",
@@ -273,6 +278,74 @@
     "common": {
       "saveChanges": "Save Changes",
       "saving": "Saving..."
+    },
+    "transmission": {
+      "loading": "Loading daemon preferences...",
+      "loadFailed": "Failed to load daemon preferences",
+      "toast": {
+        "success": "Daemon preferences saved",
+        "error": "Failed to save daemon preferences"
+      },
+      "torrents": {
+        "title": "Torrents",
+        "downloadDir": "Download to",
+        "tempFolder": "Use temporary folder",
+        "tempFolderPath": "Temporary folder path",
+        "startAdded": "Start when added",
+        "appendPart": "Append \".part\" to incomplete files' names",
+        "downloadQueue": "Limit download queue size",
+        "downloadQueueSize": "Download queue size",
+        "stopRatio": "Stop seeding at ratio",
+        "stopRatioValue": "Ratio limit",
+        "stopIdle": "Stop seeding if idle",
+        "stopIdleValue": "Idle minutes",
+        "minutes": "min"
+      },
+      "speed": {
+        "title": "Speed",
+        "uploadLimit": "Limit upload speed",
+        "uploadLimitValue": "Upload limit",
+        "downloadLimit": "Limit download speed",
+        "downloadLimitValue": "Download limit",
+        "kbps": "kB/s",
+        "altLimits": "Use alternative speed limits",
+        "altUpload": "Alternative upload limit",
+        "altUploadUnit": "kB/s upload",
+        "altDownload": "Alternative download limit",
+        "altDownloadUnit": "kB/s download",
+        "schedule": "Use scheduled times",
+        "from": "From",
+        "to": "To",
+        "onDays": "On days",
+        "everyday": "Every day",
+        "weekdays": "Weekdays",
+        "weekends": "Weekends"
+      },
+      "peers": {
+        "title": "Peers",
+        "maxPeersPerTorrent": "Max peers per torrent",
+        "maxPeersOverall": "Max peers overall",
+        "encryption": "Encryption mode",
+        "encryptionPrefer": "Prefer encryption",
+        "encryptionAllow": "Allow encryption",
+        "encryptionRequire": "Require encryption",
+        "blocklistEnable": "Enable blocklist",
+        "blocklistUrl": "Blocklist URL",
+        "blocklistUpdate": "Update",
+        "blocklistUpdated_one": "Blocklist updated: {{count}} rule",
+        "blocklistUpdated_other": "Blocklist updated: {{count}} rules",
+        "blocklistSize_one": "Blocklist has {{count}} rule",
+        "blocklistSize_other": "Blocklist has {{count}} rules"
+      },
+      "network": {
+        "title": "Network",
+        "peerPort": "Peer listening port",
+        "randomizePort": "Randomize port on launch",
+        "portForwarding": "Use port forwarding from my router",
+        "utp": "Enable uTP for peer communication",
+        "defaultTrackers": "Default public trackers",
+        "defaultTrackersHelp": "Trackers to use on all public torrents. Add a backup URL on the next line after a primary URL; start a new primary URL after a blank line."
+      }
     },
     "speedLimits": {
       "loading": "Loading speed limits...",

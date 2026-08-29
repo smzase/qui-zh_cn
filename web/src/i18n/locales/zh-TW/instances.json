@@ -195,7 +195,8 @@
         "seeding": "做種",
         "connection": "連線",
         "discovery": "發現",
-        "advanced": "進階"
+        "advanced": "進階",
+        "transmission": "Transmission"
       },
       "sections": {
         "instanceConfig": {
@@ -229,6 +230,10 @@
         "advancedSettings": {
           "title": "進階設定",
           "description": "效能調優、磁碟 I/O、節點管理和安全設定"
+        },
+        "transmission": {
+          "title": "常駐程式偏好設定",
+          "description": "設定 Transmission 常駐程式的工作階段設定：種子、速度、節點和網路"
         }
       }
     },
@@ -1634,6 +1639,72 @@
     "shareLimit": {
       "global": "全域",
       "unlimited": "無限制"
+    },
+    "transmission": {
+      "loading": "正在載入常駐程式設定...",
+      "loadFailed": "載入常駐程式設定失敗",
+      "toast": {
+        "success": "常駐程式設定已儲存",
+        "error": "儲存常駐程式設定失敗"
+      },
+      "torrents": {
+        "title": "種子",
+        "downloadDir": "下載到",
+        "tempFolder": "使用暫存資料夾",
+        "tempFolderPath": "暫存資料夾路徑",
+        "startAdded": "加入後立即開始",
+        "appendPart": "為未完成檔案的檔名加上 \".part\" 後綴",
+        "downloadQueue": "限制下載佇列大小",
+        "downloadQueueSize": "下載佇列大小",
+        "stopRatio": "達到分享率後停止做種",
+        "stopRatioValue": "分享率上限",
+        "stopIdle": "閒置後停止做種",
+        "stopIdleValue": "閒置分鐘數",
+        "minutes": "分鐘"
+      },
+      "speed": {
+        "title": "速度",
+        "uploadLimit": "限制上傳速度",
+        "uploadLimitValue": "上傳限制",
+        "downloadLimit": "限制下載速度",
+        "downloadLimitValue": "下載限制",
+        "kbps": "kB/s",
+        "altLimits": "使用替代速度限制",
+        "altUpload": "替代上傳限制",
+        "altUploadUnit": "kB/s 上傳",
+        "altDownload": "替代下載限制",
+        "altDownloadUnit": "kB/s 下載",
+        "schedule": "使用排程時段",
+        "from": "從",
+        "to": "到",
+        "onDays": "生效日",
+        "everyday": "每天",
+        "weekdays": "平日",
+        "weekends": "週末"
+      },
+      "peers": {
+        "title": "節點",
+        "maxPeersPerTorrent": "每個種子最大節點數",
+        "maxPeersOverall": "全域最大節點數",
+        "encryption": "加密模式",
+        "encryptionPrefer": "偏好加密",
+        "encryptionAllow": "允許加密",
+        "encryptionRequire": "強制加密",
+        "blocklistEnable": "啟用封鎖清單",
+        "blocklistUrl": "封鎖清單 URL",
+        "blocklistUpdate": "更新",
+        "blocklistUpdated_other": "封鎖清單已更新：{{count}} 條規則",
+        "blocklistSize_other": "封鎖清單共有 {{count}} 條規則"
+      },
+      "network": {
+        "title": "網路",
+        "peerPort": "節點監聽埠",
+        "randomizePort": "啟動時隨機埠",
+        "portForwarding": "使用路由器埠轉發",
+        "utp": "啟用 uTP 與節點通訊",
+        "defaultTrackers": "預設公共 Tracker",
+        "defaultTrackersHelp": "套用於所有公共種子的 Tracker。備援 URL 緊跟主 URL 的下一行；空一行後開始新的主 URL。"
+      }
     }
   },
   "backups": {
