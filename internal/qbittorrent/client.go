@@ -5,16 +5,20 @@ package qbittorrent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/autobrr/autobrr/pkg/ttlcache"
 	qbt "github.com/autobrr/go-qbittorrent"
+	"github.com/avast/retry-go"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -95,17 +99,26 @@ type Client struct {
 	healthMu             sync.RWMutex
 	appInfoMu            sync.RWMutex
 	preferencesCache     *qbt.AppPreferences
+	preferencesJSON      json.RawMessage
 	preferencesFetchedAt time.Time
 	preferencesMu        sync.RWMutex
 	syncEventSink        SyncEventSink
-	completionMu         sync.Mutex
-	completionState      map[string]bool
-	completionHandler    TorrentCompletionHandler
-	completionInit       bool
-	addedMu              sync.Mutex
-	addedState           map[string]struct{}
-	addedHandler         TorrentAddedHandler
-	addedInit            bool
+
+	// countsGen versions every client-owned input of the sidebar counts: it
+	// moves on each applied sync and on tracker-exclusion changes, so the
+	// countsCache entry stays valid exactly while the generations it recorded
+	// hold.
+	countsGen   atomic.Uint64
+	countsCache atomic.Pointer[cachedInstanceCounts]
+
+	completionMu      sync.Mutex
+	completionState   map[string]bool
+	completionHandler TorrentCompletionHandler
+	completionInit    bool
+	addedMu           sync.Mutex
+	addedState        map[string]struct{}
+	addedHandler      TorrentAddedHandler
+	addedInit         bool
 
 	// activeTaskCount caches the number of running/queued torrent-creation tasks.
 	// It is refreshed at most once per activeTaskCountTTL with single-flight, so the
@@ -117,7 +130,12 @@ type Client struct {
 	activeTaskMu         sync.Mutex
 }
 
-func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiKey string, basicUsername, basicPassword *string, tlsSkipVerify bool, timeout time.Duration) (*Client, error) {
+// NewClientWithTimeout builds a pooled client. loginTimeout bounds only the
+// initial login and capability fetch; transportTimeout becomes the HTTP client
+// timeout for every request the client ever makes. Keeping them separate stops
+// a short creation budget (e.g. the 3s login warm) from being baked into the
+// transport for the life of the client.
+func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiKey string, basicUsername, basicPassword *string, tlsSkipVerify bool, loginTimeout, transportTimeout time.Duration) (*Client, error) {
 	// Strip credentials embedded in the host URL (user:pass@host) so they never
 	// reach go-qbt request URLs, whose error strings get logged verbatim all
 	// over qui. They move to basic auth, which is what URL userinfo means.
@@ -128,7 +146,7 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiK
 		Username:      username,
 		Password:      password,
 		APIKey:        apiKey,
-		Timeout:       int(timeout.Seconds()),
+		Timeout:       int(transportTimeout.Seconds()),
 		TLSSkipVerify: tlsSkipVerify,
 	}
 
@@ -144,7 +162,7 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiK
 
 	qbtClient := qbt.NewClient(cfg)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), loginTimeout)
 	defer cancel()
 
 	if err := qbtClient.LoginCtx(ctx); err != nil {
@@ -188,6 +206,7 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiK
 
 	// Set up health check callbacks
 	syncOpts.OnUpdate = func(data *qbt.MainData) {
+		client.countsGen.Add(1)
 		client.updateHealthStatus(true)
 		client.updateServerState(data)
 		client.handleCompletionUpdates(data)
@@ -255,8 +274,9 @@ func (c *Client) IsHealthy() bool {
 }
 
 // handleSyncManagerError records qBittorrent sync failures while ignoring explicit caller cancellation.
-// Deadline expiry is treated as a real sync failure so stream error handling can
-// mark cached health stale instead of preserving a stale healthy state.
+// Deadline expiry keeps the client healthy: it is treated as slow by design (see isDeadlineExpired),
+// and flipping it unhealthy sends every caller into the probe/backoff path (502 storms).
+// The error is still dispatched so the SSE loop backs off and escalates to the full sync budget.
 func (c *Client) handleSyncManagerError(err error) {
 	if err == nil {
 		return
@@ -267,6 +287,16 @@ func (c *Client) handleSyncManagerError(err error) {
 			Err(err).
 			Int("instanceID", c.instanceID).
 			Msg("Sync manager context stopped, keeping client health unchanged")
+		return
+	}
+
+	if isDeadlineExpired(err) {
+		log.Debug().
+			Err(err).
+			Int("instanceID", c.instanceID).
+			Msg("Sync timed out against a slow instance, keeping client health unchanged")
+
+		c.dispatchSyncError(err)
 		return
 	}
 
@@ -290,6 +320,38 @@ func isContextStopped(err error) bool {
 
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "context canceled")
+}
+
+// isDeadlineExpired recognizes request timeouts even after wrappers flatten the sentinel.
+// A deadline is ambiguous: usually a saturated instance working through its
+// queue, but it can also be a dial that never completed (a blackholed host).
+// A caller deadline firing before the 30s dial timeout yields the same
+// "context deadline exceeded" text either way. We deliberately classify both
+// as slow: stale data with a staleness badge beats backoff and 502s.
+// Hard failures (refused, DNS, EOF, a bare "dial tcp: i/o timeout") are
+// unambiguous evidence of a dead instance and stay unmatched here.
+func isDeadlineExpired(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var retryErr retry.Error
+	if errors.As(err, &retryErr) {
+		for _, r := range slices.Backward(retryErr) {
+			if r != nil {
+				err = r
+				break
+			}
+		}
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "client.timeout exceeded")
 }
 
 func (c *Client) SupportsTorrentCreation() bool {
@@ -332,7 +394,7 @@ func truncateWebAPIVersion(s string) string {
 
 // RefreshCapabilities fetches the latest WebAPI version information and recalculates feature support flags.
 func (c *Client) RefreshCapabilities(ctx context.Context) error {
-	version, err := c.Client.GetWebAPIVersionCtx(ctx)
+	version, err := c.GetWebAPIVersionCtx(ctx)
 	if err != nil {
 		return err
 	}
@@ -525,7 +587,10 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	}
 
 	if err := c.RefreshCapabilities(ctx); err != nil {
-		c.updateHealthStatus(false)
+		// Slow, not down: a timed-out probe keeps the current health state.
+		if !isDeadlineExpired(err) {
+			c.updateHealthStatus(false)
+		}
 		return errors.Wrap(err, "health check failed")
 	}
 
@@ -600,7 +665,7 @@ func (c *Client) supportsTrackerInclude() bool {
 func (c *Client) hydrateTorrentsWithTrackers(ctx context.Context, torrents []qbt.Torrent) ([]qbt.Torrent, map[string][]qbt.TorrentTracker, []string, error) {
 	tm := c.trackerManager()
 	if tm == nil {
-		return torrents, nil, nil, fmt.Errorf("tracker manager unavailable")
+		return torrents, nil, nil, errors.New("tracker manager unavailable")
 	}
 
 	enriched, trackerData := tm.HydrateTorrents(ctx, torrents)
@@ -665,7 +730,7 @@ func (c *Client) StartSyncManager(ctx context.Context) error {
 	c.mu.RUnlock()
 
 	if syncManager == nil {
-		return fmt.Errorf("sync manager not initialized")
+		return errors.New("sync manager not initialized")
 	}
 
 	return syncManager.Start(ctx)
@@ -881,7 +946,7 @@ func (c *Client) GetOrCreatePeerSyncManager(hash string) *qbt.PeerSyncManager {
 	// Create a new peer sync manager for this torrent
 	peerSyncOpts := qbt.DefaultPeerSyncOptions()
 	peerSyncOpts.AutoSync = false // We'll sync manually when requested
-	peerSync := c.Client.NewPeerSyncManager(hash, peerSyncOpts)
+	peerSync := c.NewPeerSyncManager(hash, peerSyncOpts)
 	c.peerSyncManager[hash] = peerSync
 
 	return peerSync
@@ -928,6 +993,8 @@ func (c *Client) addTrackerExclusions(domain string, hashes []string) {
 	}
 
 	c.mu.Lock()
+	// LIFO: the bump runs after the unlock; the counts path loads the generation before the data it guards.
+	defer c.countsGen.Add(1)
 	defer c.mu.Unlock()
 
 	set, ok := c.trackerExclusions[domain]
@@ -952,6 +1019,8 @@ func (c *Client) removeTrackerExclusions(domain string, hashes []string) {
 	}
 
 	c.mu.Lock()
+	// LIFO: the bump runs after the unlock; the counts path loads the generation before the data it guards.
+	defer c.countsGen.Add(1)
 	defer c.mu.Unlock()
 
 	if len(hashes) == 0 {
@@ -1000,6 +1069,8 @@ func (c *Client) clearTrackerExclusions(domains []string) {
 	}
 
 	c.mu.Lock()
+	// LIFO: the bump runs after the unlock; the counts path loads the generation before the data it guards.
+	defer c.countsGen.Add(1)
 	defer c.mu.Unlock()
 
 	for _, domain := range domains {

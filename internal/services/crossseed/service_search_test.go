@@ -118,19 +118,11 @@ func (s *failingEnabledIndexerStore) RecordLatency(context.Context, int, string,
 	return nil
 }
 
+func (s *failingEnabledIndexerStore) CleanupOldLatency(context.Context, time.Duration) (int64, error) {
+	return 0, nil
+}
+
 func (s *failingEnabledIndexerStore) RecordError(context.Context, int, string, string) error {
-	return nil
-}
-
-func (s *failingEnabledIndexerStore) ListRateLimitCooldowns(context.Context) ([]models.TorznabIndexerCooldown, error) {
-	return []models.TorznabIndexerCooldown{}, nil
-}
-
-func (s *failingEnabledIndexerStore) UpsertRateLimitCooldown(context.Context, int, time.Time, time.Duration, string) error {
-	return nil
-}
-
-func (s *failingEnabledIndexerStore) DeleteRateLimitCooldown(context.Context, int) error {
 	return nil
 }
 
@@ -347,7 +339,7 @@ func TestResolveAllowedIndexerIDsRespectsSelection(t *testing.T) {
 
 	ids, reason := svc.resolveAllowedIndexerIDs(context.Background(), "hash", state, []int{2}, false)
 	require.Equal(t, []int{2}, ids)
-	require.Equal(t, "", reason)
+	require.Empty(t, reason)
 }
 
 func TestResolveAllowedIndexerIDsSelectionFilteredOut(t *testing.T) {
@@ -375,7 +367,7 @@ func TestResolveAllowedIndexerIDsCapabilitySelection(t *testing.T) {
 
 	ids, reason := svc.resolveAllowedIndexerIDs(ctx, "hash", state, []int{4}, false)
 	require.Equal(t, []int{4}, ids)
-	require.Equal(t, "", reason)
+	require.Empty(t, reason)
 
 	state2 := &AsyncIndexerFilteringState{
 		CapabilitiesCompleted: true,

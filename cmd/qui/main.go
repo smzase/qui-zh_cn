@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec // G108: registered on the opt-in pprof listener, which binds loopback by default
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -26,10 +26,13 @@ import (
 	"github.com/autobrr/qui/internal/auth"
 	"github.com/autobrr/qui/internal/backups"
 	"github.com/autobrr/qui/internal/buildinfo"
+	"github.com/autobrr/qui/internal/clientmigrate"
 	"github.com/autobrr/qui/internal/config"
 	"github.com/autobrr/qui/internal/database"
 	"github.com/autobrr/qui/internal/dodo"
 	"github.com/autobrr/qui/internal/domain"
+	"github.com/autobrr/qui/internal/fsops"
+	localbackend "github.com/autobrr/qui/internal/fsops/local"
 	"github.com/autobrr/qui/internal/metrics"
 	"github.com/autobrr/qui/internal/models"
 	"github.com/autobrr/qui/internal/polar"
@@ -80,6 +83,7 @@ multiple qBittorrent instances with support for 10k+ torrents.`,
 	rootCmd.AddCommand(RunCreateUserCommand())
 	rootCmd.AddCommand(RunChangePasswordCommand())
 	rootCmd.AddCommand(RunUpdateCommand())
+	rootCmd.AddCommand(RunMigrateCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -185,14 +189,14 @@ func readPassword(prompt string) (string, error) {
 			return "", fmt.Errorf("failed to read password: %w", err)
 		}
 		return string(password), nil
-	} else {
-		fmt.Fprint(os.Stderr, prompt)
-		var password string
-		if _, err := fmt.Scanln(&password); err != nil {
-			return "", fmt.Errorf("failed to read password from stdin: %w", err)
-		}
-		return password, nil
 	}
+
+	fmt.Fprint(os.Stderr, prompt)
+	var password string
+	if _, err := fmt.Scanln(&password); err != nil {
+		return "", fmt.Errorf("failed to read password from stdin: %w", err)
+	}
+	return password, nil
 }
 
 func RunCreateUserCommand() *cobra.Command {
@@ -246,7 +250,7 @@ If no --config-dir is specified, uses the OS-specific default location:
 			}
 
 			if strings.TrimSpace(username) == "" {
-				return fmt.Errorf("username cannot be empty")
+				return errors.New("username cannot be empty")
 			}
 			username = strings.TrimSpace(username)
 
@@ -259,7 +263,7 @@ If no --config-dir is specified, uses the OS-specific default location:
 			}
 
 			if len(password) < 8 {
-				return fmt.Errorf("password must be at least 8 characters long")
+				return errors.New("password must be at least 8 characters long")
 			}
 
 			user, err := authService.SetupUser(context.Background(), username, password)
@@ -327,7 +331,7 @@ If no --config-dir is specified, uses the OS-specific default location:
 				return fmt.Errorf("failed to check setup status: %w", err)
 			}
 			if !exists {
-				return fmt.Errorf("no user account found. Create a user first with 'create-user' command")
+				return errors.New("no user account found. Create a user first with 'create-user' command")
 			}
 
 			if username == "" {
@@ -341,7 +345,7 @@ If no --config-dir is specified, uses the OS-specific default location:
 			userStore := models.NewUserStore(db)
 			user, err := userStore.GetByUsername(ctx, username)
 			if err != nil {
-				if err == models.ErrUserNotFound {
+				if errors.Is(err, models.ErrUserNotFound) {
 					return fmt.Errorf("username '%s' not found", username)
 				}
 				return fmt.Errorf("failed to verify username: %w", err)
@@ -356,7 +360,7 @@ If no --config-dir is specified, uses the OS-specific default location:
 			}
 
 			if len(newPassword) < 8 {
-				return fmt.Errorf("password must be at least 8 characters long")
+				return errors.New("password must be at least 8 characters long")
 			}
 
 			hashedPassword, err := auth.HashPassword(newPassword)
@@ -411,6 +415,56 @@ Flags:
 	return command
 }
 
+func RunMigrateCommand() *cobra.Command {
+	var command = &cobra.Command{
+		Use:   "migrate {deluge | rtorrent | transmission} --source-dir dir --qbit-dir dir2 [--skip-backup] [--dry-run]",
+		Short: "Migrate from deluge,rtorrent or transmission to qBittorrent",
+		Long:  `Migrate torrents with state from other clients [deluge,rtorrent,transmission]`,
+		Example: `  qui migrate deluge --source-dir ~/.config/deluge/state/ --qbit-dir ~/.local/share/qBittorrent/BT_backup --dry-run
+  qui migrate rtorrent --source-dir ~/.sessions --qbit-dir ~/.local/share/qBittorrent/BT_backup --dry-run
+  qui migrate transmission --source-dir ~/data --qbit-dir ~/.local/share/qBittorrent/BT_backup --dry-run
+`,
+		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		ValidArgs: []string{string(clientmigrate.ClientTypeDeluge), string(clientmigrate.ClientTypeRTorrent), string(clientmigrate.ClientTypeTransmission)},
+	}
+
+	var (
+		sourceDir  string
+		qbitDir    string
+		dryRun     bool
+		skipBackup bool
+	)
+
+	command.Flags().BoolVar(&dryRun, "dry-run", false, "Run without importing anything")
+	command.Flags().StringVar(&sourceDir, "source-dir", "", "source client state dir (required)")
+	command.Flags().StringVar(&qbitDir, "qbit-dir", "", "qBittorrent BT_backup dir. Commonly ~/.local/share/qBittorrent/BT_backup (required)")
+	command.Flags().BoolVar(&skipBackup, "skip-backup", false, "Skip backup before import")
+
+	_ = command.MarkFlagRequired("source-dir")
+	_ = command.MarkFlagRequired("qbit-dir")
+
+	command.RunE = func(cmd *cobra.Command, args []string) error {
+		source := args[0]
+		opts := clientmigrate.Options{
+			Source:     clientmigrate.ClientType(source),
+			SourceDir:  sourceDir,
+			QbitDir:    qbitDir,
+			DryRun:     dryRun,
+			SkipBackup: skipBackup,
+		}
+
+		mig := clientmigrate.New(opts)
+
+		if err := mig.Migrate(cmd.Context()); err != nil {
+			return errors.Wrapf(err, "could not migrate from %s", source)
+		}
+
+		return nil
+	}
+
+	return command
+}
+
 type Application struct {
 	configDir string
 	dataDir   string
@@ -452,7 +506,9 @@ func (app *Application) runServer() {
 		cfg.Config.PprofEnabled = true
 	}
 
-	cfg.ApplyLogConfig()
+	if err := cfg.ApplyLogConfig(); err != nil {
+		log.Warn().Err(err).Str("logPath", cfg.Config.LogPath).Msg("Failed to apply log configuration, continuing with the previous log settings")
+	}
 
 	log.Info().Str("version", buildinfo.Version).Msg("Starting qui")
 
@@ -523,6 +579,7 @@ func (app *Application) runServer() {
 	licenseRepo := database.NewLicenseRepo(db)
 	instanceStore, err := models.NewInstanceStore(db, cfg.GetEncryptionKey())
 	if err != nil {
+		//nolint:gocritic // exitAfterDefer: a startup failure exits the process; the OS closes the database handle and SQLite recovers from the WAL
 		log.Fatal().Err(err).Msg("Failed to initialize instance store")
 	}
 	instanceReannounceStore := models.NewInstanceReannounceStore(db)
@@ -534,6 +591,8 @@ func (app *Application) runServer() {
 	automationStore := models.NewAutomationStore(db)
 	trackerCustomizationStore := models.NewTrackerCustomizationStore(db)
 	dashboardSettingsStore := models.NewDashboardSettingsStore(db)
+	clientSettingsStore := models.NewClientSettingsStore(db)
+	themeSettingsStore := models.NewThemeSettingsStore(db)
 	filterViewStore := models.NewFilterViewStore(db)
 	logExclusionsStore := models.NewLogExclusionsStore(db)
 
@@ -558,7 +617,7 @@ func (app *Application) runServer() {
 	}()
 
 	// Initialize qBittorrent client pool
-	clientPool, err := qbittorrent.NewClientPool(instanceStore, errorStore)
+	clientPool, err := qbittorrent.NewClientPool(instanceStore, errorStore, time.Duration(cfg.Config.QbittorrentTimeout)*time.Second)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize client pool")
 	}
@@ -667,17 +726,23 @@ func (app *Application) runServer() {
 		crossSeedStore.GetDecryptedSeasonPackTVDBCredentials,
 	)
 	crossSeedService.SetActivityPublisher(activityHub)
+	crossSeedService.SetMediaIDCacheStore(models.NewMediaIDCacheStore(db))
 	reannounceService := reannounce.NewService(reannounce.DefaultConfig(), instanceStore, instanceReannounceStore, reannounceSettingsCache, clientPool, syncManager)
 	reannounceService.SetActivityPublisher(activityHub)
-	automationService := automations.NewService(automations.DefaultConfig(), instanceStore, automationStore, automationActivityStore, trackerCustomizationStore, syncManager, notificationService, externalProgramService, crossSeedService)
+
+	backendPool := fsops.NewPool(instanceStore, localbackend.NewBackend())
+	crossSeedService.SetBackendPool(backendPool)
+	syncManager.SetBackendPool(backendPool)
+
+	automationService := automations.NewService(automations.DefaultConfig(), instanceStore, automationStore, automationActivityStore, trackerCustomizationStore, syncManager, notificationService, externalProgramService, crossSeedService, backendPool)
 	automationService.SetActivityPublisher(activityHub)
 
 	orphanScanStore := models.NewOrphanScanStore(db)
-	orphanScanService := orphanscan.NewService(orphanscan.DefaultConfig(), instanceStore, orphanScanStore, syncManager, notificationService)
+	orphanScanService := orphanscan.NewService(orphanscan.DefaultConfig(), instanceStore, orphanScanStore, syncManager, notificationService, backendPool)
 	orphanScanService.SetActivityPublisher(activityHub)
 
 	dirScanStore := models.NewDirScanStore(db)
-	dirScanService := dirscan.NewService(dirscan.DefaultConfig(), dirScanStore, crossSeedStore, instanceStore, syncManager, jackettService, arrService, trackerCustomizationStore, notificationService)
+	dirScanService := dirscan.NewService(dirscan.DefaultConfig(), dirScanStore, crossSeedStore, instanceStore, syncManager, jackettService, arrService, trackerCustomizationStore, notificationService, backendPool)
 	dirScanService.SetActivityPublisher(activityHub)
 
 	syncManager.SetTorrentCompletionHandler(func(ctx context.Context, instanceID int, torrent qbt.Torrent) {
@@ -800,6 +865,8 @@ func (app *Application) runServer() {
 		AutomationService:                automationService,
 		TrackerCustomizationStore:        trackerCustomizationStore,
 		DashboardSettingsStore:           dashboardSettingsStore,
+		ClientSettingsStore:              clientSettingsStore,
+		ThemeSettingsStore:               themeSettingsStore,
 		FilterViewStore:                  filterViewStore,
 		LogExclusionsStore:               logExclusionsStore,
 		NotificationTargetStore:          notificationTargetStore,
@@ -860,10 +927,14 @@ func (app *Application) runServer() {
 		if pprofAddr == "" {
 			pprofAddr = "127.0.0.1:6060"
 		}
+		pprofServer := &http.Server{
+			Addr:              pprofAddr,
+			ReadHeaderTimeout: 15 * time.Second,
+		}
 		go func() {
 			log.Info().Str("addr", pprofAddr).Msg("Starting pprof server")
 			log.Info().Msgf("Access profiling at: http://%s/debug/pprof/", pprofAddr)
-			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			if err := pprofServer.ListenAndServe(); err != nil {
 				log.Error().Err(err).Str("addr", pprofAddr).Msg("Profiling server failed")
 			}
 		}()
@@ -885,35 +956,19 @@ func (app *Application) runServer() {
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
-		//log.Fatal().Err(err).Msg("Server forced to shutdown")
+		// log.Fatal().Err(err).Msg("Server forced to shutdown")
 		log.Error().Err(err).Msg("got error during graceful http shutdown")
 
 		os.Exit(1)
 	}
 
-	//if err := srv.Shutdown(context.Background()); err != nil {
+	// if err := srv.Shutdown(context.Background()); err != nil {
 	//	log.Error().Err(err).Msg("got error during graceful http shutdown")
 	//
 	//	os.Exit(1)
 	//}
 
 	os.Exit(0)
-
-	//// Wait for interrupt signal to gracefully shutdown the server
-	//quit := make(chan os.Signal, 1)
-	//signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	//<-quit
-	//log.Info().Msg("Shutting down server...")
-	//
-	//// Graceful shutdown with timeout
-	//ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	//defer cancel()
-	//
-	//if err := httpServer.Close(ctx); err != nil {
-	//	log.Fatal().Err(err).Msg("Server forced to shutdown")
-	//}
-	//
-	//log.Info().Msg("Server stopped")
 }
 
 // instanceListerAdapter implements filesmanager.InstanceLister

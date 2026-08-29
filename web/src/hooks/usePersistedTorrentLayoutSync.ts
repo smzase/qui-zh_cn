@@ -34,7 +34,7 @@ function getSnapshot(): string {
 
 export function usePersistedTorrentLayoutSync(): [
   boolean,
-  (enabled: boolean) => void,
+  (enabled: boolean) => void
 ] {
   const storedString = useSyncExternalStore(subscribe, getSnapshot)
   const enabled = useMemo(() => storedString === "true", [storedString])

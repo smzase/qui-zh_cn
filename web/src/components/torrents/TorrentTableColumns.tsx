@@ -30,7 +30,8 @@ import {
 import { resolveTrackerIconSrc } from "@/lib/tracker-icons"
 import { cn, formatBytes, formatDuration, getRatioColor } from "@/lib/utils"
 import type { AppPreferences, CrossInstanceTorrent, Torrent } from "@/types"
-import type { CellContext, ColumnDef, HeaderContext } from "@tanstack/react-table"
+import type { CellContext, HeaderContext, RowSelectionState } from "@tanstack/react-table"
+import type { TorrentTableColumnDef, TorrentTableFeatures } from "./tanstackTableFeatures"
 import {
   AlertCircle,
   ArrowDownAZ,
@@ -431,7 +432,7 @@ export const createColumns = (
   trackerCustomizationLookup?: TrackerCustomizationLookup,
   includeSelectionColumn: boolean = true,
   t?: TFunction
-): ColumnDef<Torrent>[] => {
+): TorrentTableColumnDef[] => {
   // Badge padding classes based on view mode
   const badgePadding = viewMode === "dense" ? "px-1.5 py-0" : ""
   const instanceLabel = t?.("tableColumns.instance") ?? "Instance"
@@ -442,7 +443,7 @@ export const createColumns = (
   const statusIconLabel = t?.("tableColumns.statusIcon") ?? "Status Icon"
   const trackerIconLabel = t?.("tableColumns.trackerIcon") ?? "Tracker Icon"
 
-  const instanceColumn: ColumnDef<Torrent> = {
+  const instanceColumn: TorrentTableColumnDef = {
     id: "instance",
     accessorKey: "instanceName",
     header: instanceLabel,
@@ -462,7 +463,7 @@ export const createColumns = (
   return [
     ...(includeSelectionColumn ? [{
       id: "select",
-      header: ({ table }: HeaderContext<Torrent, unknown>) => (
+      header: ({ table }: HeaderContext<TorrentTableFeatures, Torrent, unknown>) => (
         <div className="flex items-center justify-center p-1 -m-1">
           <Checkbox
             checked={selectionEnhancers?.customSelectAll?.isIndeterminate ? "indeterminate" : selectionEnhancers?.customSelectAll?.isAllSelected || false}
@@ -479,7 +480,7 @@ export const createColumns = (
           />
         </div>
       ),
-      cell: ({ row, table }: CellContext<Torrent, unknown>) => {
+      cell: ({ row, table }: CellContext<TorrentTableFeatures, Torrent, unknown>) => {
         const torrent = row.original
         const hash = torrent.hash
         const selectionIdentity = selectionEnhancers?.getSelectionIdentity?.(torrent) ?? hash
@@ -524,12 +525,16 @@ export const createColumns = (
                       }
                     }
                   } else {
-                    table.setRowSelection((prev: Record<string, boolean>) => {
-                      const next: Record<string, boolean> = { ...prev }
+                    table.setRowSelection((prev: RowSelectionState) => {
+                      const next: RowSelectionState = { ...prev }
                       for (let i = start; i <= end; i++) {
                         const r = allRows[i]
                         if (r) {
-                          next[r.id] = !!checked
+                          if (checked) {
+                            next[r.id] = true
+                          } else {
+                            delete next[r.id]
+                          }
                         }
                       }
                       return next
@@ -665,7 +670,7 @@ export const createColumns = (
       meta: {
         headerString: statusIconLabel,
       },
-      sortingFn: (rowA, rowB) => compareTrackerAwareStatus(rowA.original, rowB.original, supportsTrackerHealth, t),
+      sortFn: (rowA, rowB) => compareTrackerAwareStatus(rowA.original, rowB.original, supportsTrackerHealth, t),
       cell: ({ row }) => {
         const torrent = row.original
         const StatusIcon = getStatusIcon(torrent.state, torrent.tracker_health ?? null, supportsTrackerHealth)
@@ -690,7 +695,7 @@ export const createColumns = (
     {
       accessorKey: "state",
       header: t?.("tableColumns.status") ?? "Status",
-      sortingFn: (rowA, rowB) => compareTrackerAwareStatus(rowA.original, rowB.original, supportsTrackerHealth, t),
+      sortFn: (rowA, rowB) => compareTrackerAwareStatus(rowA.original, rowB.original, supportsTrackerHealth, t),
       cell: ({ row }) => {
         const torrent = row.original
         const state = torrent.state
@@ -788,7 +793,7 @@ export const createColumns = (
           </span>
         )
       },
-      sortingFn: (rowA, rowB) => {
+      sortFn: (rowA, rowB) => {
         const ratioA = incognitoMode ? getLinuxRatio(rowA.original.hash) : rowA.original.ratio
         const ratioB = incognitoMode ? getLinuxRatio(rowB.original.hash) : rowB.original.ratio
 

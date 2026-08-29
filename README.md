@@ -24,10 +24,10 @@
 ```bash
 # 下载并解压最新版本
 wget $(curl -s https://api.github.com/repos/autobrr/qui/releases/latest | grep browser_download_url | grep linux_x86_64 | cut -d\" -f4)
-tar -C /usr/local/bin -xzf qui*.tar.gz
+sudo tar -C /usr/local/bin -xzf qui*.tar.gz qui
 
 # 运行
-./qui serve
+qui serve
 ```
 
 Web 界面将可通过 http://localhost:7476 访问
@@ -41,20 +41,6 @@ docker run -d \
   ghcr.io/autobrr/qui:latest
 ```
 
-### macOS Container
-
-首先，从官方来源安装 Container：https://github.com/apple/container/releases
-其次，在你希望的位置创建 `/config` 和 `/downloads` 文件夹。
-然后，运行以下命令：
-
-```bash
-container run -d \
-  -p 7476:7476 \
-  -v $(pwd)/config:/config \
-  -v $(pwd)/downloads:/downloads \
-  ghcr.io/autobrr/qui:latest
-```
-
 ## 功能特性
 
 - **单二进制文件**：无需依赖，下载即可运行
@@ -64,7 +50,7 @@ container run -d \
 - **自动化规则**：基于条件的规则化种子管理
 - **备份与恢复**：支持定时快照及多种恢复模式
 - **反向代理**：为外部应用提供透明的 qBittorrent 代理
-- **多语言支持**：提供英语、德语、法语、意大利语、捷克语、乌克兰语、韩语、巴西葡萄牙语以及简体中文，并支持浏览器语言自动检测
+- **多语言支持**：提供英语、德语、法语、意大利语、捷克语、乌克兰语、韩语、巴西葡萄牙语、简体中文以及繁体中文，并支持浏览器语言自动检测
 
 ## 社区
 
@@ -79,10 +65,9 @@ container run -d \
 
 qui 由志愿者开发和维护。您的支持将帮助我们持续改进项目。
 
-### 高级主题
+### 主题
 
-可直接在 qui 实例的「设置 → 主题」中购买高级主题，结账后即可立即获得许可证密钥。
-如使用加密货币捐赠，请在 [crypto.getqui.com](https://crypto.getqui.com/) 验证交易，以获取高级主题的 100% 折扣码。
+本 fork 已移除主题许可证限制，内置主题和自定义主题均可直接使用。
 
 ### 捐赠
 
