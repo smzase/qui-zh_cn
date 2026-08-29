@@ -39,7 +39,7 @@ var syncTorrentFields = []string{
 	"totalSize", "sizeWhenDone", "leftUntilDone", "percentDone",
 	"metadataPercentComplete", "addedDate", "doneDate", "activityDate",
 	"dateCreated", "eta", "rateDownload", "rateUpload", "uploadedEver",
-	"downloadedEver", "corruptEver", "ratio", "peersConnected",
+	"downloadedEver", "corruptEver", "uploadRatio", "peersConnected",
 	"peersSendingToUs", "peersGettingFromUs", "trackerStats", "labels",
 	"queuePosition", "downloadLimit", "downloadLimited", "uploadLimit",
 	"uploadLimited", "seedRatioLimit", "seedRatioMode", "seedIdleLimit",
@@ -1430,6 +1430,111 @@ func (b *Bridge) handleToggleSpeedLimits(ctx context.Context, req *http.Request)
 
 // --- data helpers -----------------------------------------------------------
 
+// transmissionSessionFields is the allowlist of session-get/session-set
+// fields qui's Transmission preferences surface reads and writes. Keys use
+// the daemon's own spelling so values pass through unmodified.
+var transmissionSessionFields = map[string]bool{
+	// Torrents
+	"download-dir":               true,
+	"incomplete-dir":             true,
+	"incomplete-dir-enabled":     true,
+	"start-added":                true,
+	"rename-partial":             true,
+	"download-queue-enabled":     true,
+	"download-queue-size":        true,
+	"seed-queue-enabled":         true,
+	"seed-queue-size":            true,
+	"seedRatioLimit":             true,
+	"seedRatioLimited":           true,
+	"idle-seeding-limit":         true,
+	"idle-seeding-limit-enabled": true,
+	// Speed
+	"speed-limit-up":           true,
+	"speed-limit-up-enabled":   true,
+	"speed-limit-down":         true,
+	"speed-limit-down-enabled": true,
+	"alt-speed-enabled":        true,
+	"alt-speed-up":             true,
+	"alt-speed-down":           true,
+	"alt-speed-time-enabled":   true,
+	"alt-speed-time-begin":     true,
+	"alt-speed-time-end":       true,
+	"alt-speed-time-day":       true,
+	// Peers
+	"peer-limit-per-torrent": true,
+	"peer-limit-global":      true,
+	"encryption":             true,
+	"pex-enabled":            true,
+	"dht-enabled":            true,
+	"lpd-enabled":            true,
+	"blocklist-enabled":      true,
+	"blocklist-url":          true,
+	"blocklist-size":         true,
+	// Network
+	"peer-port":                 true,
+	"peer-port-random-on-start": true,
+	"port-forwarding-enabled":   true,
+	"utp-enabled":               true,
+	"default-trackers":          true,
+}
+
+// GetSession returns the daemon's session settings filtered to the fields
+// qui manages. Fields the daemon does not report are absent from the map,
+// which lets the frontend hide version-specific options.
+func (b *Bridge) GetSession(ctx context.Context) (map[string]any, error) {
+	var raw map[string]json.RawMessage
+	if err := b.rpc.call(ctx, "session-get", nil, &raw); err != nil {
+		return nil, err
+	}
+
+	out := make(map[string]any, len(transmissionSessionFields))
+	for key, value := range raw {
+		if !transmissionSessionFields[key] {
+			continue
+		}
+		var decoded any
+		if err := json.Unmarshal(value, &decoded); err != nil {
+			continue
+		}
+		out[key] = decoded
+	}
+	return out, nil
+}
+
+// SetSession applies a subset of session settings. Keys outside the
+// allowlist are rejected so callers cannot mutate arbitrary daemon state.
+func (b *Bridge) SetSession(ctx context.Context, settings map[string]any) error {
+	args := make(map[string]any, len(settings))
+	for key, value := range settings {
+		if !transmissionSessionFields[key] || key == "blocklist-size" {
+			return fmt.Errorf("transmission: unsupported session field %q", key)
+		}
+		args[key] = value
+	}
+	if len(args) == 0 {
+		return nil
+	}
+
+	if err := b.rpc.call(ctx, "session-set", args, nil); err != nil {
+		return err
+	}
+	b.invalidateSessionCache()
+	return nil
+}
+
+// UpdateBlocklist asks the daemon to re-download its blocklist and returns
+// the new rule count.
+func (b *Bridge) UpdateBlocklist(ctx context.Context) (int64, error) {
+	var result struct {
+		BlocklistSize int64 `json:"blocklist-size"`
+	}
+	if err := b.rpc.call(ctx, "blocklist-update", nil, &result); err != nil {
+		return 0, err
+	}
+	b.invalidateSessionCache()
+	return result.BlocklistSize, nil
+}
+
 // fetchTorrents retrieves all torrents with the given field list.
 func (b *Bridge) fetchTorrents(ctx context.Context, fields []string) ([]torrent, error) {
 	var result torrentGetArguments
@@ -1441,7 +1546,9 @@ func (b *Bridge) fetchTorrents(ctx context.Context, fields []string) ([]torrent,
 }
 
 // fetchSingleTorrent retrieves one torrent by hash (case-insensitive) or
-// nil when the daemon does not know it.
+// nil when the daemon does not know it. Some daemon builds and reverse
+// proxies are unreliable at resolving hash-string ids, so a by-id miss
+// falls back to fetching the full list and matching locally.
 func (b *Bridge) fetchSingleTorrent(ctx context.Context, hash string, fields []string) (*torrent, error) {
 	args := map[string]any{"fields": fields, "ids": []string{b.resolveHash(hash)}}
 	var result torrentGetArguments
@@ -1451,6 +1558,16 @@ func (b *Bridge) fetchSingleTorrent(ctx context.Context, hash string, fields []s
 	for i := range result.Torrents {
 		if strings.EqualFold(result.Torrents[i].HashString, hash) {
 			return &result.Torrents[i], nil
+		}
+	}
+
+	all, err := b.fetchTorrents(ctx, fields)
+	if err != nil {
+		return nil, err
+	}
+	for i := range all {
+		if strings.EqualFold(all[i].HashString, hash) {
+			return &all[i], nil
 		}
 	}
 	return nil, nil

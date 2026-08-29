@@ -28,7 +28,7 @@ type torrent struct {
 	UploadedEver        int64         `json:"uploadedEver"`
 	DownloadedEver      int64         `json:"downloadedEver"`
 	CorruptEver         int64         `json:"corruptEver"`
-	Ratio               float64       `json:"ratio"`
+	Ratio               float64       `json:"uploadRatio"`
 	PeersConnected      int64         `json:"peersConnected"`
 	PeersSendingToUs    int64         `json:"peersSendingToUs"`
 	PeersGettingFromUs  int64         `json:"peersGettingFromUs"`

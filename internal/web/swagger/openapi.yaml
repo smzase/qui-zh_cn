@@ -2869,6 +2869,66 @@ paths:
         '200':
           description: Preferences updated successfully
 
+  /api/instances/{instanceID}/transmission-preferences:
+    get:
+      tags:
+        - Instances
+      summary: Get Transmission daemon preferences
+      description: Get the Transmission daemon session settings qui manages (torrents, speed, peers, network). Only valid for Transmission instances.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: Transmission session settings
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Transmission session settings keyed by the daemon's own field names; version-specific fields the daemon does not report are absent.
+        '400':
+          description: Instance is not a Transmission instance
+    patch:
+      tags:
+        - Instances
+      summary: Update Transmission daemon preferences
+      description: Apply a subset of Transmission daemon session settings. Only fields on the supported allowlist are accepted.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Partial Transmission session settings keyed by the daemon's own field names.
+      responses:
+        '200':
+          description: Settings applied; returns the updated settings
+        '400':
+          description: Instance is not a Transmission instance, or the request contains unsupported fields
+
+  /api/instances/{instanceID}/transmission-preferences/blocklist-update:
+    post:
+      tags:
+        - Instances
+      summary: Update Transmission blocklist
+      description: Ask the daemon to re-download its blocklist. Only valid for Transmission instances.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: Blocklist refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blocklist-size:
+                    type: integer
+                    description: Number of rules in the refreshed blocklist.
+        '400':
+          description: Instance is not a Transmission instance
+
   /api/instances/{instanceID}/alternative-speed-limits:
     get:
       tags:

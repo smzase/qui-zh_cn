@@ -6732,6 +6732,68 @@ func (sm *SyncManager) SetAppPreferences(ctx context.Context, instanceID int, pr
 	return nil
 }
 
+// ErrNotATransmissionInstance marks requests against the Transmission-only
+// preferences surface on an instance that is not backed by the bridge.
+var ErrNotATransmissionInstance = errors.New("instance is not a Transmission instance")
+
+// GetTransmissionPreferences returns the daemon session settings the
+// Transmission preferences surface manages.
+func (sm *SyncManager) GetTransmissionPreferences(ctx context.Context, instanceID int) (map[string]any, error) {
+	client, err := sm.clientPool.GetClient(ctx, instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client: %w", err)
+	}
+
+	bridge := client.TransmissionBridge()
+	if bridge == nil {
+		return nil, ErrNotATransmissionInstance
+	}
+
+	settings, err := bridge.GetSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Transmission preferences: %w", err)
+	}
+	return settings, nil
+}
+
+// SetTransmissionPreferences applies a subset of daemon session settings.
+func (sm *SyncManager) SetTransmissionPreferences(ctx context.Context, instanceID int, settings map[string]any) error {
+	client, err := sm.clientPool.GetClient(ctx, instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to get client: %w", err)
+	}
+
+	bridge := client.TransmissionBridge()
+	if bridge == nil {
+		return ErrNotATransmissionInstance
+	}
+
+	if err := bridge.SetSession(ctx, settings); err != nil {
+		return fmt.Errorf("failed to set Transmission preferences: %w", err)
+	}
+	return nil
+}
+
+// UpdateTransmissionBlocklist re-downloads the daemon's blocklist and returns
+// the new rule count.
+func (sm *SyncManager) UpdateTransmissionBlocklist(ctx context.Context, instanceID int) (int64, error) {
+	client, err := sm.clientPool.GetClient(ctx, instanceID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get client: %w", err)
+	}
+
+	bridge := client.TransmissionBridge()
+	if bridge == nil {
+		return 0, ErrNotATransmissionInstance
+	}
+
+	size, err := bridge.UpdateBlocklist(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update blocklist: %w", err)
+	}
+	return size, nil
+}
+
 // NormalizeScanDirsPreference validates and normalizes the scan_dirs preference
 // using go-qbittorrent's typed monitored folder support.
 func (sm *SyncManager) NormalizeScanDirsPreference(prefs map[string]any) error {

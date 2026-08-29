@@ -644,6 +644,11 @@ func (s *Server) Handler() (*chi.Mux, error) {
 					r.Get("/preferences", preferencesHandler.GetPreferences)
 					r.Patch("/preferences", preferencesHandler.UpdatePreferences)
 
+					// Transmission daemon session settings
+					r.Get("/transmission-preferences", preferencesHandler.GetTransmissionPreferences)
+					r.Patch("/transmission-preferences", preferencesHandler.UpdateTransmissionPreferences)
+					r.Post("/transmission-preferences/blocklist-update", preferencesHandler.UpdateTransmissionBlocklist)
+
 					// Alternative speed limits
 					r.Get("/alternative-speed-limits", preferencesHandler.GetAlternativeSpeedLimitsMode)
 					r.Post("/alternative-speed-limits/toggle", preferencesHandler.ToggleAlternativeSpeedLimits)

@@ -131,6 +131,17 @@ type Client struct {
 	activeTaskCountAt    time.Time
 	activeTaskRefreshing bool
 	activeTaskMu         sync.Mutex
+
+	// transmissionBridge is non-nil when this client is backed by the
+	// Transmission RPC bridge; it exposes daemon-specific session settings
+	// that have no qBittorrent API equivalent.
+	transmissionBridge *transmission.Bridge
+}
+
+// TransmissionBridge returns the Transmission bridge backing this client, or
+// nil for qBittorrent instances.
+func (c *Client) TransmissionBridge() *transmission.Bridge {
+	return c.transmissionBridge
 }
 
 // NewClientWithTimeout builds a pooled client. loginTimeout bounds only the
@@ -172,7 +183,7 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiK
 		return nil, fmt.Errorf("failed to connect to qBittorrent instance: %w", err)
 	}
 
-	return initClient(ctx, qbtClient, instanceID, instanceHost)
+	return initClient(ctx, qbtClient, nil, instanceID, instanceHost)
 }
 
 // NewTransmissionClientWithTimeout builds a pooled client backed by a
@@ -212,18 +223,19 @@ func NewTransmissionClientWithTimeout(instanceID int, instanceHost, username, pa
 		return nil, fmt.Errorf("failed to connect to Transmission instance: %w", err)
 	}
 
-	return initClient(ctx, qbtClient, instanceID, instanceHost)
+	return initClient(ctx, qbtClient, bridge, instanceID, instanceHost)
 }
 
 // initClient assembles the qui Client around an already-logged-in
 // go-qbittorrent client: capability detection, caches, callbacks and the
-// maindata sync manager.
-func initClient(ctx context.Context, qbtClient *qbt.Client, instanceID int, instanceHost string) (*Client, error) {
+// maindata sync manager. bridge is non-nil for Transmission instances.
+func initClient(ctx context.Context, qbtClient *qbt.Client, bridge *transmission.Bridge, instanceID int, instanceHost string) (*Client, error) {
 	client := &Client{
-		Client:          qbtClient,
-		instanceID:      instanceID,
-		lastHealthCheck: time.Now(),
-		isHealthy:       true,
+		Client:             qbtClient,
+		instanceID:         instanceID,
+		transmissionBridge: bridge,
+		lastHealthCheck:    time.Now(),
+		isHealthy:          true,
 		optimisticUpdates: ttlcache.New(ttlcache.Options[string, *OptimisticTorrentUpdate]{}.
 			SetDefaultTTL(30 * time.Second)), // Updates expire after 30 seconds
 		trackerExclusions: make(map[string]map[string]struct{}),
