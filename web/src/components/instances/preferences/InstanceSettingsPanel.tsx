@@ -25,14 +25,22 @@ interface InstanceSettingsPanelProps {
   onSuccess?: () => void
 }
 
+type InstanceAuthType = "none" | "usernamePassword" | "apiKey"
+
+function getInstanceAuthType(instance: Instance): InstanceAuthType {
+  if (instance.clientType !== "transmission" && instance.hasApiKey) {
+    return "apiKey"
+  }
+  return instance.username ? "usernamePassword" : "none"
+}
+
 export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsPanelProps) {
   const { t } = useTranslation("instances")
   const { updateInstance, isUpdating } = useInstances()
   const [incognitoMode] = useIncognitoMode()
+  const isTransmission = instance.clientType === "transmission"
   const [showBasicAuth, setShowBasicAuth] = useState(!!instance?.basicUsername)
-  const [authType, setAuthType] = useState<"none" | "usernamePassword" | "apiKey">(
-    instance?.hasApiKey ? "apiKey" : instance?.username ? "usernamePassword" : "none"
-  )
+  const [authType, setAuthType] = useState<InstanceAuthType>(() => getInstanceAuthType(instance))
 
   useEffect(() => {
     setShowBasicAuth(!!instance?.basicUsername)
@@ -153,7 +161,7 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
         reannounceSettings: instance?.reannounceSettings ?? DEFAULT_REANNOUNCE_SETTINGS,
       })
       setShowBasicAuth(!!instance?.basicUsername)
-      setAuthType(instance?.hasApiKey ? "apiKey" : instance?.username ? "usernamePassword" : "none")
+      setAuthType(getInstanceAuthType(instance))
     }
   }, [instance, form])
 
@@ -296,18 +304,22 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
           <div className="rounded-lg border bg-muted/40 p-4 flex flex-col">
             <div className="space-y-2">
               <Label htmlFor="auth-type" className="flex items-center gap-2 text-sm font-medium">
-                {t("preferences.settingsPanel.labels.qbittorrentAuth")}
-                <FieldHelp>{t("preferences.settingsPanel.labels.qbittorrentAuthDescription")}</FieldHelp>
+                {isTransmission ? t("form.labels.authType") : t("preferences.settingsPanel.labels.qbittorrentAuth")}
+                <FieldHelp>
+                  {isTransmission
+                    ? t("form.labels.authTypeTransmissionDescription")
+                    : t("preferences.settingsPanel.labels.qbittorrentAuthDescription")}
+                </FieldHelp>
               </Label>
               <select
                 id="auth-type"
                 value={authType}
-                onChange={(e) => setAuthType(e.target.value as "none" | "usernamePassword" | "apiKey")}
+                onChange={(e) => setAuthType(e.target.value as InstanceAuthType)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               >
                 <option value="none">{t("form.authType.none")}</option>
                 <option value="usernamePassword">{t("form.authType.usernamePassword")}</option>
-                <option value="apiKey">{t("form.authType.apiKey")}</option>
+                {!isTransmission && <option value="apiKey">{t("form.authType.apiKey")}</option>}
               </select>
             </div>
 
@@ -354,7 +366,7 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
               </div>
             )}
 
-            {authType === "apiKey" && (
+            {!isTransmission && authType === "apiKey" && (
               <div className="grid grid-cols-1 gap-4 mt-4 pt-4 border-t">
                 <form.Field name="apiKey">
                   {(field) => (

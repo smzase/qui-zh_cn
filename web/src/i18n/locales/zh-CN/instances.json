@@ -196,7 +196,7 @@
         "connection": "连接",
         "discovery": "发现",
         "advanced": "高级",
-        "transmission": "Transmission"
+        "transmission": "守护进程"
       },
       "sections": {
         "instanceConfig": {
