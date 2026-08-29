@@ -92,3 +92,4 @@ polar-scripts/
 
 # Local-only planning notes
 plans/
+.tmp-tools/
