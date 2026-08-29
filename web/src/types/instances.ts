@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+export type InstanceClientType = "qbittorrent" | "transmission"
+
 export interface Instance {
   id: number
+  clientType: InstanceClientType
   name: string
   host: string
   username: string
@@ -26,6 +29,7 @@ export interface Instance {
 }
 
 export interface InstanceFormData {
+  clientType: InstanceClientType
   name: string
   host: string
   username?: string

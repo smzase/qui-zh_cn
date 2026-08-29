@@ -60,6 +60,8 @@
   },
   "form": {
     "labels": {
+      "clientType": "클라이언트 유형",
+      "clientTypeDescription": "이 인스턴스가 연결하는 토렌트 클라이언트입니다.",
       "instanceName": "인스턴스 이름",
       "url": "URL",
       "skipTlsVerification": "TLS 인증서 검증 건너뛰기",
@@ -75,11 +77,13 @@
       "basicAuthUsername": "기본 인증 사용자 이름",
       "basicAuthPassword": "기본 인증 비밀번호",
       "authType": "인증 유형",
-      "authTypeDescription": "qui가 qBittorrent에 인증하는 방식을 선택하세요."
+      "authTypeDescription": "qui가 qBittorrent에 인증하는 방식을 선택하세요.",
+      "authTypeTransmissionDescription": "qui가 Transmission 데몬에 인증하는 방식을 선택하세요."
     },
     "placeholders": {
       "instanceName": "예: 메인 서버 또는 홈 qBittorrent",
       "url": "http://localhost:8080 또는 192.168.1.100:8080",
+      "transmissionUrl": "http://localhost:9091 또는 192.168.1.100:9091",
       "username": "qBittorrent 사용자 이름(보통 admin)",
       "passwordNew": "qBittorrent 비밀번호",
       "passwordExisting": "현재 비밀번호를 유지하려면 비워 두기",
@@ -113,6 +117,10 @@
       "none": "없음",
       "usernamePassword": "사용자 이름 및 비밀번호",
       "apiKey": "API 키"
+    },
+    "clientType": {
+      "qbittorrent": "qBittorrent",
+      "transmission": "Transmission"
     }
   },
   "settingsButton": {

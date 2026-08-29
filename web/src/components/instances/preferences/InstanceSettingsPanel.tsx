@@ -117,6 +117,7 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
 
   const form = useForm({
     defaultValues: {
+      clientType: instance?.clientType ?? "qbittorrent",
       name: instance?.name ?? "",
       host: instance?.host ?? "http://localhost:8080",
       username: instance?.username ?? "",
@@ -139,6 +140,7 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
     if (prevInstanceId.current !== instance?.id) {
       prevInstanceId.current = instance?.id
       form.reset({
+        clientType: instance?.clientType ?? "qbittorrent",
         name: instance?.name ?? "",
         host: instance?.host ?? "http://localhost:8080",
         username: instance?.username ?? "",

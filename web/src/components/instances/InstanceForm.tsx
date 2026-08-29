@@ -11,13 +11,16 @@ import { Switch } from "@/components/ui/switch"
 import { useInstances } from "@/hooks/useInstances"
 import { DEFAULT_REANNOUNCE_SETTINGS, instanceUrlSchema } from "@/lib/instance-validation"
 import { formatErrorMessage } from "@/lib/utils"
-import type { Instance, InstanceFormData } from "@/types"
+import type { Instance, InstanceClientType, InstanceFormData } from "@/types"
 import { useForm } from "@tanstack/react-form"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 type InstanceAuthType = "none" | "usernamePassword" | "apiKey"
+
+const DEFAULT_QBITTORRENT_HOST = "http://localhost:8080"
+const DEFAULT_TRANSMISSION_HOST = "http://localhost:9091"
 
 interface InstanceFormProps {
   instance?: Instance
@@ -31,10 +34,16 @@ function getInstanceAuthType(instance?: Instance): InstanceAuthType {
   return instance?.hasApiKey ? "apiKey" : instance?.username ? "usernamePassword" : "none"
 }
 
+function defaultHostForClientType(clientType: InstanceClientType): string {
+  return clientType === "transmission" ? DEFAULT_TRANSMISSION_HOST : DEFAULT_QBITTORRENT_HOST
+}
+
 function getInstanceFormDefaults(instance?: Instance): InstanceFormData {
+  const clientType: InstanceClientType = instance?.clientType ?? "qbittorrent"
   return {
+    clientType,
     name: instance?.name ?? "",
-    host: instance?.host ?? "http://localhost:8080",
+    host: instance?.host ?? defaultHostForClientType(clientType),
     username: instance?.username ?? "",
     password: "",
     apiKey: instance?.hasApiKey ? "<redacted>" : "",
@@ -72,9 +81,34 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
   const { createInstance, updateInstance, isCreating, isUpdating } = useInstances()
   const [showBasicAuth, setShowBasicAuth] = useState(!!instance?.basicUsername)
   const [authType, setAuthType] = useState<InstanceAuthType>(() => getInstanceAuthType(instance))
+  const [clientType, setClientType] = useState<InstanceClientType>(() => instance?.clientType ?? "qbittorrent")
+
+  // Transmission authenticates with the daemon's own RPC credentials; the
+  // API-key option and the reverse-proxy basic auth layer do not apply.
+  const isTransmission = clientType === "transmission"
+
+  const switchClientType = (next: InstanceClientType) => {
+    if (instance || next === clientType) {
+      return
+    }
+    setClientType(next)
+    // API key auth is a qBittorrent-only feature.
+    if (next === "transmission" && authType === "apiKey") {
+      setAuthType("none")
+    }
+    if (next === "transmission") {
+      setShowBasicAuth(false)
+    }
+    // Follow the default port when the user has not typed a custom host yet.
+    const currentHost = form.getFieldValue("host")
+    if (currentHost === DEFAULT_QBITTORRENT_HOST || currentHost === DEFAULT_TRANSMISSION_HOST) {
+      form.setFieldValue("host", defaultHostForClientType(next))
+    }
+  }
 
   const handleSubmit = (data: InstanceFormData) => {
-    const authValidationError = getAuthValidationError(data, authType, instance)
+    const effectiveAuthType: InstanceAuthType = isTransmission && authType === "apiKey" ? "none" : authType
+    const authValidationError = getAuthValidationError(data, effectiveAuthType, instance)
     if (authValidationError) {
       toast.error(t("form.toast.missingCredentialsTitle"), {
         description: authValidationError,
@@ -84,7 +118,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
 
     let submitData: InstanceFormData
 
-    if (showBasicAuth) {
+    if (showBasicAuth && !isTransmission) {
       // If basic auth is enabled, only include basicPassword if it's not the redacted placeholder
       if (data.basicPassword === "<redacted>") {
         // Don't send basicPassword at all - this preserves existing password
@@ -104,7 +138,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
       }
     }
 
-    if (authType === "none") {
+    if (effectiveAuthType === "none") {
       submitData = {
         ...submitData,
         username: "",
@@ -113,7 +147,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
       }
     }
 
-    if (authType === "usernamePassword") {
+    if (effectiveAuthType === "usernamePassword") {
       submitData = {
         ...submitData,
         apiKey: "",
@@ -125,7 +159,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
       }
     }
 
-    if (authType === "apiKey") {
+    if (effectiveAuthType === "apiKey") {
       submitData = {
         ...submitData,
         username: "",
@@ -136,6 +170,11 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
         const { apiKey, ...rest } = submitData
         submitData = rest
       }
+    }
+
+    submitData = {
+      ...submitData,
+      clientType,
     }
 
     if (instance) {
@@ -183,6 +222,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
       form.reset(getInstanceFormDefaults(instance))
       setShowBasicAuth(!!instance?.basicUsername)
       setAuthType(getInstanceAuthType(instance))
+      setClientType(instance?.clientType ?? "qbittorrent")
     }
   }, [instance, form])
 
@@ -196,6 +236,31 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
         }}
         className="space-y-4"
       >
+        <div className="space-y-2">
+          <Label htmlFor="client-type" className="flex items-center gap-2">
+            {t("form.labels.clientType")}
+            <FieldHelp>{t("form.labels.clientTypeDescription")}</FieldHelp>
+          </Label>
+          <div className="grid grid-cols-2 gap-2" id="client-type">
+            <Button
+              type="button"
+              variant={clientType === "qbittorrent" ? "default" : "outline"}
+              disabled={!!instance}
+              onClick={() => switchClientType("qbittorrent")}
+            >
+              {t("form.clientType.qbittorrent")}
+            </Button>
+            <Button
+              type="button"
+              variant={clientType === "transmission" ? "default" : "outline"}
+              disabled={!!instance}
+              onClick={() => switchClientType("transmission")}
+            >
+              {t("form.clientType.transmission")}
+            </Button>
+          </div>
+        </div>
+
         <form.Field
           name="name"
           validators={{
@@ -245,7 +310,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
                   }
                 }}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder={t("form.placeholders.url")}
+                placeholder={isTransmission ? t("form.placeholders.transmissionUrl") : t("form.placeholders.url")}
               />
               {field.state.meta.isTouched && field.state.meta.errors[0] && (
                 <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
@@ -289,7 +354,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
         <div className="space-y-2">
           <Label htmlFor="auth-type" className="flex items-center gap-2">
             {t("form.labels.authType")}
-            <FieldHelp>{t("form.labels.authTypeDescription")}</FieldHelp>
+            <FieldHelp>{isTransmission ? t("form.labels.authTypeTransmissionDescription") : t("form.labels.authTypeDescription")}</FieldHelp>
           </Label>
           <select
             id="auth-type"
@@ -299,7 +364,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
           >
             <option value="none">{t("form.authType.none")}</option>
             <option value="usernamePassword">{t("form.authType.usernamePassword")}</option>
-            <option value="apiKey">{t("form.authType.apiKey")}</option>
+            {!isTransmission && <option value="apiKey">{t("form.authType.apiKey")}</option>}
           </select>
         </div>
 
@@ -377,73 +442,75 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
           </form.Field>
         )}
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="basic-auth-toggle" className="flex items-center gap-2">
-              {t("form.labels.httpBasicAuth")}
-              <FieldHelp>{t("form.labels.httpBasicAuthDescription")}</FieldHelp>
-            </Label>
-            <Switch
-              id="basic-auth-toggle"
-              checked={showBasicAuth}
-              onCheckedChange={setShowBasicAuth}
-            />
-          </div>
-
-          {showBasicAuth && (
-            <div className="space-y-4 pl-6 border-l-2 border-muted">
-              <form.Field name="basicUsername">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>{t("form.labels.basicAuthUsername")}</Label>
-                    <Input
-                      id={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={t("form.placeholders.basicAuthUsername")}
-                      data-1p-ignore
-                      autoComplete="off"
-                    />
-                  </div>
-                )}
-              </form.Field>
-
-              <form.Field
-                name="basicPassword"
-                validators={{
-                  onChange: ({ value }) =>
-                    showBasicAuth && value === "" ? t("form.validation.basicAuthPasswordRequired") : undefined,
-                }}
-              >
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>{t("form.labels.basicAuthPassword")}</Label>
-                    <Input
-                      id={field.name}
-                      type="password"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onFocus={() => {
-                        // Clear the redacted placeholder when user focuses to edit
-                        if (field.state.value === "<redacted>") {
-                          field.handleChange("")
-                        }
-                      }}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder={t("form.placeholders.basicAuthPassword")}
-                      data-1p-ignore
-                      autoComplete="off"
-                    />
-                    {field.state.meta.errors[0] && (
-                      <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
-                    )}
-                  </div>
-                )}
-              </form.Field>
+        {!isTransmission && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="basic-auth-toggle" className="flex items-center gap-2">
+                {t("form.labels.httpBasicAuth")}
+                <FieldHelp>{t("form.labels.httpBasicAuthDescription")}</FieldHelp>
+              </Label>
+              <Switch
+                id="basic-auth-toggle"
+                checked={showBasicAuth}
+                onCheckedChange={setShowBasicAuth}
+              />
             </div>
-          )}
-        </div>
+
+            {showBasicAuth && (
+              <div className="space-y-4 pl-6 border-l-2 border-muted">
+                <form.Field name="basicUsername">
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>{t("form.labels.basicAuthUsername")}</Label>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder={t("form.placeholders.basicAuthUsername")}
+                        data-1p-ignore
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field
+                  name="basicPassword"
+                  validators={{
+                    onChange: ({ value }) =>
+                      showBasicAuth && value === "" ? t("form.validation.basicAuthPasswordRequired") : undefined,
+                  }}
+                >
+                  {(field) => (
+                    <div className="space-y-2">
+                      <Label htmlFor={field.name}>{t("form.labels.basicAuthPassword")}</Label>
+                      <Input
+                        id={field.name}
+                        type="password"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onFocus={() => {
+                        // Clear the redacted placeholder when user focuses to edit
+                          if (field.state.value === "<redacted>") {
+                            field.handleChange("")
+                          }
+                        }}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder={t("form.placeholders.basicAuthPassword")}
+                        data-1p-ignore
+                        autoComplete="off"
+                      />
+                      {field.state.meta.errors[0] && (
+                        <p className="text-sm text-destructive">{field.state.meta.errors[0]}</p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
+              </div>
+            )}
+          </div>
+        )}
 
         {!formId && (
           <div className="flex gap-2">

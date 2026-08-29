@@ -131,6 +131,16 @@ export function Sidebar() {
     () => (instances ?? []).filter(instance => instance.isActive),
     [instances]
   )
+  // Transmission instances render below qBittorrent ones, separated by a
+  // single divider; the divider only appears when both groups are present.
+  const qbittorrentInstances = useMemo(
+    () => activeInstances.filter(instance => instance.clientType !== "transmission"),
+    [activeInstances]
+  )
+  const transmissionInstances = useMemo(
+    () => activeInstances.filter(instance => instance.clientType === "transmission"),
+    [activeInstances]
+  )
   const activeInstanceIds = useMemo(
     () => activeInstances.map(instance => instance.id),
     [activeInstances]
@@ -168,6 +178,74 @@ export function Sidebar() {
   const hasConfiguredInstances = (instances?.length ?? 0) > 0
 
   const { state: crossSeedInstanceState } = useCrossSeedInstanceState()
+
+  const renderInstanceLink = (instance: { id: number; name: string; connected?: boolean }) => {
+    const instancePath = `/instances/${instance.id}`
+    const isActive = location.pathname === instancePath || location.pathname.startsWith(`${instancePath}/`)
+    const csState = crossSeedInstanceState[instance.id]
+    const hasRss = csState?.rssEnabled || csState?.rssRunning
+    const hasSearch = csState?.searchRunning
+
+    return (
+      <Link
+        key={instance.id}
+        to="/instances/$instanceId"
+        params={{ instanceId: instance.id.toString() }}
+        className={cn(
+          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
+          isActive? "bg-sidebar-primary text-sidebar-primary-foreground": "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+      >
+        <HardDrive className="h-4 w-4 flex-shrink-0" />
+        <span className="truncate max-w-36" title={instance.name}>{instance.name}</span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {hasRss && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center">
+                  {csState?.rssRunning ? (
+                    <Loader2 className={cn(
+                      "h-3 w-3 animate-spin",
+                      isActive ? "text-sidebar-primary-foreground/70" : "text-sidebar-foreground/70"
+                    )} />
+                  ) : (
+                    <Rss className={cn(
+                      "h-3 w-3",
+                      isActive ? "text-sidebar-primary-foreground/70" : "text-sidebar-foreground/70"
+                    )} />
+                  )}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">
+                {csState?.rssRunning ? t("sidebar.rssRunning") : t("sidebar.rssEnabled")}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {hasSearch && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center">
+                  <SearchCode className={cn(
+                    "h-3 w-3",
+                    isActive ? "text-sidebar-primary-foreground/70" : "text-sidebar-foreground/70"
+                  )} />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">
+                {t("sidebar.scanRunning")}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full flex-shrink-0",
+              instance.connected ? "bg-green-500" : "bg-red-500"
+            )}
+          />
+        </span>
+      </Link>
+    )
+  }
 
   const appVersion = getAppVersion()
 
@@ -230,73 +308,13 @@ export function Sidebar() {
               <Separator className="my-2" />
             </>
           )}
-          {activeInstances.map((instance) => {
-            const instancePath = `/instances/${instance.id}`
-            const isActive = location.pathname === instancePath || location.pathname.startsWith(`${instancePath}/`)
-            const csState = crossSeedInstanceState[instance.id]
-            const hasRss = csState?.rssEnabled || csState?.rssRunning
-            const hasSearch = csState?.searchRunning
-
-            return (
-              <Link
-                key={instance.id}
-                to="/instances/$instanceId"
-                params={{ instanceId: instance.id.toString() }}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ease-out",
-                  isActive? "bg-sidebar-primary text-sidebar-primary-foreground": "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <HardDrive className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate max-w-36" title={instance.name}>{instance.name}</span>
-                <span className="ml-auto flex items-center gap-1.5">
-                  {hasRss && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center">
-                          {csState?.rssRunning ? (
-                            <Loader2 className={cn(
-                              "h-3 w-3 animate-spin",
-                              isActive ? "text-sidebar-primary-foreground/70" : "text-sidebar-foreground/70"
-                            )} />
-                          ) : (
-                            <Rss className={cn(
-                              "h-3 w-3",
-                              isActive ? "text-sidebar-primary-foreground/70" : "text-sidebar-foreground/70"
-                            )} />
-                          )}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">
-                        {csState?.rssRunning ? t("sidebar.rssRunning") : t("sidebar.rssEnabled")}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {hasSearch && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center">
-                          <SearchCode className={cn(
-                            "h-3 w-3",
-                            isActive ? "text-sidebar-primary-foreground/70" : "text-sidebar-foreground/70"
-                          )} />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">
-                        {t("sidebar.scanRunning")}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full flex-shrink-0",
-                      instance.connected ? "bg-green-500" : "bg-red-500"
-                    )}
-                  />
-                </span>
-              </Link>
-            )
-          })}
+          {qbittorrentInstances.map((instance) => renderInstanceLink(instance))}
+          {transmissionInstances.length > 0 && (
+            <>
+              <Separator className="my-2" />
+              {transmissionInstances.map((instance) => renderInstanceLink(instance))}
+            </>
+          )}
           {activeInstances.length === 0 && (
             <p className="px-3 py-2 text-sm text-sidebar-foreground/50">
               {hasConfiguredInstances ? t("sidebar.allInstancesDisabled") : t("sidebar.noInstancesConfigured")}

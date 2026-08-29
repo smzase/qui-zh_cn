@@ -60,6 +60,8 @@
   },
   "form": {
     "labels": {
+      "clientType": "Typ klienta",
+      "clientTypeDescription": "Torrentový klient, ke kterému se tato instance připojuje.",
       "instanceName": "Název instance",
       "url": "URL",
       "skipTlsVerification": "Přeskočit TLS ověření",
@@ -75,11 +77,13 @@
       "basicAuthUsername": "Basic Auth Uživatelské jméno",
       "basicAuthPassword": "Basic Auth Heslo",
       "authType": "Typ autentizace",
-      "authTypeDescription": "Vyberte, jak qui se má autentizovat k qBittorrentu."
+      "authTypeDescription": "Vyberte, jak qui se má autentizovat k qBittorrentu.",
+      "authTypeTransmissionDescription": "Vyberte, jak se má qui autentizovat k démonu Transmission."
     },
     "placeholders": {
       "instanceName": "např. Hlavní server nebo Domácí qBittorrent",
       "url": "http://localhost:8080 or 192.168.1.100:8080",
+      "transmissionUrl": "http://localhost:9091 nebo 192.168.1.100:9091",
       "username": "qBittorrent uživatelské jméno (obvykle admin)",
       "passwordNew": "qBittorrent heslo",
       "passwordExisting": "Ponechte prázdné pro zachování aktuálního hesla",
@@ -113,6 +117,10 @@
       "none": "Žádná",
       "usernamePassword": "Uživatelské jméno a heslo",
       "apiKey": "API klíč"
+    },
+    "clientType": {
+      "qbittorrent": "qBittorrent",
+      "transmission": "Transmission"
     }
   },
   "settingsButton": {

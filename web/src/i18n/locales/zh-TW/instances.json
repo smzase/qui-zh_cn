@@ -60,6 +60,8 @@
   },
   "form": {
     "labels": {
+      "clientType": "用戶端類型",
+      "clientTypeDescription": "此實例連線的種子用戶端。",
       "instanceName": "實例名稱",
       "url": "URL",
       "skipTlsVerification": "跳過 TLS 憑證驗證",
@@ -75,11 +77,13 @@
       "basicAuthUsername": "基本認證使用者名稱",
       "basicAuthPassword": "基本認證密碼",
       "authType": "認證方式",
-      "authTypeDescription": "選擇 qui 連線 qBittorrent 時使用的認證方式。"
+      "authTypeDescription": "選擇 qui 連線 qBittorrent 時使用的認證方式。",
+      "authTypeTransmissionDescription": "選擇 qui 連線 Transmission 常駐程式時使用的認證方式。"
     },
     "placeholders": {
       "instanceName": "例如：主伺服器 或 家用 qBittorrent",
       "url": "http://localhost:8080 或 192.168.1.100:8080",
+      "transmissionUrl": "http://localhost:9091 或 192.168.1.100:9091",
       "username": "qBittorrent 使用者名稱（通常是 admin）",
       "passwordNew": "qBittorrent 密碼",
       "passwordExisting": "留空則保持目前密碼",
@@ -113,6 +117,10 @@
       "none": "無",
       "usernamePassword": "使用者名稱和密碼",
       "apiKey": "API 金鑰"
+    },
+    "clientType": {
+      "qbittorrent": "qBittorrent",
+      "transmission": "Transmission"
     }
   },
   "settingsButton": {

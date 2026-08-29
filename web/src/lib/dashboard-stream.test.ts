@@ -43,6 +43,7 @@ function makeCounts(overrides: Partial<TorrentCounts> = {}): TorrentCounts {
 function makeInstance(overrides: Partial<InstanceResponse> = {}): InstanceResponse {
   return {
     id: 7,
+    clientType: "qbittorrent",
     name: "qbit",
     host: "http://localhost:8080",
     username: "user",

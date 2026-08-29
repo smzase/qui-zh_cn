@@ -6,13 +6,15 @@ description: Configure qBittorrent instance connections in qui.
 
 # Instance Settings
 
-Add and configure the qBittorrent instances that qui connects to. Each instance is a separate qBittorrent WebUI that qui manages.
+Add and configure the instances that qui connects to. Each instance is a separate qBittorrent WebUI or Transmission daemon that qui manages.
 
 ## Add an instance
 
 1. Open **Settings → Instances**.
 2. Click **Add Instance**.
-3. Enter the connection details and click **Add Instance**.
+3. Pick the client type (**qBittorrent** or **Transmission**), enter the connection details, and click **Add Instance**.
+
+The client type cannot be changed after creation; delete and re-add the instance to switch clients.
 
 ## Edit an instance
 
@@ -25,8 +27,9 @@ Two paths open the instance settings dialog:
 
 | Field | Description |
 |-------|-------------|
+| **Client Type** | The torrent client this instance points at: qBittorrent or Transmission. Transmission instances connect through the daemon's RPC interface; see [Transmission Support](./transmission.md). |
 | **Instance Name** | Display name in qui's sidebar and instance selector. |
-| **URL** | Full URL to the qBittorrent WebUI (for example, `http://localhost:8080`). |
+| **URL** | Full URL to the qBittorrent WebUI (for example, `http://localhost:8080`) or the Transmission daemon (for example, `http://localhost:9091`). |
 | **Skip TLS Verification** (**Skip TLS Certificate Verification** in the Add Instance form) | Accept self-signed or otherwise untrusted certificates. |
 | **Local Filesystem Access** | Enable for features that read files directly. See [Local Filesystem Access](#local-filesystem-access). |
 
@@ -39,6 +42,8 @@ Select how qui authenticates to qBittorrent under **qBittorrent Authentication**
 | **None** | qBittorrent bypasses authentication for localhost or whitelisted IPs. |
 | **Username and Password** | Standard WebUI credentials. |
 | **API Key** | The instance accepts an API key instead of credentials. |
+
+For Transmission instances, only **None** and **Username and Password** are offered; the credentials are the daemon's RPC username and password.
 
 If a reverse proxy requires credentials in front of qBittorrent, enable **HTTP Basic Authentication**.
 

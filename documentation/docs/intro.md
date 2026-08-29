@@ -6,12 +6,13 @@ description: Fast, modern interface for qBittorrent with cross-seeding, automati
 
 # qui
 
-qui is a web interface for qBittorrent. It manages multiple qBittorrent instances from one application.
+qui is a web interface for qBittorrent. It manages multiple qBittorrent instances from one application, and it also manages Transmission daemons.
 
 ## Features
 
 - **Single Binary**: No dependencies. Download and run.
 - **Multi-Instance Support**: Manage all your qBittorrent instances from one place
+- **Transmission Support**: Manage [Transmission daemons](./features/transmission.md) alongside qBittorrent with the same torrent management surface
 - **Large Collections**: Handles thousands of torrents
 - **Themeable**: Multiple built-in color themes, plus sideloadable [custom themes](./features/custom-themes.md) (premium), with a shared collection in [qui-community-themes](https://github.com/autobrr/qui-community-themes)
 - **Base URL Support**: Serve from a subdirectory (for example `/qui/`) behind a reverse proxy

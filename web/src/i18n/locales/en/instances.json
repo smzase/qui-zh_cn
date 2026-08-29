@@ -60,6 +60,8 @@
   },
   "form": {
     "labels": {
+      "clientType": "Client Type",
+      "clientTypeDescription": "The torrent client this instance connects to.",
       "instanceName": "Instance Name",
       "url": "URL",
       "skipTlsVerification": "Skip TLS Certificate Verification",
@@ -75,11 +77,13 @@
       "basicAuthUsername": "Basic Auth Username",
       "basicAuthPassword": "Basic Auth Password",
       "authType": "Authentication Type",
-      "authTypeDescription": "Select how qui should authenticate to qBittorrent."
+      "authTypeDescription": "Select how qui should authenticate to qBittorrent.",
+      "authTypeTransmissionDescription": "Select how qui should authenticate to the Transmission daemon."
     },
     "placeholders": {
       "instanceName": "e.g., Main Server or Home qBittorrent",
       "url": "http://localhost:8080 or 192.168.1.100:8080",
+      "transmissionUrl": "http://localhost:9091 or 192.168.1.100:9091",
       "username": "qBittorrent username (usually admin)",
       "passwordNew": "qBittorrent password",
       "passwordExisting": "Leave empty to keep current password",
@@ -113,6 +117,10 @@
       "none": "None",
       "usernamePassword": "Username and Password",
       "apiKey": "API Key"
+    },
+    "clientType": {
+      "qbittorrent": "qBittorrent",
+      "transmission": "Transmission"
     }
   },
   "settingsButton": {
