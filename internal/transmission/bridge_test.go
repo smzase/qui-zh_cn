@@ -1,0 +1,426 @@
+// Copyright (c) 2025-2026, s0oup and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+package transmission
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	qbt "github.com/autobrr/go-qbittorrent"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// fakeTransmissionDaemon is a minimal Transmission RPC implementation backed
+// by in-memory state, enough to exercise the bridge end to end.
+type fakeTransmissionDaemon struct {
+	mu          sync.Mutex
+	sessionID   string
+	torrents    []torrent
+	downloadDir string
+	stopped     map[string]bool
+	labelSets   map[string][]string
+	calls       []string
+}
+
+func newFakeDaemon() *fakeTransmissionDaemon {
+	return &fakeTransmissionDaemon{
+		sessionID:   "fake-session-id",
+		downloadDir: "/data",
+		stopped:     make(map[string]bool),
+		labelSets:   make(map[string][]string),
+		torrents: []torrent{
+			{
+				ID: 1, HashString: "aa00000000000000000000000000000000000001",
+				Name: "first", Status: 4, PercentDone: 0.5, RateDownload: 1024,
+				DownloadedEver: 100, UploadedEver: 200, TotalSize: 1000, SizeWhenDone: 1000,
+				LeftUntilDone: 500, AddedDate: 1700000000, Labels: []string{"tv"},
+				TrackerStats: []trackerStat{{Announce: "http://tracker.example.com/announce", SeederCount: 5, AnnounceState: 1, LastAnnounceSucceeded: true}},
+			},
+			{
+				ID: 2, HashString: "bb00000000000000000000000000000000000002",
+				Name: "second", Status: 6, PercentDone: 1, RateUpload: 512,
+				DownloadedEver: 10, UploadedEver: 20, TotalSize: 100, SizeWhenDone: 100,
+				LeftUntilDone: 0, AddedDate: 1700000100, DoneDate: 1700000200, Labels: []string{"movies"},
+				TrackerStats: []trackerStat{{Announce: "http://other.example.net/announce", SeederCount: 2, AnnounceState: 1, LastAnnounceSucceeded: true}},
+			},
+		},
+	}
+}
+
+func (f *fakeTransmissionDaemon) handle(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("X-Transmission-Session-Id") != f.sessionID {
+		w.Header().Set("X-Transmission-Session-Id", f.sessionID)
+		w.WriteHeader(http.StatusConflict)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Method    string         `json:"method"`
+		Arguments map[string]any `json:"arguments"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	f.mu.Lock()
+	f.calls = append(f.calls, req.Method)
+	f.mu.Unlock()
+
+	var arguments any
+	switch req.Method {
+	case "session-get":
+		arguments = map[string]any{
+			"version": "4.0.6", "rpc-version": 17, "download-dir": f.downloadDir,
+			"speed-limit-down": 100, "speed-limit-down-enabled": false,
+			"speed-limit-up": 50, "speed-limit-up-enabled": true,
+			"alt-speed-enabled": false, "dht-enabled": true, "pex-enabled": true,
+		}
+	case "session-stats":
+		arguments = map[string]any{
+			"activeTorrentCount": 1, "downloadedBytes": 1000, "uploadedBytes": 2000,
+			"cumulative-stats": map[string]any{"downloadedBytes": 9000, "uploadedBytes": 18000, "sessionCount": 3},
+		}
+	case "torrent-get":
+		fields := []string{}
+		if raw, ok := req.Arguments["fields"].([]any); ok {
+			for _, v := range raw {
+				fields = append(fields, v.(string))
+			}
+		}
+		ids := map[string]bool{}
+		if raw, ok := req.Arguments["ids"].([]any); ok {
+			for _, v := range raw {
+				ids[v.(string)] = true
+			}
+		}
+
+		f.mu.Lock()
+		torrents := make([]map[string]any, 0, len(f.torrents))
+		for i := range f.torrents {
+			t := &f.torrents[i]
+			if len(ids) > 0 && !ids[t.HashString] {
+				continue
+			}
+			entries := map[string]any{"id": t.ID, "hashString": t.HashString}
+			for _, field := range fields {
+				switch field {
+				case "name":
+					entries["name"] = t.Name
+				case "status":
+					status := t.Status
+					if f.stopped[t.HashString] {
+						status = 0
+					}
+					entries["status"] = status
+				case "percentDone":
+					entries["percentDone"] = t.PercentDone
+				case "rateDownload":
+					entries["rateDownload"] = t.RateDownload
+				case "rateUpload":
+					entries["rateUpload"] = t.RateUpload
+				case "downloadedEver":
+					entries["downloadedEver"] = t.DownloadedEver
+				case "uploadedEver":
+					entries["uploadedEver"] = t.UploadedEver
+				case "totalSize":
+					entries["totalSize"] = t.TotalSize
+				case "sizeWhenDone":
+					entries["sizeWhenDone"] = t.SizeWhenDone
+				case "leftUntilDone":
+					entries["leftUntilDone"] = t.LeftUntilDone
+				case "addedDate":
+					entries["addedDate"] = t.AddedDate
+				case "doneDate":
+					entries["doneDate"] = t.DoneDate
+				case "labels":
+					if labels, ok := f.labelSets[t.HashString]; ok {
+						entries["labels"] = labels
+					} else {
+						entries["labels"] = t.Labels
+					}
+				case "trackerStats":
+					entries["trackerStats"] = t.TrackerStats
+				case "peers":
+					entries["peers"] = []torrentPeer{{
+						Address: "1.2.3.4:1234", ClientName: "Transmission 4", Progress: 0.5,
+						RateToClient: 100, RateToPeer: 200, IsUploadingTo: true, IsDownloadingFrom: true,
+					}}
+				case "files":
+					entries["files"] = []torrentFile{{Name: "first/a.mkv", Length: 1000, BytesCompleted: 500}}
+				case "fileStats":
+					entries["fileStats"] = []fileStat{{Wanted: true, Priority: 0, BytesCompleted: 500}}
+				case "metadataPercentComplete":
+					entries["metadataPercentComplete"] = 1.0
+				case "error":
+					entries["error"] = 0
+				case "errorString":
+					entries["errorString"] = ""
+				default:
+					if field == "peersConnected" || field == "peersSendingToUs" || field == "peersGettingFromUs" ||
+						field == "queuePosition" || field == "secondsDownloading" || field == "secondsSeeding" ||
+						field == "pieceCount" || field == "pieceSize" || field == "activityDate" || field == "dateCreated" ||
+						field == "eta" || field == "corruptEver" || field == "downloadLimit" || field == "uploadLimit" {
+						entries[field] = 0
+					}
+					if field == "downloadLimited" || field == "uploadLimited" || field == "isPrivate" {
+						entries[field] = false
+					}
+					if field == "seedRatioLimit" {
+						entries[field] = 0.0
+					}
+					if field == "seedRatioMode" || field == "seedIdleMode" || field == "seedIdleLimit" ||
+						field == "bandwidthPriority" {
+						entries[field] = 0
+					}
+					if field == "magnetLink" || field == "comment" || field == "creator" || field == "errorString" {
+						entries[field] = ""
+					}
+				}
+			}
+			torrents = append(torrents, entries)
+		}
+		f.mu.Unlock()
+		arguments = map[string]any{"torrents": torrents}
+	case "torrent-stop", "torrent-start", "torrent-verify", "torrent-reannounce":
+		f.mu.Lock()
+		if raw, ok := req.Arguments["ids"].([]any); ok {
+			for _, v := range raw {
+				hash := v.(string)
+				switch req.Method {
+				case "torrent-stop":
+					f.stopped[hash] = true
+				case "torrent-start":
+					delete(f.stopped, hash)
+				}
+			}
+		}
+		f.mu.Unlock()
+		arguments = map[string]any{}
+	case "torrent-remove":
+		ids := map[string]bool{}
+		if raw, ok := req.Arguments["ids"].([]any); ok {
+			for _, v := range raw {
+				ids[v.(string)] = true
+			}
+		}
+		f.mu.Lock()
+		kept := f.torrents[:0]
+		for _, t := range f.torrents {
+			if !ids[t.HashString] {
+				kept = append(kept, t)
+			}
+		}
+		f.torrents = kept
+		f.mu.Unlock()
+		arguments = map[string]any{}
+	case "torrent-set":
+		f.mu.Lock()
+		if raw, ok := req.Arguments["ids"].([]any); ok {
+			if labels, ok := req.Arguments["labels"].([]any); ok {
+				for _, v := range raw {
+					hash := v.(string)
+					converted := make([]string, 0, len(labels))
+					for _, l := range labels {
+						converted = append(converted, l.(string))
+					}
+					f.labelSets[hash] = converted
+				}
+			}
+		}
+		f.mu.Unlock()
+		arguments = map[string]any{}
+	case "free-space":
+		arguments = map[string]any{"path": "/data", "size-bytes": 123456789}
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"result":"unknown method"}`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := map[string]any{"result": "success", "arguments": arguments}
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// newTestClient builds a go-qbittorrent client wired to a bridge over the
+// fake daemon, mirroring how qui constructs Transmission instances.
+func newTestClient(t *testing.T, daemon *fakeTransmissionDaemon) (*qbt.Client, *Bridge) {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(daemon.handle))
+	t.Cleanup(server.Close)
+
+	bridge, err := NewBridge(server.URL, "user", "pass", false, 10*time.Second)
+	require.NoError(t, err)
+
+	client := qbt.NewClient(qbt.Config{
+		Host:     server.URL,
+		Username: "user",
+		Password: "pass",
+	}).WithHTTPClient(&http.Client{Transport: bridge, Timeout: 10 * time.Second})
+
+	return client, bridge
+}
+
+func TestBridgeLoginAndCapabilities(t *testing.T) {
+	daemon := newFakeDaemon()
+	client, _ := newTestClient(t, daemon)
+
+	ctx := context.Background()
+	require.NoError(t, client.LoginCtx(ctx))
+
+	version, err := client.GetWebAPIVersionCtx(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "2.7.0", version)
+
+	appVersion, err := client.GetAppVersionCtx(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "4.0.6", appVersion)
+}
+
+func TestBridgeMaindataSync(t *testing.T) {
+	daemon := newFakeDaemon()
+	client, _ := newTestClient(t, daemon)
+
+	ctx := context.Background()
+	require.NoError(t, client.LoginCtx(ctx))
+
+	sm := client.NewSyncManager(qbt.DefaultSyncOptions())
+	require.NoError(t, sm.Sync(ctx))
+
+	data := sm.GetDataUnchecked()
+	require.NotNil(t, data)
+	require.Len(t, data.Torrents, 2)
+
+	first, ok := data.Torrents["aa00000000000000000000000000000000000001"]
+	require.True(t, ok)
+	assert.Equal(t, "first", first.Name)
+	assert.Equal(t, "downloading", string(first.State))
+	assert.Equal(t, "tv", first.Category)
+	assert.Equal(t, int64(1024), first.DlSpeed)
+
+	second := data.Torrents["bb00000000000000000000000000000000000002"]
+	assert.Equal(t, "uploading", string(second.State))
+	assert.Equal(t, "movies", second.Category)
+	assert.Equal(t, int64(1700000200), second.CompletionOn)
+
+	assert.Contains(t, data.Categories, "tv")
+	assert.Contains(t, data.Categories, "movies")
+	assert.Contains(t, data.Trackers, "tracker.example.com")
+
+	state := data.ServerState
+	assert.Equal(t, int64(9000), state.AlltimeDl)
+	assert.Equal(t, int64(1024+512), state.DlInfoSpeed+state.UpInfoSpeed)
+	assert.Equal(t, int64(123456789), state.FreeSpaceOnDisk)
+
+	// Delta sync: stop one torrent and add a new one, then verify the merged
+	// state reflects both without a full resync.
+	daemon.mu.Lock()
+	daemon.stopped["aa00000000000000000000000000000000000001"] = true
+	daemon.torrents = append(daemon.torrents, torrent{
+		ID: 3, HashString: "cc00000000000000000000000000000000000003",
+		Name: "third", Status: 0, PercentDone: 0.1, TotalSize: 10, SizeWhenDone: 10, LeftUntilDone: 9,
+		AddedDate: 1700000300,
+	})
+	daemon.mu.Unlock()
+
+	require.NoError(t, sm.Sync(ctx))
+	data = sm.GetDataUnchecked()
+	require.Len(t, data.Torrents, 3)
+
+	first, ok = data.Torrents["aa00000000000000000000000000000000000001"]
+	require.True(t, ok)
+	assert.Equal(t, "stoppedDL", string(first.State))
+	assert.Contains(t, data.Torrents, "cc00000000000000000000000000000000000003")
+}
+
+func TestBridgeTorrentActions(t *testing.T) {
+	daemon := newFakeDaemon()
+	client, bridge := newTestClient(t, daemon)
+
+	ctx := context.Background()
+	require.NoError(t, client.LoginCtx(ctx))
+
+	sm := client.NewSyncManager(qbt.DefaultSyncOptions())
+	require.NoError(t, sm.Sync(ctx))
+
+	hash := "aa00000000000000000000000000000000000001"
+	require.NoError(t, client.PauseCtx(ctx, []string{hash}))
+
+	daemon.mu.Lock()
+	assert.True(t, daemon.stopped[strings.ToUpper(hash)] || daemon.stopped[hash])
+	daemon.mu.Unlock()
+
+	// Category assignment maps to labels.
+	require.NoError(t, client.SetCategoryCtx(ctx, []string{hash}, "anime"))
+	daemon.mu.Lock()
+	assert.Equal(t, []string{"anime"}, daemon.labelSets[hash])
+	daemon.mu.Unlock()
+
+	// Trackers come back mapped with pseudo entries.
+	trackers, err := client.GetTorrentTrackersCtx(ctx, hash)
+	require.NoError(t, err)
+	require.NotEmpty(t, trackers)
+	found := false
+	for _, tr := range trackers {
+		if tr.Url == "http://tracker.example.com/announce" {
+			found = true
+			assert.Equal(t, qbt.TrackerStatusOK, tr.Status)
+			assert.Equal(t, 5, tr.NumSeeds)
+		}
+	}
+	assert.True(t, found, "announce URL missing from trackers response")
+
+	// Files map with priority and progress.
+	files, err := client.GetFilesInformationCtx(ctx, hash)
+	require.NoError(t, err)
+	require.Len(t, *files, 1)
+	assert.Equal(t, "first/a.mkv", (*files)[0].Name)
+	assert.Equal(t, int64(1000), (*files)[0].Size)
+
+	// Peers endpoint.
+	peers, err := client.GetTorrentPeersCtx(ctx, hash, 0)
+	require.NoError(t, err)
+	require.Contains(t, peers.Peers, "1.2.3.4:1234")
+
+	// Torrents info with hashes filter.
+	list, err := client.GetTorrentsCtx(ctx, qbt.TorrentFilterOptions{Hashes: []string{hash}})
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	assert.Equal(t, "first", list[0].Name)
+
+	_ = bridge
+}
+
+func TestBridgeCategories(t *testing.T) {
+	daemon := newFakeDaemon()
+	client, _ := newTestClient(t, daemon)
+
+	ctx := context.Background()
+	require.NoError(t, client.LoginCtx(ctx))
+
+	require.NoError(t, client.CreateCategoryCtx(ctx, "empty-cat", ""))
+	require.NoError(t, client.RemoveCategoriesCtx(ctx, []string{"empty-cat"}))
+
+	categories, err := client.GetCategoriesCtx(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, categories, "tv")
+	assert.Contains(t, categories, "movies")
+	assert.NotContains(t, categories, "empty-cat")
+}

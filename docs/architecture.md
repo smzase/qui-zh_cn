@@ -7,6 +7,7 @@ Internal reference for agents and maintainers. Read this before changing cross-m
 - `cmd/qui/main.go`: CLI entrypoint for serve, config generation, user creation, and other commands.
 - `internal/api/`: HTTP handlers, middleware, and routing.
 - `internal/qbittorrent/`: qBittorrent client pool and sync manager.
+- `internal/transmission/`: Transmission RPC client plus a protocol bridge (`http.RoundTripper`) that serves the qBittorrent WebUI API v2 surface from RPC translations, so the whole qBittorrent pipeline (client pool, sync manager, SSE, handlers) works unchanged against a Transmission daemon. See [Transmission support](#transmission-instances).
 - `internal/services/`: domain services such as cross-seed, Jackett/Torznab, reannounce, and tracker rules.
 - `internal/fsops/`: filesystem backend abstraction. Service callsites are migrating from direct `os.*` calls to an `fsops.Backend` (migration in #1915) resolved per instance via `fsops.Pool` — the local backend for instances with local filesystem access, a noop backend (every op returns `ErrNoFilesystemAccess`) otherwise. A future SSH-backed remote backend slots in at the pool (design: `docs/remote-backend-design.md`).
 - `internal/proxy/`: reverse proxy support for external apps.
@@ -22,6 +23,10 @@ Internal reference for agents and maintainers. Read this before changing cross-m
 2. Torrent state is cached in memory with delta updates.
 3. Frontend reads state through REST APIs and receives live updates through SSE.
 4. Cross-seed services react to torrent completion and search/match events.
+
+## Transmission Instances
+
+Instances carry a `client_type` (`qbittorrent` default, `transmission` opt-in). The client pool routes Transmission instances through `internal/transmission`: the pooled go-qbittorrent client is built with the bridge as its HTTP transport, so no qui layer above the pool knows the difference. The bridge reports a synthetic Web API version (2.7.0) which drives the existing capability gates: tracker editing, file priority, and renames are enabled; tags, comments, torrent creation/export, subcategories, and share-limit actions surface as unsupported. Labels map onto categories (first label) and tags (remaining labels). The maindata sync is served as rid-based deltas computed from `torrent-get` polls.
 
 ## Frontend Live State Note
 

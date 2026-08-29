@@ -431,7 +431,14 @@ func (cp *ClientPool) createClientWithTimeout(ctx context.Context, instanceID in
 
 	// The caller's timeout bounds only login/creation; the transport timeout is
 	// pool-wide so a short creation budget never sticks to the client.
-	client, err := NewClientWithTimeout(instanceID, instance.Host, instance.Username, password, apiKey, instance.BasicUsername, basicPassword, instance.TLSSkipVerify, timeout, cp.clientTimeout)
+	var client *Client
+	if instance.ClientType == models.ClientTypeTransmission {
+		// Transmission instances are served through the RPC bridge; API key and
+		// reverse-proxy basic auth do not apply to the daemon itself.
+		client, err = NewTransmissionClientWithTimeout(instanceID, instance.Host, instance.Username, password, instance.TLSSkipVerify, timeout, cp.clientTimeout)
+	} else {
+		client, err = NewClientWithTimeout(instanceID, instance.Host, instance.Username, password, apiKey, instance.BasicUsername, basicPassword, instance.TLSSkipVerify, timeout, cp.clientTimeout)
+	}
 	if err != nil {
 		cp.trackFailure(instanceID, err)
 		return nil, fmt.Errorf("failed to create client: %w", err)

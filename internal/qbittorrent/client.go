@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -21,6 +22,8 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autobrr/qui/internal/transmission"
 )
 
 var (
@@ -169,6 +172,53 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiK
 		return nil, fmt.Errorf("failed to connect to qBittorrent instance: %w", err)
 	}
 
+	return initClient(ctx, qbtClient, instanceID, instanceHost)
+}
+
+// NewTransmissionClientWithTimeout builds a pooled client backed by a
+// Transmission daemon. The go-qbittorrent client's HTTP transport is
+// replaced with the Transmission bridge, which serves the whole qBittorrent
+// WebUI API surface from RPC translations, so every qui feature keeps working
+// unchanged.
+func NewTransmissionClientWithTimeout(instanceID int, instanceHost, username, password string, tlsSkipVerify bool, loginTimeout, transportTimeout time.Duration) (*Client, error) {
+	// Credentials embedded in the host URL act as the RPC credentials, mirroring
+	// how the qBittorrent path treats URL userinfo.
+	instanceHost, hostUser, hostPass := splitHostUserinfo(instanceHost)
+	if username == "" && password == "" && hostUser != "" {
+		username, password = hostUser, hostPass
+	}
+
+	bridge, err := transmission.NewBridge(instanceHost, username, password, tlsSkipVerify, transportTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure Transmission bridge: %w", err)
+	}
+
+	cfg := qbt.Config{
+		Host:     instanceHost,
+		Username: username,
+		Password: password,
+		Timeout:  int(transportTimeout.Seconds()),
+	}
+
+	qbtClient := qbt.NewClient(cfg).WithHTTPClient(&http.Client{
+		Transport: bridge,
+		Timeout:   transportTimeout,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), loginTimeout)
+	defer cancel()
+
+	if err := qbtClient.LoginCtx(ctx); err != nil {
+		return nil, fmt.Errorf("failed to connect to Transmission instance: %w", err)
+	}
+
+	return initClient(ctx, qbtClient, instanceID, instanceHost)
+}
+
+// initClient assembles the qui Client around an already-logged-in
+// go-qbittorrent client: capability detection, caches, callbacks and the
+// maindata sync manager.
+func initClient(ctx context.Context, qbtClient *qbt.Client, instanceID int, instanceHost string) (*Client, error) {
 	client := &Client{
 		Client:          qbtClient,
 		instanceID:      instanceID,
@@ -231,7 +281,6 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password, apiK
 		Bool("supportsTrackerEditing", client.SupportsTrackerEditing()).
 		Bool("supportsFilePriority", client.SupportsFilePriority()).
 		Bool("supportsSubcategories", client.SupportsSubcategories()).
-		Bool("tlsSkipVerify", tlsSkipVerify).
 		Msg("qBittorrent client created successfully")
 
 	return client, nil
