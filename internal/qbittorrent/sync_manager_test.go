@@ -2213,9 +2213,9 @@ func TestGetCrossInstanceTorrents_UnreachableInstancePreservesReachableAsPartial
 	ctx := context.Background()
 	// inst1 has the lower ID, so the deterministic ID-ascending loop processes it
 	// first; inst2 must never be contacted once inst1 consumes the shared deadline.
-	inst1, err := pool.instanceStore.Create(ctx, "offline", srv.URL, "user", "pass", nil, nil, false, nil)
+	inst1, err := pool.instanceStore.Create(ctx, models.ClientTypeQbittorrent, "offline", srv.URL, "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
-	_, err = pool.instanceStore.Create(ctx, "other", "http://192.0.2.2:8080", "user", "pass", nil, nil, false, nil)
+	_, err = pool.instanceStore.Create(ctx, models.ClientTypeQbittorrent, "other", "http://192.0.2.2:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	// Pre-seed inst1 as an existing, unhealthy client pointed at the blocking server.
@@ -2250,9 +2250,9 @@ func TestGetCrossInstanceTorrents_CallerCancellationReturnsError(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-	inst1, err := pool.instanceStore.Create(ctx, "offline", srv.URL, "user", "pass", nil, nil, false, nil)
+	inst1, err := pool.instanceStore.Create(ctx, models.ClientTypeQbittorrent, "offline", srv.URL, "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
-	_, err = pool.instanceStore.Create(ctx, "other", "http://192.0.2.2:8080", "user", "pass", nil, nil, false, nil)
+	_, err = pool.instanceStore.Create(ctx, models.ClientTypeQbittorrent, "other", "http://192.0.2.2:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	pool.mu.Lock()
@@ -2289,7 +2289,7 @@ func TestGetCrossInstanceTorrents_CancellationDuringLastInstanceReturnsError(t *
 	defer pool.Close()
 
 	ctx := context.Background()
-	inst, err := pool.instanceStore.Create(ctx, "offline", srv.URL, "user", "pass", nil, nil, false, nil)
+	inst, err := pool.instanceStore.Create(ctx, models.ClientTypeQbittorrent, "offline", srv.URL, "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	pool.mu.Lock()
@@ -2413,7 +2413,7 @@ func TestGetTorrentsWithFiltersSurvivesUnmarshalablePreferences(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-	inst, err := pool.instanceStore.Create(ctx, "mock", srv.URL, "user", "pass", nil, nil, false, nil)
+	inst, err := pool.instanceStore.Create(ctx, models.ClientTypeQbittorrent, "mock", srv.URL, "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	qbtClient := qbt.NewClient(qbt.Config{Host: srv.URL, Timeout: 60})
@@ -2476,7 +2476,7 @@ func TestGetTorrentsWithFiltersSearchKeepsWholeLibraryCounts(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-	inst, err := pool.instanceStore.Create(ctx, "mock", srv.URL, "user", "pass", nil, nil, false, nil)
+	inst, err := pool.instanceStore.Create(ctx, models.ClientTypeQbittorrent, "mock", srv.URL, "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	qbtClient := qbt.NewClient(qbt.Config{Host: srv.URL, Timeout: 60})

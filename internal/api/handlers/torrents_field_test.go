@@ -197,7 +197,7 @@ func TestGetTorrentField_CrossInstancePartialResultsRejected(t *testing.T) {
 
 	// A second instance with no pool client and an unreachable address: its
 	// per-instance fetch errors, which marks the cross-instance aggregate partial.
-	broken, err := instanceStore.Create(context.Background(), "beta", "http://127.0.0.1:1", "user", "pass", nil, nil, false, nil)
+	broken, err := instanceStore.Create(context.Background(), models.ClientTypeQbittorrent, "beta", "http://127.0.0.1:1", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	handler := NewTorrentsHandler(syncManager, nil, instanceStore)
@@ -295,7 +295,7 @@ func createTorrentFieldTestHarness(t *testing.T, torrentsByInstanceName map[stri
 	clients := make(map[int]*quiqbt.Client, len(torrentsByInstanceName))
 
 	for instanceName, torrents := range torrentsByInstanceName {
-		instance, createErr := instanceStore.Create(context.Background(), instanceName, "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+		instance, createErr := instanceStore.Create(context.Background(), models.ClientTypeQbittorrent, instanceName, "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 		require.NoError(t, createErr)
 
 		instanceIDs[instanceName] = instance.ID
@@ -330,7 +330,7 @@ func createStaleCrossInstanceReadHarness(t *testing.T) (*TorrentsHandler, func()
 	clientPool, err := quiqbt.NewClientPool(instanceStore, errorStore, 60*time.Second)
 	require.NoError(t, err)
 
-	instance, err := instanceStore.Create(context.Background(), "alpha", srv.URL, "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(context.Background(), models.ClientTypeQbittorrent, "alpha", srv.URL, "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	client := newStaleCachedClient(t, srv.URL, []qbt.Torrent{

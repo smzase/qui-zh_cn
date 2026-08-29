@@ -24,19 +24,53 @@ import (
 
 var ErrInstanceNotFound = errors.New("instance not found")
 
+// ClientType identifies which torrent client an instance points at.
+type ClientType string
+
+const (
+	// ClientTypeQbittorrent is the default client type.
+	ClientTypeQbittorrent ClientType = "qbittorrent"
+	// ClientTypeTransmission is served through the Transmission RPC bridge.
+	ClientTypeTransmission ClientType = "transmission"
+)
+
+// Normalize returns the canonical client type, defaulting to qBittorrent for
+// empty or legacy values.
+func (t ClientType) Normalize() ClientType {
+	if t == ClientTypeTransmission {
+		return ClientTypeTransmission
+	}
+	return ClientTypeQbittorrent
+}
+
+// Valid reports whether the client type is one qui knows how to talk to.
+func (t ClientType) Valid() bool {
+	switch t {
+	case ClientTypeQbittorrent, ClientTypeTransmission:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t ClientType) String() string {
+	return string(t.Normalize())
+}
+
 type Instance struct {
-	ID                       int     `json:"id"`
-	Name                     string  `json:"name"`
-	Host                     string  `json:"host"`
-	Username                 string  `json:"username"`
-	PasswordEncrypted        string  `json:"-"`
-	APIKeyEncrypted          string  `json:"-"`
-	BasicUsername            *string `json:"basic_username,omitempty"`
-	BasicPasswordEncrypted   *string `json:"-"`
-	TLSSkipVerify            bool    `json:"tlsSkipVerify"`
-	SortOrder                int     `json:"sortOrder"`
-	IsActive                 bool    `json:"isActive"`
-	HasLocalFilesystemAccess bool    `json:"hasLocalFilesystemAccess"`
+	ID                       int        `json:"id"`
+	ClientType               ClientType `json:"clientType"`
+	Name                     string     `json:"name"`
+	Host                     string     `json:"host"`
+	Username                 string     `json:"username"`
+	PasswordEncrypted        string     `json:"-"`
+	APIKeyEncrypted          string     `json:"-"`
+	BasicUsername            *string    `json:"basic_username,omitempty"`
+	BasicPasswordEncrypted   *string    `json:"-"`
+	TLSSkipVerify            bool       `json:"tlsSkipVerify"`
+	SortOrder                int        `json:"sortOrder"`
+	IsActive                 bool       `json:"isActive"`
+	HasLocalFilesystemAccess bool       `json:"hasLocalFilesystemAccess"`
 	// Hardlink mode settings (per-instance)
 	UseHardlinks      bool   `json:"useHardlinks"`
 	HardlinkBaseDir   string `json:"hardlinkBaseDir"`
@@ -51,6 +85,7 @@ func (i Instance) MarshalJSON() ([]byte, error) {
 	// Create the JSON structure with redacted password fields
 	return json.Marshal(&struct {
 		ID                       int        `json:"id"`
+		ClientType               ClientType `json:"clientType"`
 		Name                     string     `json:"name"`
 		Host                     string     `json:"host"`
 		Username                 string     `json:"username"`
@@ -72,6 +107,7 @@ func (i Instance) MarshalJSON() ([]byte, error) {
 		SortOrder                int        `json:"sortOrder"`
 	}{
 		ID:            i.ID,
+		ClientType:    i.ClientType.Normalize(),
 		Name:          i.Name,
 		Host:          i.Host,
 		Username:      i.Username,
@@ -100,6 +136,7 @@ func (i *Instance) UnmarshalJSON(data []byte) error {
 	// Temporary struct for unmarshaling
 	var temp struct {
 		ID                       int        `json:"id"`
+		ClientType               ClientType `json:"clientType"`
 		Name                     string     `json:"name"`
 		Host                     string     `json:"host"`
 		Username                 string     `json:"username"`
@@ -127,6 +164,7 @@ func (i *Instance) UnmarshalJSON(data []byte) error {
 
 	// Copy non-secret fields
 	i.ID = temp.ID
+	i.ClientType = temp.ClientType.Normalize()
 	i.Name = temp.Name
 	i.Host = temp.Host
 	i.Username = temp.Username
@@ -286,11 +324,14 @@ func validateAndNormalizeHost(rawHost string) (string, error) {
 	return u.String(), nil
 }
 
-func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, password string, basicUsername, basicPassword *string, tlsSkipVerify bool, hasLocalFilesystemAccess *bool, apiKey ...string) (*Instance, error) {
+func (s *InstanceStore) Create(ctx context.Context, clientType ClientType, name, rawHost, username, password string, basicUsername, basicPassword *string, tlsSkipVerify bool, hasLocalFilesystemAccess *bool, apiKey ...string) (*Instance, error) {
 	if len(apiKey) > 0 {
 		apiKey = apiKey[:1]
 	} else {
 		apiKey = []string{""}
+	}
+	if !clientType.Valid() {
+		return nil, fmt.Errorf("invalid client type %q", clientType)
 	}
 	// Validate and normalize the host
 	normalizedHost, err := validateAndNormalizeHost(rawHost)
@@ -391,9 +432,10 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 			basic_password_encrypted,
 			tls_skip_verify,
 			has_local_filesystem_access,
+			client_type,
 			sort_order
 		)
-		SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, next_order FROM next_sort
+		SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, next_order FROM next_sort
 		RETURNING id, password_encrypted, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access
 		`,
 		nameID,
@@ -405,6 +447,7 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 		encryptedBasicPassword,
 		BoolToSQLite(tlsSkipVerify),
 		BoolToSQLite(localAccess),
+		clientType,
 	).Scan(
 		&instanceID,
 		&passwordEncrypted,
@@ -420,6 +463,7 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 
 	instance := &Instance{
 		ID:                       instanceID,
+		ClientType:               clientType.Normalize(),
 		Name:                     name,
 		Host:                     normalizedHost,
 		Username:                 username,
@@ -447,12 +491,13 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 
 func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 	query := `
-		SELECT id, name, host, username, password_encrypted, api_key_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
+		SELECT id, client_type, name, host, username, password_encrypted, api_key_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
 		FROM instances_view
 		WHERE id = ?
 	`
 
 	var instanceID int
+	var clientType string
 	var name, host, username, passwordEncrypted, apiKeyEncrypted string
 	var basicUsername, basicPasswordEncrypted sql.NullString
 	var tlsSkipVerify int
@@ -466,6 +511,7 @@ func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&instanceID,
+		&clientType,
 		&name,
 		&host,
 		&username,
@@ -492,6 +538,7 @@ func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 
 	instance := &Instance{
 		ID:                       instanceID,
+		ClientType:               ClientType(clientType).Normalize(),
 		Name:                     name,
 		Host:                     host,
 		Username:                 username,
@@ -525,7 +572,7 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, name, host, username, password_encrypted, api_key_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
+		SELECT id, client_type, name, host, username, password_encrypted, api_key_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
 		FROM instances_view
 		ORDER BY sort_order ASC, %s ASC, id ASC
 	`, orderByName)
@@ -539,6 +586,7 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 	var instances []*Instance
 	for rows.Next() {
 		var id int
+		var clientType string
 		var name, host, username, passwordEncrypted, apiKeyEncrypted string
 		var basicUsername, basicPasswordEncrypted sql.NullString
 		var tlsSkipVerify int
@@ -552,6 +600,7 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 
 		err := rows.Scan(
 			&id,
+			&clientType,
 			&name,
 			&host,
 			&username,
@@ -575,6 +624,7 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 
 		instance := &Instance{
 			ID:                       id,
+			ClientType:               ClientType(clientType).Normalize(),
 			Name:                     name,
 			Host:                     host,
 			Username:                 username,

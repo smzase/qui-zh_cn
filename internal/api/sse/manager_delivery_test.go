@@ -21,6 +21,7 @@ import (
 	qbt "github.com/autobrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
+	"github.com/autobrr/qui/internal/models"
 	"github.com/autobrr/qui/internal/qbittorrent"
 )
 
@@ -481,6 +482,7 @@ func seedActiveInstance(t *testing.T, manager *StreamManager) int {
 	t.Helper()
 	instance, err := manager.instanceDB.Create(
 		context.Background(),
+		models.ClientTypeQbittorrent,
 		"Test Instance",
 		"http://localhost:8080",
 		"user",

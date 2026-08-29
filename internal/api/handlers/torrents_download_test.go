@@ -85,6 +85,7 @@ func createInstanceStoreWithInstance(t *testing.T, hasLocalAccess bool) (*models
 		createInstance := func(name string, hasLocal bool) int {
 			instance, err := instanceStore.Create(
 				context.Background(),
+				models.ClientTypeQbittorrent,
 				name,
 				"http://localhost:8080",
 				"admin",

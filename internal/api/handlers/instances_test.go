@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ func TestGetInstanceCapabilitiesPreservesBackoffMessage(t *testing.T) {
 
 	instance, err := instanceStore.Create(
 		context.Background(),
+		models.ClientTypeQbittorrent,
 		"blocked",
 		qbtServer.URL,
 		"admin",
@@ -96,4 +98,48 @@ func TestInstanceCapabilitiesClientErrorMessagePreservesInFlightProbe(t *testing
 
 func TestInstanceCapabilitiesClientErrorMessageFallsBack(t *testing.T) {
 	require.Equal(t, "Failed to load instance capabilities", instanceCapabilitiesClientErrorMessage(errors.New("boom")))
+}
+
+func TestCreateInstanceRejectsUnknownClientType(t *testing.T) {
+	db := testdb.NewMigratedSQLite(t, "instance-create-bad-client-type")
+	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
+	require.NoError(t, err)
+
+	handler := NewInstancesHandler(instanceStore, nil, nil, nil, nil, nil)
+	router := chi.NewRouter()
+	router.Post("/api/instances", handler.CreateInstance)
+
+	body := `{"clientType": "deluge", "name": "bad", "host": "http://localhost:9091"}`
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/instances", strings.NewReader(body)))
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUpdateInstanceRejectsClientTypeChange(t *testing.T) {
+	db := testdb.NewMigratedSQLite(t, "instance-update-client-type-change")
+	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
+	require.NoError(t, err)
+
+	instance, err := instanceStore.Create(
+		context.Background(),
+		models.ClientTypeQbittorrent,
+		"qb",
+		"http://localhost:8080",
+		"admin",
+		"password",
+		nil,
+		nil,
+		false,
+		nil,
+	)
+	require.NoError(t, err)
+
+	handler := NewInstancesHandler(instanceStore, nil, nil, nil, nil, nil)
+	router := chi.NewRouter()
+	router.Put("/api/instances/{instanceID}", handler.UpdateInstance)
+
+	body := `{"clientType": "transmission", "name": "qb", "host": "http://localhost:8080"}`
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPut, fmt.Sprintf("/api/instances/%d", instance.ID), strings.NewReader(body)))
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 }

@@ -949,6 +949,11 @@ paths:
                 - name
                 - host
               properties:
+                clientType:
+                  type: string
+                  enum: [qbittorrent, transmission]
+                  default: qbittorrent
+                  description: Torrent client this instance points at. Transmission instances connect through the daemon's RPC interface.
                 name:
                   type: string
                 host:
@@ -1052,6 +1057,10 @@ paths:
             schema:
               type: object
               properties:
+                clientType:
+                  type: string
+                  enum: [qbittorrent, transmission]
+                  description: Immutable after creation; a mismatch with the stored value is rejected.
                 name:
                   type: string
                 host:
@@ -6100,6 +6109,10 @@ components:
       properties:
         id:
           type: integer
+        clientType:
+          type: string
+          enum: [qbittorrent, transmission]
+          description: Torrent client this instance points at. Existing instances default to `qbittorrent`.
         name:
           type: string
         host:

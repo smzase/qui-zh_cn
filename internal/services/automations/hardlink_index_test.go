@@ -729,7 +729,7 @@ func TestGetHardlinkIndex_CanceledFinalScanIsNotCached(t *testing.T) {
 	require.NoError(t, err)
 	localAccess := true
 	instance, err := instanceStore.Create(
-		t.Context(), "hardlink-index-cancel", server.URL, "", "", nil, nil, false, &localAccess,
+		t.Context(), models.ClientTypeQbittorrent, "hardlink-index-cancel", server.URL, "", "", nil, nil, false, &localAccess,
 	)
 	require.NoError(t, err)
 

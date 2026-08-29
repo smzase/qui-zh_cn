@@ -251,6 +251,7 @@ func (h *InstancesHandler) buildInstanceResponsesParallel(ctx context.Context, i
 			// Handle context cancellation gracefully
 			responses[i] = InstanceResponse{
 				ID:                       instances[i].ID,
+				ClientType:               instances[i].ClientType.Normalize(),
 				Name:                     instances[i].Name,
 				Host:                     instances[i].Host,
 				Username:                 instances[i].Username,
@@ -300,6 +301,7 @@ func (h *InstancesHandler) buildInstanceResponse(ctx context.Context, instance *
 
 	response := InstanceResponse{
 		ID:                       instance.ID,
+		ClientType:               instance.ClientType.Normalize(),
 		Name:                     instance.Name,
 		Host:                     instance.Host,
 		Username:                 instance.Username,
@@ -344,6 +346,7 @@ func (h *InstancesHandler) buildQuickInstanceResponse(instance *models.Instance)
 		ID:                       instance.ID,
 		Name:                     instance.Name,
 		Host:                     instance.Host,
+		ClientType:               instance.ClientType.Normalize(),
 		Username:                 instance.Username,
 		HasAPIKey:                instance.APIKeyEncrypted != "",
 		BasicUsername:            instance.BasicUsername,
@@ -425,6 +428,7 @@ func (h *InstancesHandler) persistReannounceSettings(ctx context.Context, instan
 
 // CreateInstanceRequest represents a request to create a new instance
 type CreateInstanceRequest struct {
+	ClientType               models.ClientType                  `json:"clientType,omitempty"`
 	Name                     string                             `json:"name"`
 	Host                     string                             `json:"host"`
 	Username                 string                             `json:"username"`
@@ -439,6 +443,7 @@ type CreateInstanceRequest struct {
 
 // UpdateInstanceRequest represents a request to update an instance
 type UpdateInstanceRequest struct {
+	ClientType               models.ClientType                  `json:"clientType,omitempty"`
 	Name                     string                             `json:"name"`
 	Host                     string                             `json:"host"`
 	Username                 string                             `json:"username"`
@@ -463,6 +468,7 @@ type UpdateInstanceStatusRequest struct {
 // InstanceResponse represents an instance in API responses
 type InstanceResponse struct {
 	ID                       int                               `json:"id"`
+	ClientType               models.ClientType                 `json:"clientType"`
 	Name                     string                            `json:"name"`
 	Host                     string                            `json:"host"`
 	Username                 string                            `json:"username"`
@@ -654,8 +660,14 @@ func (h *InstancesHandler) CreateInstance(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if req.ClientType != "" && !req.ClientType.Valid() {
+		RespondError(w, http.StatusBadRequest, "Invalid client type")
+		return
+	}
+	clientType := req.ClientType.Normalize()
+
 	// Create instance
-	instance, err := h.instanceStore.Create(r.Context(), req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, req.TLSSkipVerify, req.HasLocalFilesystemAccess, req.APIKey)
+	instance, err := h.instanceStore.Create(r.Context(), clientType, req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, req.TLSSkipVerify, req.HasLocalFilesystemAccess, req.APIKey)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create instance")
 		RespondError(w, http.StatusInternalServerError, "Failed to create instance")
@@ -699,6 +711,11 @@ func (h *InstancesHandler) UpdateInstance(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if req.ClientType != "" && !req.ClientType.Valid() {
+		RespondError(w, http.StatusBadRequest, "Invalid client type")
+		return
+	}
+
 	// Fetch existing instance to handle redacted values
 	existingInstance, err := h.instanceStore.Get(r.Context(), instanceID)
 	if err != nil {
@@ -708,6 +725,13 @@ func (h *InstancesHandler) UpdateInstance(w http.ResponseWriter, r *http.Request
 		}
 		log.Error().Err(err).Msg("Failed to fetch existing instance")
 		RespondError(w, http.StatusInternalServerError, "Failed to fetch instance")
+		return
+	}
+
+	// The client type is immutable: credentials and connection semantics
+	// differ per client, so switching types on a live instance is rejected.
+	if req.ClientType != "" && req.ClientType.Normalize() != existingInstance.ClientType {
+		RespondError(w, http.StatusBadRequest, "Client type cannot be changed after creation")
 		return
 	}
 

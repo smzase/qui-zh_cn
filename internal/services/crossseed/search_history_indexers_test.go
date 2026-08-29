@@ -39,7 +39,7 @@ func newSearchHistoryTestEnv(t *testing.T, name string, indexerCount int) (conte
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, models.ClientTypeQbittorrent, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	indexerStore, err := models.NewTorznabIndexerStore(db, key)

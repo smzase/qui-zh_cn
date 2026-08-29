@@ -100,7 +100,7 @@ func TestSearchTorrentMatches_ForcedMusicBuildsMusicQuery(t *testing.T) {
 			db := testdb.NewMigratedSQLite(t, "crossseed-forced-music-query")
 			instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 			require.NoError(t, err)
-			instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+			instance, err := instanceStore.Create(ctx, models.ClientTypeQbittorrent, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 			require.NoError(t, err)
 
 			svc := &Service{

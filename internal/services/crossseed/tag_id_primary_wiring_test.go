@@ -90,7 +90,7 @@ func TestTagIDPrimaryMixedModeWithTitleRescue(t *testing.T) {
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 	localFS := true
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, &localFS)
+	instance, err := instanceStore.Create(ctx, models.ClientTypeQbittorrent, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, &localFS)
 	require.NoError(t, err)
 
 	movieCategories := []models.TorznabIndexerCategory{{IndexerID: 1, CategoryID: 2000, CategoryName: "Movies"}}

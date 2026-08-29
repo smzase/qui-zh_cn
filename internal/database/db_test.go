@@ -209,6 +209,7 @@ var expectedSchema = map[string][]columnSpec{
 		{Name: "hardlink_dir_preset", Type: "TEXT"},
 		{Name: "use_reflinks", Type: "BOOLEAN"},
 		{Name: "fallback_to_regular_mode", Type: "BOOLEAN"},
+		{Name: "client_type", Type: "TEXT"},
 	},
 	"licenses": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},

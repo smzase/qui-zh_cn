@@ -166,7 +166,7 @@ func TestCrossSeedStore_SearchRunResultSerializationUsesStatus(t *testing.T) {
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 	ctx := context.Background()
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, models.ClientTypeQbittorrent, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	now := time.Now().UTC()
@@ -222,7 +222,7 @@ func TestCrossSeedStore_SearchRunResultDecodeLegacyAdded(t *testing.T) {
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 	ctx := context.Background()
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, models.ClientTypeQbittorrent, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	now := time.Now().UTC()
