@@ -675,10 +675,12 @@ func (b *Bridge) handleTorrentProperties(ctx context.Context, req *http.Request)
 
 	qt := qbitTorrentFrom(t)
 	timeActive := qt.TimeActive
-	dlAvg, upAvg := 0.0, 0.0
+	// qBittorrent exposes average speeds as integers; fractional values make
+	// go-qbittorrent reject the entire properties response.
+	dlAvg, upAvg := int64(0), int64(0)
 	if timeActive > 0 {
-		dlAvg = float64(t.DownloadedEver) / float64(timeActive)
-		upAvg = float64(t.UploadedEver) / float64(timeActive)
+		dlAvg = t.DownloadedEver / timeActive
+		upAvg = t.UploadedEver / timeActive
 	}
 
 	props := map[string]any{

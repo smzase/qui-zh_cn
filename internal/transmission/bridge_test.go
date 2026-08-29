@@ -224,14 +224,19 @@ func (f *fakeTransmissionDaemon) handle(w http.ResponseWriter, r *http.Request) 
 					entries["error"] = 0
 				case "errorString":
 					entries["errorString"] = ""
+				case "secondsDownloading":
+					entries["secondsDownloading"] = t.SecondsDownloading
+				case "secondsSeeding":
+					entries["secondsSeeding"] = t.SecondsSeeding
+				case "isPrivate":
+					entries["isPrivate"] = t.IsPrivate
 				default:
 					if field == "peersConnected" || field == "peersSendingToUs" || field == "peersGettingFromUs" ||
-						field == "queuePosition" || field == "secondsDownloading" || field == "secondsSeeding" ||
-						field == "pieceCount" || field == "pieceSize" || field == "activityDate" || field == "dateCreated" ||
+						field == "queuePosition" || field == "pieceCount" || field == "pieceSize" || field == "activityDate" || field == "dateCreated" ||
 						field == "eta" || field == "corruptEver" || field == "downloadLimit" || field == "uploadLimit" {
 						entries[field] = 0
 					}
-					if field == "downloadLimited" || field == "uploadLimited" || field == "isPrivate" {
+					if field == "downloadLimited" || field == "uploadLimited" {
 						entries[field] = false
 					}
 					if field == "seedRatioLimit" {
@@ -463,6 +468,8 @@ func TestBridgeTorrentActions(t *testing.T) {
 
 func TestBridgeTorrentProperties(t *testing.T) {
 	daemon := newFakeDaemon()
+	daemon.torrents[0].SecondsDownloading = 3
+	daemon.torrents[0].IsPrivate = true
 	client, _ := newTestClient(t, daemon)
 
 	ctx := context.Background()
@@ -479,6 +486,9 @@ func TestBridgeTorrentProperties(t *testing.T) {
 	assert.InDelta(t, 1.5, props.ShareRatio, 0.0001)
 	assert.Equal(t, int64(100), props.TotalDownloaded)
 	assert.Equal(t, int64(200), props.TotalUploaded)
+	assert.Equal(t, 33, props.DlSpeedAvg)
+	assert.Equal(t, 66, props.UpSpeedAvg)
+	assert.True(t, props.IsPrivate)
 
 	// The ratio must come from the daemon's uploadRatio field; an invalid
 	// field name would decode as a silent zero.
