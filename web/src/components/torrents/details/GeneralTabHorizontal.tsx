@@ -26,6 +26,7 @@ interface GeneralTabHorizontalProps {
   torrent: Torrent
   properties: TorrentProperties | undefined
   loading: boolean
+  error?: unknown
   speedUnit: SpeedUnit
   downloadLimit: number
   uploadLimit: number
@@ -45,6 +46,7 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
   torrent,
   properties,
   loading,
+  error,
   speedUnit,
   downloadLimit,
   uploadLimit,
@@ -125,6 +127,18 @@ export const GeneralTabHorizontal = memo(function GeneralTabHorizontal({
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    )
+  }
+
+  if (error && !properties) {
+    const message = error instanceof Error && error.message ? error.message : t("common:status.error")
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2 text-sm text-destructive">
+        <span>{t("common:status.error")}</span>
+        {message !== t("common:status.error") && (
+          <span className="max-w-full break-all px-3 text-center text-xs text-muted-foreground">{message}</span>
+        )}
       </div>
     )
   }

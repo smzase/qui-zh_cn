@@ -252,7 +252,9 @@
         "username": "使用者名稱",
         "password": "密碼",
         "qbittorrentAuth": "qBittorrent 認證",
-        "qbittorrentAuthDescription": "選擇 qui 連線 qBittorrent 時使用的認證方式。"
+        "qbittorrentAuthDescription": "選擇 qui 連線 qBittorrent 時使用的認證方式。",
+        "transmissionAuth": "Transmission 認證",
+        "transmissionAuthDescription": "選擇 qui 連線 Transmission 守護程序時使用的認證方式。"
       },
       "placeholders": {
         "instanceName": "例如：主伺服器",

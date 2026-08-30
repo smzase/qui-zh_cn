@@ -5611,6 +5611,7 @@ func (s *Service) processCrossSeedCandidate(
 	instance, instanceErr := s.instanceStore.Get(ctx, candidate.InstanceID)
 	useReflinkMode := instanceErr == nil && instance != nil && instance.UseReflinks
 	useHardlinkMode := instanceErr == nil && instance != nil && instance.UseHardlinks && !instance.UseReflinks
+	isTransmission := instanceErr == nil && instance != nil && instance.ClientType.Normalize() == models.ClientTypeTransmission
 
 	runReuseSafetyChecks := func() bool {
 		// SAFETY: Reject cross-seeds where main content file sizes don't match.
@@ -5760,6 +5761,10 @@ func (s *Service) processCrossSeedCandidate(
 
 	// Determine final category to apply (with optional .cross suffix for isolation)
 	baseCategory, crossCategory := s.determineCrossSeedCategory(ctx, req, matchedTorrent, nil)
+	if isTransmission {
+		// Transmission has labels (mapped to tags) but no category model.
+		baseCategory, crossCategory = "", ""
+	}
 
 	// Determine the SavePath for the cross-seed category.
 	// Priority: base category's configured SavePath > matched torrent's SavePath

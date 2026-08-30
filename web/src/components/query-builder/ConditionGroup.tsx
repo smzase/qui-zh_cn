@@ -29,6 +29,8 @@ interface ConditionGroupProps {
   isRoot?: boolean;
   /** Optional category options for EXISTS_IN/CONTAINS_IN operators */
   categoryOptions?: Array<{ label: string; value: string }>;
+  /** Whether category-dependent NAME operators are available */
+  allowCategoryOperators?: boolean;
   /** Optional list of fields to disable with reasons */
   disabledFields?: DisabledField[];
   /** Optional list of "state" option values to disable with reasons */
@@ -60,6 +62,7 @@ export function ConditionGroup({
   depth = 0,
   isRoot = false,
   categoryOptions,
+  allowCategoryOperators = true,
   disabledFields,
   disabledStateValues,
   groupOptions,
@@ -162,6 +165,7 @@ export function ConditionGroup({
         onChange={onChange}
         onRemove={onRemove ?? (() => {})}
         categoryOptions={categoryOptions}
+        allowCategoryOperators={allowCategoryOperators}
         disabledFields={disabledFields}
         disabledStateValues={disabledStateValues}
         groupOptions={groupOptions}
@@ -246,6 +250,7 @@ export function ConditionGroup({
                     onRemove={() => removeChild(index)}
                     depth={depth + 1}
                     categoryOptions={categoryOptions}
+                    allowCategoryOperators={allowCategoryOperators}
                     disabledFields={disabledFields}
                     disabledStateValues={disabledStateValues}
                     groupOptions={groupOptions}
@@ -258,6 +263,7 @@ export function ConditionGroup({
                     onRemove={() => removeChild(index)}
                     isOnly={children.length === 1 && isRoot && !onRemove}
                     categoryOptions={categoryOptions}
+                    allowCategoryOperators={allowCategoryOperators}
                     disabledFields={disabledFields}
                     disabledStateValues={disabledStateValues}
                     groupOptions={groupOptions}

@@ -39,7 +39,12 @@ export function SpreadsheetRibbonTabs() {
   const { instances } = useInstances()
   const firstActiveInstanceId = instances?.find((instance) => instance.isActive)?.id
   const instancesActive = location.pathname.startsWith("/instances")
-  const tabs = classic ? CLASSIC_TABS : MODERN_TABS
+  const hasActiveQbittorrent = instances?.some(
+    instance => instance.isActive && instance.clientType === "qbittorrent"
+  ) ?? false
+  const tabs = (classic ? CLASSIC_TABS : MODERN_TABS).filter(
+    entry => !("to" in entry) || entry.to !== "/rss" || hasActiveQbittorrent
+  )
 
   return (
     <nav className="ss-ribbon-tabs hidden md:flex" aria-label={RIBBON_ARIA}>

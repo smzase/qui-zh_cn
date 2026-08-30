@@ -211,7 +211,10 @@ export function InstanceBackups() {
 
   // Only load capabilities when an instance is selected
   const { data: capabilities, isLoading: capabilitiesLoading } = useInstanceCapabilities(instanceId, { enabled: !!instanceId })
-  const supportsTorrentExport = capabilities?.supportsTorrentExport ?? true
+  const supportsTorrentExport =
+    instance?.clientType === "transmission"
+      ? false
+      : capabilities?.supportsTorrentExport ?? true
 
   // Only load data when instance is selected AND supports backups
   const shouldLoadData = !!instanceId && supportsTorrentExport

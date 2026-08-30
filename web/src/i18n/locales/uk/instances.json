@@ -252,7 +252,9 @@
         "username": "Ім'я користувача",
         "password": "Пароль",
         "qbittorrentAuth": "Автентифікація qBittorrent",
-        "qbittorrentAuthDescription": "Виберіть спосіб автентифікації qui для qBittorrent."
+        "qbittorrentAuthDescription": "Виберіть спосіб автентифікації qui для qBittorrent.",
+        "transmissionAuth": "Автентифікація Transmission",
+        "transmissionAuthDescription": "Виберіть спосіб автентифікації qui для демона Transmission."
       },
       "placeholders": {
         "instanceName": "наприклад, Головний сервер",

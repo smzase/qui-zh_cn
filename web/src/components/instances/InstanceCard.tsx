@@ -290,12 +290,11 @@ export function InstanceCard({
         <div className="space-y-1 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t("card.labels.username")}</span>
-            {/* qBittorrent's default username is 'admin' */}
             <span className={incognitoMode ? "blur-sm select-none" : ""}>
-              {instance.username || "admin"}
+              {instance.username || (instance.clientType === "qbittorrent" ? "admin" : t("form.authType.none"))}
             </span>
           </div>
-          {instance.basicUsername && (
+          {instance.clientType !== "transmission" && instance.basicUsername && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("card.labels.basicAuth")}</span>
               <span className={incognitoMode ? "blur-sm select-none" : ""}>

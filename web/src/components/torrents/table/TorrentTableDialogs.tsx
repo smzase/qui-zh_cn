@@ -16,8 +16,9 @@ import type { useBulkActionWrappers } from "@/hooks/torrent-table/useBulkActionW
 import type { useCrossSeedOrchestration } from "@/hooks/torrent-table/useCrossSeedOrchestration"
 import type { useTorrentsList } from "@/hooks/useTorrentsList"
 import { api } from "@/lib/api"
+import { resolveTorrentTargetCapabilities } from "@/lib/instance-capabilities"
 import { getCommonCategory, getCommonSavePath } from "@/lib/torrent-utils"
-import type { Category, CrossInstanceTorrent, Torrent } from "@/types"
+import type { Category, CrossInstanceTorrent, InstanceResponse, Torrent } from "@/types"
 import { useQuery } from "@tanstack/react-query"
 import { type Dispatch, type SetStateAction, useMemo } from "react"
 import { useTranslation } from "react-i18next"
@@ -43,6 +44,7 @@ export interface TorrentTableDialogsProps {
   // Context + identity
   instanceId: number
   instanceIds?: number[]
+  instances?: InstanceResponse[]
   contextHashes: string[]
   contextTorrents: Torrent[]
   isPending: boolean
@@ -141,6 +143,7 @@ export interface TorrentTableDialogsProps {
 export function TorrentTableDialogs({
   instanceId,
   instanceIds,
+  instances,
   contextHashes,
   contextTorrents,
   isPending,
@@ -218,6 +221,16 @@ export function TorrentTableDialogs({
 }: TorrentTableDialogsProps) {
   const { t } = useTranslation("torrents")
 
+  const targetCapabilities = useMemo(() => resolveTorrentTargetCapabilities({
+    torrents: contextTorrents,
+    fallbackInstanceId: instanceId,
+    instanceIds,
+    isAllSelected,
+    isAllInstancesView: instanceId <= 0,
+    instances,
+  }), [contextTorrents, instanceId, instanceIds, isAllSelected, instances])
+  const supportsQbittorrentOnlyActions = targetCapabilities.supportsQbittorrentOnlyActions
+
   const shouldLoadRenameEntries = (showRenameFileDialog || showRenameFolderDialog) && Boolean(contextHashes[0])
 
   const {
@@ -281,7 +294,7 @@ export function TorrentTableDialogs({
         onConfirm={handleDeleteWrapper}
       />
 
-      <SetCommentDialog
+      {supportsQbittorrentOnlyActions && <SetCommentDialog
         open={showCommentDialog}
         onOpenChange={setShowCommentDialog}
         hashCount={isAllSelected ? effectiveSelectionCount : contextHashes.length}
@@ -291,7 +304,7 @@ export function TorrentTableDialogs({
         torrentHash={contextHashes.length === 1 ? contextHashes[0] : undefined}
         onConfirm={handleSetCommentWrapper}
         isPending={isPending}
-      />
+      />}
 
       <TagEditorDialog
         open={showTagsDialog}
@@ -316,7 +329,7 @@ export function TorrentTableDialogs({
       />
 
       {/* Set Category Dialog */}
-      <SetCategoryDialog
+      {supportsQbittorrentOnlyActions && <SetCategoryDialog
         open={showCategoryDialog}
         onOpenChange={setShowCategoryDialog}
         availableCategories={availableCategories || {}}
@@ -326,16 +339,16 @@ export function TorrentTableDialogs({
         initialCategory={getCommonCategory(contextTorrents)}
         isLoadingCategories={isLoadingCategories}
         useSubcategories={allowSubcategories}
-      />
+      />}
 
       {/* Create and Assign Category Dialog */}
-      <CreateAndAssignCategoryDialog
+      {supportsQbittorrentOnlyActions && <CreateAndAssignCategoryDialog
         open={showCreateCategoryDialog}
         onOpenChange={setShowCreateCategoryDialog}
         hashCount={isAllSelected ? effectiveSelectionCount : contextHashes.length}
         onConfirm={handleSetCategoryWrapper}
         isPending={isPending}
-      />
+      />}
 
       <ShareLimitDialog
         open={showShareLimitDialog}
@@ -344,8 +357,9 @@ export function TorrentTableDialogs({
         torrents={contextTorrents}
         onConfirm={handleSetShareLimitWrapper}
         isPending={isPending}
-        supportsShareLimitsAction={capabilities?.supportsShareLimitsAction}
-        supportsShareLimitsMode={capabilities?.supportsShareLimitsMode}
+        supportsSeedingTimeLimit={supportsQbittorrentOnlyActions}
+        supportsShareLimitsAction={supportsQbittorrentOnlyActions && (capabilities?.supportsShareLimitsAction ?? false)}
+        supportsShareLimitsMode={supportsQbittorrentOnlyActions && (capabilities?.supportsShareLimitsMode ?? false)}
       />
 
       <SpeedLimitsDialog
@@ -436,14 +450,14 @@ export function TorrentTableDialogs({
       </Dialog>
 
       {/* TMM Confirmation Dialog */}
-      <TmmConfirmDialog
+      {supportsQbittorrentOnlyActions && <TmmConfirmDialog
         open={showTmmDialog}
         onOpenChange={setShowTmmDialog}
         count={isAllSelected ? effectiveSelectionCount : contextHashes.length}
         enable={pendingTmmEnable}
         onConfirm={handleTmmConfirmWrapper}
         isPending={isPending}
-      />
+      />}
 
       {/* Location Warning Dialog */}
       <LocationWarningDialog

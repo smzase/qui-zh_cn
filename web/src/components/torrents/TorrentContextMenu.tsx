@@ -21,8 +21,9 @@ import { getLinuxIsoName, getLinuxSavePath, useIncognitoMode } from "@/lib/incog
 import { buildTorrentActionTargets } from "@/lib/torrent-action-targets"
 import type { TorrentFieldName, TorrentFieldSelection } from "@/lib/torrent-field-request"
 import { getToggleSelectionState, getTorrentDisplayHash } from "@/lib/torrent-utils"
+import { resolveTorrentTargetCapabilities } from "@/lib/instance-capabilities"
 import { copyTextToClipboard } from "@/lib/utils"
-import type { Category, ExternalProgram, InstanceCapabilities, Torrent, TorrentFilters } from "@/types"
+import type { Category, ExternalProgram, InstanceCapabilities, InstanceResponse, Torrent, TorrentFilters } from "@/types"
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query"
 import {
   Blocks,
@@ -55,6 +56,8 @@ import { RenameSubmenu } from "./RenameSubmenu"
 export interface TorrentContextMenuProps {
   children: React.ReactNode
   instanceId: number
+  instanceIds?: number[]
+  instances?: InstanceResponse[]
   readOnly?: boolean
   torrent: Torrent
   isSelected: boolean
@@ -96,6 +99,8 @@ export interface TorrentContextMenuProps {
 export const TorrentContextMenu = memo(function TorrentContextMenu({
   children,
   instanceId: _instanceId,
+  instanceIds,
+  instances,
   readOnly = false,
   torrent,
   isSelected,
@@ -144,6 +149,15 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
     useSelection ? selectedTorrents : [torrent],
   [useSelection, selectedTorrents, torrent]
   )
+  const targetCapabilities = useMemo(() => resolveTorrentTargetCapabilities({
+    torrents,
+    fallbackInstanceId: _instanceId,
+    instanceIds,
+    isAllSelected,
+    isAllInstancesView: _instanceId <= 0,
+    instances,
+  }), [torrents, _instanceId, instanceIds, isAllSelected, instances])
+  const supportsQbittorrentOnlyActions = targetCapabilities.supportsQbittorrentOnlyActions
   const actionTargets = useMemo(() => buildTorrentActionTargets(torrents, _instanceId), [torrents, _instanceId])
 
   const targetInstanceIds = useMemo(() => {
@@ -367,10 +381,10 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
     onPrepareLocation(hashes, torrents, count)
   }, [onPrepareLocation, hashes, torrents, count])
 
-  const supportsTorrentExport = capabilities?.supportsTorrentExport ?? true
-  const supportsSetComment = capabilities?.supportsSetComment ?? (
+  const supportsTorrentExport = supportsQbittorrentOnlyActions && (capabilities?.supportsTorrentExport ?? true)
+  const supportsSetComment = supportsQbittorrentOnlyActions && (capabilities?.supportsSetComment ?? (
     shouldResolveSetCommentSupport? setCommentCapabilityQueries.some(query => query.data?.supportsSetComment === true): false
-  )
+  ))
   const supportsInstanceScopedActions = _instanceId > 0
 
   return (
@@ -415,7 +429,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
               <Play className="mr-2 h-4 w-4" />
               {t("contextMenu.resume")} {count > 1 ? `(${count})` : ""}
             </ContextMenuItem>
-            {forceStartMixed ? (
+            {supportsQbittorrentOnlyActions && (forceStartMixed ? (
               <>
                 <ContextMenuItem
                   onClick={() => handleForceStartToggle(true)}
@@ -440,7 +454,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
                 <FastForward className="mr-2 h-4 w-4" />
                 {allForceStarted ? `${t("contextMenu.disableForceStart")} ${count > 1 ? `(${count})` : ""}` : `${t("contextMenu.forceStart")} ${count > 1 ? `(${count})` : ""}`}
               </ContextMenuItem>
-            )}
+            ))}
             <ContextMenuItem
               onClick={() => onAction(TORRENT_ACTIONS.PAUSE, hashes, { targets: actionTargets })}
               disabled={isPending}
@@ -462,7 +476,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
               <Radio className="mr-2 h-4 w-4" />
               {t("contextMenu.reannounce")} {count > 1 ? `(${count})` : ""}
             </ContextMenuItem>
-            {seqDlMixed ? (
+            {supportsQbittorrentOnlyActions && (seqDlMixed ? (
               <>
                 <ContextMenuItem
                   onClick={() => handleSeqDlToggle(true)}
@@ -487,7 +501,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
                 <Blocks className="mr-2 h-4 w-4" />
                 {allSeqDlEnabled ? `${t("contextMenu.disableSequentialDownload")} ${count > 1 ? `(${count})` : ""}` : `${t("contextMenu.enableSequentialDownload")} ${count > 1 ? `(${count})` : ""}`}
               </ContextMenuItem>
-            )}
+            ))}
             <ContextMenuSeparator />
             <QueueSubmenu
               type="context"
@@ -528,7 +542,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
               <Tag className="mr-2 h-4 w-4" />
               {t("contextMenu.setTags")} {count > 1 ? `(${count})` : ""}
             </ContextMenuItem>
-            <CategorySubmenu
+            {supportsQbittorrentOnlyActions && <CategorySubmenu
               type="context"
               hashCount={count}
               availableCategories={availableCategories}
@@ -536,7 +550,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
               isPending={isPending}
               currentCategory={torrent.category}
               useSubcategories={useSubcategories}
-            />
+            />}
             <ContextMenuItem
               onClick={handleLocationClick}
               disabled={isPending}
@@ -580,7 +594,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
               {t("contextMenu.setSpeedLimits")} {count > 1 ? `(${count})` : ""}
             </ContextMenuItem>
             <ContextMenuSeparator />
-            {mixed ? (
+            {supportsQbittorrentOnlyActions && (mixed ? (
               <>
                 <ContextMenuItem
                   onClick={() => handleTmmToggle(true)}
@@ -614,7 +628,7 @@ export const TorrentContextMenu = memo(function TorrentContextMenu({
                   </>
                 )}
               </ContextMenuItem>
-            )}
+            ))}
             <ContextMenuSeparator />
             {supportsInstanceScopedActions && <ExternalProgramsSubmenu instanceId={_instanceId} hashes={hashes} />}
             {supportsTorrentExport && (

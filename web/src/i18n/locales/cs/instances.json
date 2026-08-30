@@ -252,7 +252,9 @@
         "username": "Uživatelské jméno",
         "password": "Heslo",
         "qbittorrentAuth": "qBittorrent Autentizace",
-        "qbittorrentAuthDescription": "Vyberte, jak se má qui autentizovat k qBittorrentu."
+        "qbittorrentAuthDescription": "Vyberte, jak se má qui autentizovat k qBittorrentu.",
+        "transmissionAuth": "Autentizace Transmission",
+        "transmissionAuthDescription": "Vyberte, jak se má qui autentizovat k démonu Transmission."
       },
       "placeholders": {
         "instanceName": "např. Hlavní server",

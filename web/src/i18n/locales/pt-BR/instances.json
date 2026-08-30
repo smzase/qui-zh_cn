@@ -252,7 +252,9 @@
         "username": "Usuário",
         "password": "Senha",
         "qbittorrentAuth": "Autenticação do qBittorrent",
-        "qbittorrentAuthDescription": "Selecione como o qui deve se autenticar no qBittorrent."
+        "qbittorrentAuthDescription": "Selecione como o qui deve se autenticar no qBittorrent.",
+        "transmissionAuth": "Autenticação do Transmission",
+        "transmissionAuthDescription": "Selecione como o qui deve se autenticar no daemon do Transmission."
       },
       "placeholders": {
         "instanceName": "ex: Servidor Principal",

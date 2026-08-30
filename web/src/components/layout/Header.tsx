@@ -168,6 +168,10 @@ export function Header({
     () => activeInstances.map(instance => instance.id),
     [activeInstances]
   )
+  const hasActiveQbittorrent = useMemo(
+    () => activeInstances.some(instance => instance.clientType === "qbittorrent"),
+    [activeInstances]
+  )
   const [persistedUnifiedFilter, saveUnifiedFilter] = usePersistedUnifiedInstanceFilter()
   const normalizedUnifiedInstanceIds = useMemo(
     () => normalizeUnifiedInstanceIds(persistedUnifiedFilter, activeInstanceIds),
@@ -380,7 +384,10 @@ export function Header({
     staleTime: 300000, // Cache for 5 minutes (capabilities don't change often)
   })
 
-  const supportsTorrentCreation = canManageSelectedInstance ? (instanceCapabilities?.supportsTorrentCreation ?? true) : false
+  const supportsTorrentCreation =
+    canManageSelectedInstance &&
+    currentInstance?.clientType !== "transmission" &&
+    (instanceCapabilities?.supportsTorrentCreation ?? currentInstance?.clientType === "qbittorrent")
 
   // Instance settings dialog state
   const [instanceSettingsOpen, setInstanceSettingsOpen] = useState(false)
@@ -867,15 +874,17 @@ export function Header({
                   {t("nav.backups")}
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link
-                  to="/rss"
-                  className="flex cursor-pointer"
-                >
-                  <Rss className="mr-2 h-4 w-4" />
-                  {t("nav.rss")}
-                </Link>
-              </DropdownMenuItem>
+              {hasActiveQbittorrent && (
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/rss"
+                    className="flex cursor-pointer"
+                  >
+                    <Rss className="mr-2 h-4 w-4" />
+                    {t("nav.rss")}
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem asChild>
                 <Link
                   to="/settings"
@@ -914,7 +923,9 @@ export function Header({
                   )}
                   {activeInstances.map((instance) => {
                     const csState = crossSeedInstanceState[instance.id]
-                    const hasRss = csState?.rssEnabled || csState?.rssRunning
+                    const hasRss =
+                      instance.clientType === "qbittorrent" &&
+                      (csState?.rssEnabled || csState?.rssRunning)
                     const hasSearch = csState?.searchRunning
 
                     return (

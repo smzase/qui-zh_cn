@@ -179,8 +179,8 @@ export interface TransmissionPreferences {
   "download-dir"?: string
   "incomplete-dir"?: string
   "incomplete-dir-enabled"?: boolean
-  "start-added"?: boolean
-  "rename-partial"?: boolean
+  "start-added-torrents"?: boolean
+  "rename-partial-files"?: boolean
   "download-queue-enabled"?: boolean
   "download-queue-size"?: number
   "seed-queue-enabled"?: boolean
@@ -204,7 +204,7 @@ export interface TransmissionPreferences {
   // Peers
   "peer-limit-per-torrent"?: number
   "peer-limit-global"?: number
-  encryption?: number
+  encryption?: "required" | "preferred" | "tolerated"
   "pex-enabled"?: boolean
   "dht-enabled"?: boolean
   "lpd-enabled"?: boolean

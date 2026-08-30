@@ -8,7 +8,12 @@ import { useCallback, useMemo, useSyncExternalStore } from "react"
 const STORAGE_KEY = "qui-torrent-layout-sync-enabled"
 const CHANGE_EVENT = "qui-torrent-layout-sync-changed"
 
+// Keep the historical qBittorrent key stable so existing layouts migrate
+// without user intervention. Other views have different column capabilities
+// and must not inherit that layout by accident.
 export const SYNCED_TORRENT_LAYOUT_KEY = "synced"
+export const SYNCED_TRANSMISSION_TORRENT_LAYOUT_KEY = "synced:transmission"
+export const SYNCED_UNIFIED_TORRENT_LAYOUT_KEY = "synced:unified"
 
 function subscribe(callback: () => void): () => void {
   const handleStorage = (event: StorageEvent) => {

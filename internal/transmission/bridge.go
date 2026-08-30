@@ -19,10 +19,9 @@ import (
 )
 
 // webAPIVersion is the synthetic qBittorrent Web API version the bridge
-// reports. It gates qui's capability flags to what Transmission can honor:
-// 2.7.0 enables tracker editing, file priority and renames while disabling
-// tags, comments, torrent export/creation, subcategories and share-limit
-// actions that have no Transmission equivalent.
+// reports. It gates qui's capability flags to what Transmission can honor.
+// Transmission labels are handled through the legacy add/remove tag APIs;
+// newer qBittorrent-only feature gates remain disabled.
 const webAPIVersion = "2.7.0"
 
 const (
@@ -55,11 +54,10 @@ var detailTorrentFields = append(append([]string{}, syncTorrentFields...),
 // bridgeSnapshot is the last state emitted through sync/maindata; it is the
 // baseline for computing deltas.
 type bridgeSnapshot struct {
-	rid        int64
-	torrents   map[string]json.RawMessage
-	categories map[string]bool
-	tags       map[string]bool
-	trackers   map[string][]string
+	rid      int64
+	torrents map[string]json.RawMessage
+	tags     map[string]bool
+	trackers map[string][]string
 	// hashLookup maps lowercase hashes to the daemon's hashString spelling.
 	hashLookup map[string]string
 }
@@ -70,11 +68,10 @@ type bridgeSnapshot struct {
 type Bridge struct {
 	rpc *rpcClient
 
-	mu              sync.Mutex
-	snapshot        *bridgeSnapshot
-	rid             int64
-	peerRid         int64
-	extraCategories map[string]string
+	mu       sync.Mutex
+	snapshot *bridgeSnapshot
+	rid      int64
+	peerRid  int64
 
 	sessionMu      sync.Mutex
 	sessionCache   *session
@@ -93,10 +90,7 @@ func NewBridge(host, username, password string, tlsSkipVerify bool, timeout time
 		return nil, err
 	}
 
-	return &Bridge{
-		rpc:             rpc,
-		extraCategories: make(map[string]string),
-	}, nil
+	return &Bridge{rpc: rpc}, nil
 }
 
 // RoundTrip implements http.RoundTripper and dispatches /api/v2/* requests
@@ -176,7 +170,7 @@ func (b *Bridge) RoundTrip(req *http.Request) (*http.Response, error) {
 	case "torrents/categories":
 		return b.handleCategories(ctx, req)
 	case "torrents/tags":
-		return jsonResponse(req, http.StatusOK, []string{})
+		return b.handleTags(ctx, req)
 
 	// torrents - actions
 	case "torrents/add":
@@ -191,21 +185,14 @@ func (b *Bridge) RoundTrip(req *http.Request) (*http.Response, error) {
 		return b.simpleTorrentAction(ctx, req, "torrent-verify", nil)
 	case "torrents/reannounce":
 		return b.simpleTorrentAction(ctx, req, "torrent-reannounce", nil)
-	case "torrents/setForceStart":
-		return b.handleSetForceStart(ctx, req)
-	case "torrents/setAutoManagement":
-		// Transmission has no auto TMM; accept and ignore.
-		return textResponse(req, "Ok.")
 	case "torrents/setLocation":
 		return b.handleSetLocation(ctx, req)
-	case "torrents/setCategory":
-		return b.handleSetCategory(ctx, req)
-	case "torrents/createCategory":
-		return b.handleCreateCategory(ctx, req)
-	case "torrents/editCategory":
-		return b.handleEditCategory(ctx, req)
-	case "torrents/removeCategories":
-		return b.handleRemoveCategories(ctx, req)
+	case "torrents/addTags":
+		return b.handleModifyTags(ctx, req, tagOperationAdd)
+	case "torrents/removeTags":
+		return b.handleModifyTags(ctx, req, tagOperationRemove)
+	case "torrents/setTags":
+		return b.handleModifyTags(ctx, req, tagOperationSet)
 	case "torrents/increasePrio":
 		return b.simpleTorrentAction(ctx, req, "queue-move-up", nil)
 	case "torrents/decreasePrio":
@@ -239,8 +226,8 @@ func (b *Bridge) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// unsupported feature families
 	case "torrents/toggleSequentialDownload", "torrents/toggleFirstLastPiecePrio",
-		"torrents/setSuperSeeding",
-		"torrents/addTags", "torrents/removeTags", "torrents/setTags",
+		"torrents/setSuperSeeding", "torrents/setForceStart", "torrents/setAutoManagement",
+		"torrents/setCategory", "torrents/createCategory", "torrents/editCategory", "torrents/removeCategories",
 		"torrents/createTags", "torrents/deleteTags", "torrents/setComment",
 		"torrents/addPeers",
 		"rss/items", "rss/addFolder", "rss/addFeed", "rss/setFeedURL",
@@ -389,7 +376,6 @@ func (b *Bridge) handleMaindata(ctx context.Context, req *http.Request) (*http.R
 
 	// Assemble the new snapshot.
 	newTorrents := make(map[string]json.RawMessage, len(torrents))
-	categories := make(map[string]bool)
 	tags := make(map[string]bool)
 	trackers := make(map[string][]string)
 	hashLookup := make(map[string]string, len(torrents))
@@ -406,9 +392,6 @@ func (b *Bridge) handleMaindata(ctx context.Context, req *http.Request) (*http.R
 		newTorrents[hash] = data
 		hashLookup[hash] = t.HashString
 
-		if qt.Category != "" {
-			categories[qt.Category] = true
-		}
 		for _, tag := range strings.Split(qt.Tags, ", ") {
 			if tag != "" {
 				tags[tag] = true
@@ -423,11 +406,6 @@ func (b *Bridge) handleMaindata(ctx context.Context, req *http.Request) (*http.R
 		upSpeed += qt.UpSpeed
 	}
 
-	// Explicitly created categories survive even without torrents.
-	for name := range b.extraCategories {
-		categories[name] = true
-	}
-
 	b.mu.Lock()
 	b.rid++
 	newRid := b.rid
@@ -437,7 +415,6 @@ func (b *Bridge) handleMaindata(ctx context.Context, req *http.Request) (*http.R
 	snapshot := &bridgeSnapshot{
 		rid:        newRid,
 		torrents:   newTorrents,
-		categories: categories,
 		tags:       tags,
 		trackers:   trackers,
 		hashLookup: hashLookup,
@@ -454,7 +431,7 @@ func (b *Bridge) handleMaindata(ctx context.Context, req *http.Request) (*http.R
 	if fullUpdate {
 		payload["full_update"] = true
 		payload["torrents"] = newTorrents
-		payload["categories"] = categoriesPayload(categories)
+		payload["categories"] = map[string]map[string]string{}
 		payload["tags"] = sortedKeys(tags)
 		payload["trackers"] = trackers
 	} else {
@@ -480,12 +457,6 @@ func (b *Bridge) handleMaindata(ctx context.Context, req *http.Request) (*http.R
 			payload["torrents_removed"] = removed
 		}
 
-		if !mapsEqual(prev.categories, categories) {
-			payload["categories"] = categoriesPayload(categories)
-			if removedCats := mapKeysMissing(categories, prev.categories); len(removedCats) > 0 {
-				payload["categories_removed"] = removedCats
-			}
-		}
 		if !mapsEqual(prev.tags, tags) {
 			payload["tags"] = sortedKeys(tags)
 			if removedTags := mapKeysMissing(tags, prev.tags); len(removedTags) > 0 {
@@ -537,7 +508,7 @@ func (b *Bridge) handleTorrentPeers(ctx context.Context, req *http.Request) (*ht
 
 	peers := make(map[string]any)
 	for i := range torrents {
-		if !strings.EqualFold(torrents[i].HashString, hash) {
+		if normalizeHash(torrents[i].HashString) != normalizeHash(hash) {
 			continue
 		}
 		for _, p := range torrents[i].Peers {
@@ -588,7 +559,7 @@ func (b *Bridge) handleTorrentsInfo(ctx context.Context, req *http.Request) (*ht
 	query := req.URL.Query()
 	hashFilter := make(map[string]bool)
 	for _, hash := range splitPipe(query.Get("hashes")) {
-		hashFilter[hash] = true
+		hashFilter[normalizeHash(hash)] = true
 	}
 	filter := query.Get("filter")
 	category := query.Get("category")
@@ -597,7 +568,7 @@ func (b *Bridge) handleTorrentsInfo(ctx context.Context, req *http.Request) (*ht
 	results := make([]qbitTorrent, 0, len(torrents))
 	for i := range torrents {
 		qt := qbitTorrentFrom(&torrents[i])
-		if len(hashFilter) > 0 && !hashFilter[qt.Hash] {
+		if len(hashFilter) > 0 && !hashFilter[normalizeHash(qt.Hash)] {
 			continue
 		}
 		if category != "" && qt.Category != category {
@@ -827,29 +798,23 @@ func (b *Bridge) handleTorrentFiles(ctx context.Context, req *http.Request) (*ht
 }
 
 func (b *Bridge) handleCategories(ctx context.Context, req *http.Request) (*http.Response, error) {
+	return jsonResponse(req, http.StatusOK, map[string]map[string]string{})
+}
+
+func (b *Bridge) handleTags(ctx context.Context, req *http.Request) (*http.Response, error) {
 	torrents, err := b.fetchTorrents(ctx, []string{"id", "hashString", "labels"})
 	if err != nil {
 		return rpcErrorResponse(req, err)
 	}
 
-	categories := make(map[string]map[string]string)
-	b.mu.Lock()
-	for name, savePath := range b.extraCategories {
-		categories[name] = map[string]string{"name": name, "savePath": savePath}
-	}
-	b.mu.Unlock()
-
+	tags := make(map[string]bool)
 	for i := range torrents {
-		category, _ := splitLabels(torrents[i].Labels)
-		if category == "" {
-			continue
-		}
-		if _, ok := categories[category]; !ok {
-			categories[category] = map[string]string{"name": category, "savePath": ""}
+		for _, label := range normalizeLabels(torrents[i].Labels) {
+			tags[label] = true
 		}
 	}
 
-	return jsonResponse(req, http.StatusOK, categories)
+	return jsonResponse(req, http.StatusOK, sortedKeys(tags))
 }
 
 // --- torrents: actions ------------------------------------------------------
@@ -931,11 +896,8 @@ func parseAddOptions(req *http.Request) (*addOptions, error) {
 		opts.downloadDir = v
 	}
 	opts.paused = req.FormValue("paused") == "true" || req.FormValue("stopped") == "true"
-	if v := req.FormValue("category"); v != "" {
-		opts.labels = append(opts.labels, v)
-	}
 	if v := req.FormValue("tags"); v != "" {
-		opts.labels = append(opts.labels, splitComma(v)...)
+		opts.labels = normalizeLabels(splitComma(v))
 	}
 	if v, err := strconv.ParseInt(req.FormValue("upLimit"), 10, 64); err == nil && v > 0 {
 		opts.uploadLimit = v / 1024
@@ -1041,15 +1003,6 @@ func (b *Bridge) simpleTorrentAction(ctx context.Context, req *http.Request, met
 	return textResponse(req, "Ok.")
 }
 
-func (b *Bridge) handleSetForceStart(ctx context.Context, req *http.Request) (*http.Response, error) {
-	if req.FormValue("value") == "true" {
-		// Transmission has no force-start; a regular start is the closest
-		// translation and honors the user's intent.
-		return b.simpleTorrentAction(ctx, req, "torrent-start", nil)
-	}
-	return textResponse(req, "Ok.")
-}
-
 func (b *Bridge) handleSetLocation(ctx context.Context, req *http.Request) (*http.Response, error) {
 	hashes := splitPipe(req.FormValue("hashes"))
 	location := req.FormValue("location")
@@ -1074,72 +1027,83 @@ func (b *Bridge) handleSetLocation(ctx context.Context, req *http.Request) (*htt
 	return textResponse(req, "Ok.")
 }
 
-func (b *Bridge) handleSetCategory(ctx context.Context, req *http.Request) (*http.Response, error) {
-	hashes := splitPipe(req.FormValue("hashes"))
-	category := req.FormValue("category")
+type tagOperation int
 
-	ids, err := b.resolveIDs(ctx, hashes)
-	if err != nil {
-		return rpcErrorResponse(req, err)
-	}
-	if len(ids) == 0 {
+const (
+	tagOperationAdd tagOperation = iota
+	tagOperationRemove
+	tagOperationSet
+)
+
+func (b *Bridge) handleModifyTags(ctx context.Context, req *http.Request, operation tagOperation) (*http.Response, error) {
+	hashes := splitPipe(req.FormValue("hashes"))
+	if len(hashes) == 0 {
 		return textResponse(req, "Ok.")
 	}
 
-	// Category maps to the torrent's single primary label.
-	labels := []string{}
-	if category != "" {
-		labels = []string{category}
-	}
-
-	args := map[string]any{"ids": ids, "labels": labels}
-	if err := b.rpc.call(ctx, "torrent-set", args, nil); err != nil {
+	requestedTags := normalizeLabels(splitComma(req.FormValue("tags")))
+	torrents, err := b.fetchTorrents(ctx, []string{"id", "hashString", "labels"})
+	if err != nil {
 		return rpcErrorResponse(req, err)
 	}
 
-	return textResponse(req, "Ok.")
-}
-
-func (b *Bridge) handleCreateCategory(ctx context.Context, req *http.Request) (*http.Response, error) {
-	name := strings.TrimSpace(req.FormValue("category"))
-	if name == "" {
-		return errorResponse(req, http.StatusBadRequest, "category name is empty")
+	selected := make(map[string]struct{}, len(hashes))
+	for _, hash := range hashes {
+		selected[normalizeHash(hash)] = struct{}{}
 	}
 
-	b.mu.Lock()
-	b.extraCategories[name] = req.FormValue("savePath")
-	b.mu.Unlock()
-
-	return textResponse(req, "Ok.")
-}
-
-func (b *Bridge) handleEditCategory(ctx context.Context, req *http.Request) (*http.Response, error) {
-	name := strings.TrimSpace(req.FormValue("category"))
-	if name == "" {
-		return errorResponse(req, http.StatusBadRequest, "category name is empty")
-	}
-
-	b.mu.Lock()
-	if _, ok := b.extraCategories[name]; ok {
-		b.extraCategories[name] = req.FormValue("savePath")
-	}
-	b.mu.Unlock()
-
-	return textResponse(req, "Ok.")
-}
-
-func (b *Bridge) handleRemoveCategories(ctx context.Context, req *http.Request) (*http.Response, error) {
-	for _, name := range strings.Split(req.FormValue("categories"), "\n") {
-		name = strings.TrimSpace(name)
-		if name == "" {
+	for i := range torrents {
+		torrent := &torrents[i]
+		if _, ok := selected[normalizeHash(torrent.HashString)]; !ok {
 			continue
 		}
-		b.mu.Lock()
-		delete(b.extraCategories, name)
-		b.mu.Unlock()
+
+		labels := updateLabels(torrent.Labels, requestedTags, operation)
+		args := map[string]any{
+			"ids":    []string{torrent.HashString},
+			"labels": labels,
+		}
+		if err := b.rpc.call(ctx, "torrent-set", args, nil); err != nil {
+			return rpcErrorResponse(req, err)
+		}
 	}
 
 	return textResponse(req, "Ok.")
+}
+
+func updateLabels(current, requested []string, operation tagOperation) []string {
+	if operation == tagOperationSet {
+		return normalizeLabels(requested)
+	}
+
+	labels := normalizeLabels(current)
+	requestedSet := make(map[string]struct{}, len(requested))
+	for _, label := range requested {
+		requestedSet[label] = struct{}{}
+	}
+
+	if operation == tagOperationRemove {
+		kept := labels[:0]
+		for _, label := range labels {
+			if _, remove := requestedSet[label]; !remove {
+				kept = append(kept, label)
+			}
+		}
+		return kept
+	}
+
+	seen := make(map[string]struct{}, len(labels)+len(requested))
+	for _, label := range labels {
+		seen[label] = struct{}{}
+	}
+	for _, label := range requested {
+		if _, ok := seen[label]; ok {
+			continue
+		}
+		seen[label] = struct{}{}
+		labels = append(labels, label)
+	}
+	return labels
 }
 
 func (b *Bridge) handleSetShareLimits(ctx context.Context, req *http.Request) (*http.Response, error) {
@@ -1173,7 +1137,7 @@ func (b *Bridge) handleSetShareLimits(ctx context.Context, req *http.Request) (*
 	// closest translation. qBittorrent uses the same -2/-1 conventions.
 	switch {
 	case inactiveLimit >= 0:
-		args["seedIdleLimit"] = inactiveLimit / 60
+		args["seedIdleLimit"] = inactiveLimit
 		args["seedIdleMode"] = 1
 	case inactiveLimit == -1:
 		args["seedIdleMode"] = 2
@@ -1440,8 +1404,8 @@ var transmissionSessionFields = map[string]bool{
 	"download-dir":               true,
 	"incomplete-dir":             true,
 	"incomplete-dir-enabled":     true,
-	"start-added":                true,
-	"rename-partial":             true,
+	"start-added-torrents":       true,
+	"rename-partial-files":       true,
 	"download-queue-enabled":     true,
 	"download-queue-size":        true,
 	"seed-queue-enabled":         true,
@@ -1558,7 +1522,7 @@ func (b *Bridge) fetchSingleTorrent(ctx context.Context, hash string, fields []s
 		return nil, err
 	}
 	for i := range result.Torrents {
-		if strings.EqualFold(result.Torrents[i].HashString, hash) {
+		if normalizeHash(result.Torrents[i].HashString) == normalizeHash(hash) {
 			return &result.Torrents[i], nil
 		}
 	}
@@ -1568,7 +1532,7 @@ func (b *Bridge) fetchSingleTorrent(ctx context.Context, hash string, fields []s
 		return nil, err
 	}
 	for i := range all {
-		if strings.EqualFold(all[i].HashString, hash) {
+		if normalizeHash(all[i].HashString) == normalizeHash(hash) {
 			return &all[i], nil
 		}
 	}
@@ -1579,6 +1543,7 @@ func (b *Bridge) fetchSingleTorrent(ctx context.Context, hash string, fields []s
 // hashString spelling using the last sync snapshot, falling back to the raw
 // value.
 func (b *Bridge) resolveHash(hash string) string {
+	hash = normalizeHash(hash)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -1665,6 +1630,7 @@ func (b *Bridge) resolveIDs(_ context.Context, hashes []string) ([]string, error
 
 	ids := make([]string, 0, len(hashes))
 	for _, hash := range hashes {
+		hash = normalizeHash(hash)
 		if hash == "" {
 			continue
 		}
@@ -1730,6 +1696,10 @@ func rpcErrorResponse(req *http.Request, err error) (*http.Response, error) {
 
 // --- parsing helpers ----------------------------------------------------------
 
+func normalizeHash(hash string) string {
+	return strings.ToLower(strings.TrimSpace(hash))
+}
+
 // splitPipe splits qBittorrent's pipe-separated hash lists.
 func splitPipe(value string) []string {
 	if value == "" {
@@ -1777,14 +1747,6 @@ func hasTag(tags string, tag string) bool {
 		}
 	}
 	return false
-}
-
-func categoriesPayload(categories map[string]bool) map[string]map[string]string {
-	payload := make(map[string]map[string]string, len(categories))
-	for name := range categories {
-		payload[name] = map[string]string{"name": name, "savePath": ""}
-	}
-	return payload
 }
 
 func sortedKeys(m map[string]bool) []string {

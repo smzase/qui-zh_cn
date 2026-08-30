@@ -202,6 +202,8 @@ const FilterSidebarComponent = ({
   const isConcreteInstanceScope = instanceId > 0
   const { instances } = useInstances()
   const instanceMeta = instances?.find(instance => instance.id === instanceId)
+  const supportsQbittorrentOnlyActions = !isConcreteInstanceScope || instanceMeta?.clientType === "qbittorrent"
+  const isTransmissionInstance = isConcreteInstanceScope && instanceMeta?.clientType === "transmission"
   const isInstanceActive = !isConcreteInstanceScope || (instanceMeta?.isActive ?? true)
 
   // Use incognito mode hook
@@ -700,6 +702,41 @@ const FilterSidebarComponent = ({
   const selectedExpandedExcludeCategories = selectedFilters.expandedExcludeCategories
 
   useEffect(() => {
+    if (!isTransmissionInstance) {
+      return
+    }
+
+    if (
+      selectedIncludeCategories.length === 0 &&
+      selectedExcludeCategories.length === 0 &&
+      (selectedExpandedCategories?.length ?? 0) === 0 &&
+      (selectedExpandedExcludeCategories?.length ?? 0) === 0
+    ) {
+      return
+    }
+
+    onFilterChange({
+      ...selectedFilters,
+      categories: [],
+      excludeCategories: [],
+      expandedCategories: undefined,
+      expandedExcludeCategories: undefined,
+    })
+  }, [
+    isTransmissionInstance,
+    onFilterChange,
+    selectedExcludeCategories,
+    selectedExpandedCategories,
+    selectedExpandedExcludeCategories,
+    selectedFilters,
+    selectedIncludeCategories,
+  ])
+
+  useEffect(() => {
+    if (!supportsQbittorrentOnlyActions) {
+      return
+    }
+
     if (!allowSubcategories) {
       if ((selectedExpandedCategories?.length ?? 0) > 0 || (selectedExpandedExcludeCategories?.length ?? 0) > 0) {
         applyFilterChange({
@@ -728,6 +765,7 @@ const FilterSidebarComponent = ({
     allowSubcategories,
     applyFilterChange,
     expandCategoryList,
+    supportsQbittorrentOnlyActions,
     selectedExcludeCategories,
     selectedExpandedCategories,
     selectedExpandedExcludeCategories,
@@ -2046,8 +2084,8 @@ const FilterSidebarComponent = ({
               </AccordionContent>
             </AccordionItem>
 
-            {/* Categories Filter */}
-            <AccordionItem value="categories" className="border rounded-lg">
+            {/* Categories Filter (Transmission exposes labels, not categories.) */}
+            {supportsQbittorrentOnlyActions && <AccordionItem value="categories" className="border rounded-lg">
               <AccordionTrigger className={cn(accordionTriggerClass, "hover:no-underline")}>
                 <div className="flex items-center justify-between w-full">
                   <span className="text-sm font-medium">{t("filterSidebar.categories")}</span>
@@ -2455,7 +2493,7 @@ const FilterSidebarComponent = ({
                   )}
                 </div>
               </AccordionContent>
-            </AccordionItem>
+            </AccordionItem>}
 
             {/* Tags Filter */}
             <AccordionItem value="tags" className="border rounded-lg">
@@ -2474,7 +2512,7 @@ const FilterSidebarComponent = ({
                 <div className="flex flex-col gap-0">
                   {/* Add new tag button and show/hide empty toggle */}
                   <div className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", filterItemClass)}>
-                    <button
+                    {supportsQbittorrentOnlyActions && <button
                       className={cn("flex items-center gap-1.5 transition-colors", isReadOnly ? "cursor-not-allowed opacity-60" : "hover:text-foreground")}
                       disabled={isReadOnly}
                       title={isReadOnly ? t("filterSidebar.unavailableUnifiedView") : undefined}
@@ -2487,10 +2525,10 @@ const FilterSidebarComponent = ({
                     >
                       <Plus className="h-3 w-3" />
                       <span>{t("filterSidebar.createTag")}</span>
-                    </button>
+                    </button>}
                     {hiddenTagCount > 0 && (
                       <>
-                        <span className="text-muted-foreground/40">•</span>
+                        {supportsQbittorrentOnlyActions && <span className="text-muted-foreground/40">•</span>}
                         <button
                           type="button"
                           className="flex items-center gap-1.5 hover:text-foreground transition-colors"
@@ -2665,34 +2703,36 @@ const FilterSidebarComponent = ({
                                   </label>
                                 </ContextMenuTrigger>
                                 <ContextMenuContent>
-                                  <ContextMenuItem
-                                    onClick={() => {
-                                      if (isReadOnly) {
-                                        return
-                                      }
-                                      setTagToDelete(tag)
-                                      setShowDeleteTagDialog(true)
-                                    }}
-                                    disabled={isReadOnly}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    {t("filterSidebar.deleteTag")}
-                                  </ContextMenuItem>
-                                  <ContextMenuSeparator />
-                                  <ContextMenuItem
-                                    onClick={() => {
-                                      if (isReadOnly) {
-                                        return
-                                      }
-                                      setShowDeleteUnusedTagsDialog(true)
-                                    }}
-                                    disabled={isReadOnly}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    {t("filterSidebar.deleteUnusedTags")}
-                                  </ContextMenuItem>
+                                  {supportsQbittorrentOnlyActions && <>
+                                    <ContextMenuItem
+                                      onClick={() => {
+                                        if (isReadOnly) {
+                                          return
+                                        }
+                                        setTagToDelete(tag)
+                                        setShowDeleteTagDialog(true)
+                                      }}
+                                      disabled={isReadOnly}
+                                      className="text-destructive"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      {t("filterSidebar.deleteTag")}
+                                    </ContextMenuItem>
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem
+                                      onClick={() => {
+                                        if (isReadOnly) {
+                                          return
+                                        }
+                                        setShowDeleteUnusedTagsDialog(true)
+                                      }}
+                                      disabled={isReadOnly}
+                                      className="text-destructive"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      {t("filterSidebar.deleteUnusedTags")}
+                                    </ContextMenuItem>
+                                  </>}
                                 </ContextMenuContent>
                               </ContextMenu>
                             </div>
@@ -2748,34 +2788,36 @@ const FilterSidebarComponent = ({
                             </label>
                           </ContextMenuTrigger>
                           <ContextMenuContent>
-                            <ContextMenuItem
-                              onClick={() => {
-                                if (isReadOnly) {
-                                  return
-                                }
-                                setTagToDelete(tag)
-                                setShowDeleteTagDialog(true)
-                              }}
-                              disabled={isReadOnly}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {t("filterSidebar.deleteTag")}
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem
-                              onClick={() => {
-                                if (isReadOnly) {
-                                  return
-                                }
-                                setShowDeleteUnusedTagsDialog(true)
-                              }}
-                              disabled={isReadOnly}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {t("filterSidebar.deleteUnusedTags")}
-                            </ContextMenuItem>
+                            {supportsQbittorrentOnlyActions && <>
+                              <ContextMenuItem
+                                onClick={() => {
+                                  if (isReadOnly) {
+                                    return
+                                  }
+                                  setTagToDelete(tag)
+                                  setShowDeleteTagDialog(true)
+                                }}
+                                disabled={isReadOnly}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {t("filterSidebar.deleteTag")}
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                onClick={() => {
+                                  if (isReadOnly) {
+                                    return
+                                  }
+                                  setShowDeleteUnusedTagsDialog(true)
+                                }}
+                                disabled={isReadOnly}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {t("filterSidebar.deleteUnusedTags")}
+                              </ContextMenuItem>
+                            </>}
                           </ContextMenuContent>
                         </ContextMenu>
                       )
@@ -3062,62 +3104,66 @@ const FilterSidebarComponent = ({
       </ScrollArea>
 
       {/* Dialogs */}
-      <CreateTagDialog
-        open={!isReadOnly && showCreateTagDialog}
-        onOpenChange={setShowCreateTagDialog}
-        instanceId={instanceId}
-      />
-
-      <DeleteTagDialog
-        open={!isReadOnly && showDeleteTagDialog}
-        onOpenChange={setShowDeleteTagDialog}
-        instanceId={instanceId}
-        tag={tagToDelete}
-      />
-
-      <CreateCategoryDialog
-        open={!isReadOnly && showCreateCategoryDialog}
-        onOpenChange={(open) => {
-          setShowCreateCategoryDialog(open)
-          if (!open) {
-            setParentCategoryForNew(undefined)
-          }
-        }}
-        instanceId={instanceId}
-        parent={parentCategoryForNew}
-      />
-
-      {categoryToEdit && (
-        <EditCategoryDialog
-          open={!isReadOnly && showEditCategoryDialog}
-          onOpenChange={setShowEditCategoryDialog}
+      {supportsQbittorrentOnlyActions && <>
+        <CreateTagDialog
+          open={!isReadOnly && showCreateTagDialog}
+          onOpenChange={setShowCreateTagDialog}
           instanceId={instanceId}
-          category={categoryToEdit}
         />
-      )}
 
-      <DeleteCategoryDialog
-        open={!isReadOnly && showDeleteCategoryDialog}
-        onOpenChange={setShowDeleteCategoryDialog}
-        instanceId={instanceId}
-        categoryName={categoryToDelete}
-      />
+        <DeleteTagDialog
+          open={!isReadOnly && showDeleteTagDialog}
+          onOpenChange={setShowDeleteTagDialog}
+          instanceId={instanceId}
+          tag={tagToDelete}
+        />
+      </>}
 
-      <DeleteEmptyCategoriesDialog
-        open={!isReadOnly && showDeleteEmptyCategoriesDialog}
-        onOpenChange={setShowDeleteEmptyCategoriesDialog}
-        instanceId={instanceId}
-        categories={categories}
-        torrentCounts={torrentCounts}
-      />
+      {supportsQbittorrentOnlyActions && <>
+        <CreateCategoryDialog
+          open={!isReadOnly && showCreateCategoryDialog}
+          onOpenChange={(open) => {
+            setShowCreateCategoryDialog(open)
+            if (!open) {
+              setParentCategoryForNew(undefined)
+            }
+          }}
+          instanceId={instanceId}
+          parent={parentCategoryForNew}
+        />
 
-      <DeleteUnusedTagsDialog
+        {categoryToEdit && (
+          <EditCategoryDialog
+            open={!isReadOnly && showEditCategoryDialog}
+            onOpenChange={setShowEditCategoryDialog}
+            instanceId={instanceId}
+            category={categoryToEdit}
+          />
+        )}
+
+        <DeleteCategoryDialog
+          open={!isReadOnly && showDeleteCategoryDialog}
+          onOpenChange={setShowDeleteCategoryDialog}
+          instanceId={instanceId}
+          categoryName={categoryToDelete}
+        />
+
+        <DeleteEmptyCategoriesDialog
+          open={!isReadOnly && showDeleteEmptyCategoriesDialog}
+          onOpenChange={setShowDeleteEmptyCategoriesDialog}
+          instanceId={instanceId}
+          categories={categories}
+          torrentCounts={torrentCounts}
+        />
+      </>}
+
+      {supportsQbittorrentOnlyActions && <DeleteUnusedTagsDialog
         open={!isReadOnly && showDeleteUnusedTagsDialog}
         onOpenChange={setShowDeleteUnusedTagsDialog}
         instanceId={instanceId}
         tags={tags}
         torrentCounts={torrentCounts}
-      />
+      />}
 
       <EditTrackerDialog
         open={!isReadOnly && showEditTrackerDialog}

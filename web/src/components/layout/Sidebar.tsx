@@ -38,6 +38,7 @@ import {
   GitBranch,
   Globe,
   HardDrive,
+  HardDriveDownload,
   Home,
   Loader2,
   LogOut,
@@ -141,6 +142,11 @@ export function Sidebar() {
     () => activeInstances.filter(instance => instance.clientType === "transmission"),
     [activeInstances]
   )
+  const hasActiveQbittorrent = qbittorrentInstances.length > 0
+  const visibleNavigation = useMemo(
+    () => navigation.filter(item => item.id !== "rss" || hasActiveQbittorrent),
+    [hasActiveQbittorrent]
+  )
   const activeInstanceIds = useMemo(
     () => activeInstances.map(instance => instance.id),
     [activeInstances]
@@ -179,11 +185,13 @@ export function Sidebar() {
 
   const { state: crossSeedInstanceState } = useCrossSeedInstanceState()
 
-  const renderInstanceLink = (instance: { id: number; name: string; connected?: boolean }) => {
+  const renderInstanceLink = (instance: { id: number; name: string; connected?: boolean; clientType?: string }) => {
     const instancePath = `/instances/${instance.id}`
     const isActive = location.pathname === instancePath || location.pathname.startsWith(`${instancePath}/`)
     const csState = crossSeedInstanceState[instance.id]
-    const hasRss = csState?.rssEnabled || csState?.rssRunning
+    const hasRss =
+      instance.clientType === "qbittorrent" &&
+      (csState?.rssEnabled || csState?.rssRunning)
     const hasSearch = csState?.searchRunning
 
     return (
@@ -196,7 +204,11 @@ export function Sidebar() {
           isActive? "bg-sidebar-primary text-sidebar-primary-foreground": "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}
       >
-        <HardDrive className="h-4 w-4 flex-shrink-0" />
+        {instance.clientType === "transmission" ? (
+          <HardDriveDownload className="h-4 w-4 flex-shrink-0" />
+        ) : (
+          <HardDrive className="h-4 w-4 flex-shrink-0" />
+        )}
         <span className="truncate max-w-36" title={instance.name}>{instance.name}</span>
         <span className="ml-auto flex items-center gap-1.5">
           {hasRss && (
@@ -266,7 +278,7 @@ export function Sidebar() {
 
       <nav className="flex flex-1 min-h-0 flex-col overflow-y-auto px-3">
         <div className="space-y-1">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const Icon = item.icon
             const isActive = item.isActive? item.isActive(location.pathname, routeSearch): location.pathname === item.href
 

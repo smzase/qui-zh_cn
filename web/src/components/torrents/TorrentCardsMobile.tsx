@@ -53,6 +53,7 @@ import { buildTrackerCustomizationLookup, extractTrackerHost, getTrackerCustomiz
 import { resolveTrackerHealthSupport } from "@/lib/tracker-health-support"
 import { resolveTrackerIconSrc } from "@/lib/tracker-icons"
 import { buildTorrentActionTargets } from "@/lib/torrent-action-targets"
+import { resolveTorrentTargetCapabilities } from "@/lib/instance-capabilities"
 import { anyTorrentHasTag, getCommonCategory, getCommonSavePath, getToggleSelectionState, getTorrentHashesWithTag } from "@/lib/torrent-utils"
 import { isAllInstancesScope } from "@/lib/instances"
 import { useNavigate, useSearch } from "@tanstack/react-router"
@@ -131,6 +132,7 @@ function MobileShareLimitsDialog({
   torrents,
   onConfirm,
   isPending,
+  supportsSeedingTimeLimit = true,
   supportsShareLimitsAction = false,
   supportsShareLimitsMode = false,
 }: {
@@ -140,6 +142,7 @@ function MobileShareLimitsDialog({
   torrents?: TorrentLimitSnapshot[]
   onConfirm: (ratioLimit: number, seedingTimeLimit: number, inactiveSeedingTimeLimit: number, shareLimitAction?: string, shareLimitsMode?: string) => void
   isPending: boolean
+  supportsSeedingTimeLimit?: boolean
   supportsShareLimitsAction?: boolean
   supportsShareLimitsMode?: boolean
 }) {
@@ -194,7 +197,7 @@ function MobileShareLimitsDialog({
   const handleSubmit = () => {
     onConfirm(
       ratioEnabled ? ratioLimit : -1,
-      seedingTimeEnabled ? seedingTimeLimit : -1,
+      supportsSeedingTimeLimit && seedingTimeEnabled ? seedingTimeLimit : -1,
       inactiveSeedingTimeEnabled ? inactiveSeedingTimeLimit : -1,
       supportsShareLimitsAction && shareLimitAction !== "default" ? shareLimitAction : undefined,
       supportsShareLimitsMode && shareLimitsMode !== "default" ? shareLimitsMode : undefined
@@ -233,7 +236,7 @@ function MobileShareLimitsDialog({
             )}
           </div>
 
-          <div className="space-y-2">
+          {supportsSeedingTimeLimit && <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Switch
                 id="seedingTimeEnabled"
@@ -251,7 +254,7 @@ function MobileShareLimitsDialog({
                 placeholder="1440"
               />
             )}
-          </div>
+          </div>}
 
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
@@ -657,6 +660,7 @@ function SwipeableCard({
   supportsTrackerHealth,
   trackerIcons,
   trackerCustomizationLookup,
+  showCategory = true,
 }: {
   torrent: Torrent
   isSelected: boolean
@@ -670,6 +674,7 @@ function SwipeableCard({
   supportsTrackerHealth: boolean
   trackerIcons?: Record<string, string>
   trackerCustomizationLookup?: TrackerCustomizationLookup
+  showCategory?: boolean
 }) {
   const { t } = useTranslation("torrents")
 
@@ -974,7 +979,7 @@ function SwipeableCard({
                 {trackerDisplayName}
               </span>
             )}
-            {displayCategory && (
+            {showCategory && displayCategory && (
               <span className="flex items-center gap-1 flex-shrink-0">
                 <Folder className="h-3 w-3" />
                 {displayCategory}
@@ -1032,7 +1037,7 @@ function SwipeableCard({
                 <span className="text-xs text-muted-foreground">{trackerDisplayName}</span>
               </div>
             )}
-            {displayCategory && (
+            {showCategory && displayCategory && (
               <div className="flex items-center gap-1">
                 <Folder className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">{displayCategory}</span>
@@ -1252,6 +1257,10 @@ export function TorrentCardsMobile({
   // Get instance info for cross-seed warning
   const { instances } = useInstances()
   const instance = useMemo(() => instances?.find(i => i.id === instanceId), [instances, instanceId])
+  const instanceById = useMemo(
+    () => new Map((instances ?? []).map(candidate => [candidate.id, candidate])),
+    [instances]
+  )
 
   const { data: metadata } = useInstanceMetadata(instanceId, { fallbackDelayMs: 0 })
   const availableTags = metadata?.tags || []
@@ -1393,7 +1402,11 @@ export function TorrentCardsMobile({
     capabilitySupport: capabilities?.supportsTrackerHealth,
     responseSupport: trackerHealthSupported,
   })
-  const supportsTorrentCreation = isAllInstancesView ? false : (capabilities?.supportsTorrentCreation ?? true)
+  const supportsTorrentCreation =
+    isAllInstancesView
+      ? false
+      : instance?.clientType !== "transmission" &&
+        (capabilities?.supportsTorrentCreation ?? instance?.clientType === "qbittorrent")
   const supportsSubcategories = isAllInstancesView? Boolean(subcategoriesFromData): (capabilities?.supportsSubcategories ?? false)
   const subcategoriesAlwaysEnabled = capabilities?.subcategoriesAlwaysEnabled ?? false
   // subcategoriesFromData reflects backend/server state; allowSubcategories
@@ -1549,6 +1562,33 @@ export function TorrentCardsMobile({
 
     return excludedTorrents.map(torrent => torrent.hash)
   }, [isAllSelected, isAllInstancesView, excludedTorrents])
+
+  const getSelectedTorrents = useMemo(() => {
+    if (isAllSelected) {
+      // When all are selected, return all torrents minus exclusions.
+      return torrents.filter(t => !excludedFromSelectAll.has(getSelectionIdentity(t)))
+    }
+    return selectedTorrentsForRequest
+  }, [torrents, isAllSelected, excludedFromSelectAll, getSelectionIdentity, selectedTorrentsForRequest])
+
+  const targetCapabilities = useMemo(() => resolveTorrentTargetCapabilities({
+    torrents: getSelectedTorrents,
+    fallbackInstanceId: instanceId,
+    instanceIds,
+    isAllSelected,
+    isAllInstancesView,
+    instances,
+  }), [getSelectedTorrents, instanceId, instanceIds, isAllSelected, isAllInstancesView, instances])
+  const supportsQbittorrentOnlyActions = targetCapabilities.supportsQbittorrentOnlyActions
+  const supportsShareLimitAction = supportsQbittorrentOnlyActions && (capabilities?.supportsShareLimitsAction ?? false)
+  const supportsShareLimitsMode = supportsQbittorrentOnlyActions && (capabilities?.supportsShareLimitsMode ?? false)
+
+  useEffect(() => {
+    if (!supportsQbittorrentOnlyActions) {
+      setShowCategoryDialog(false)
+      setShowTmmDialog(false)
+    }
+  }, [setShowCategoryDialog, setShowTmmDialog, supportsQbittorrentOnlyActions])
 
   // Cross-seed warning for delete dialog
   const crossSeedWarning = useCrossSeedWarning({
@@ -1797,6 +1837,14 @@ export function TorrentCardsMobile({
   }, [isAllSelected, effectiveSelectionCount, selectedHashes.size, torrents, totalCount, getSelectionIdentity])
 
   const triggerSelectionAction = useCallback((action: TorrentAction, extra?: Parameters<typeof handleAction>[2]) => {
+    if (!supportsQbittorrentOnlyActions && (
+      action === TORRENT_ACTIONS.FORCE_START ||
+      action === TORRENT_ACTIONS.TOGGLE_SEQUENTIAL_DOWNLOAD ||
+      action === TORRENT_ACTIONS.TOGGLE_AUTO_TMM ||
+      action === TORRENT_ACTIONS.SET_CATEGORY
+    )) {
+      return
+    }
     const hashes = isAllSelected ? [] : selectedRequestHashes
     const visibleHashes = isAllSelected? torrents.filter(t => !excludedFromSelectAll.has(getSelectionIdentity(t))).map(t => t.hash): selectedRequestHashes
     const clientCount = isAllSelected ? effectiveSelectionCount : selectedActionTargets.length || visibleHashes.length || 1
@@ -1814,7 +1862,7 @@ export function TorrentCardsMobile({
       clientCount,
       ...extra,
     })
-  }, [handleAction, isAllSelected, selectedRequestHashes, torrents, excludedFromSelectAll, effectiveSelectionCount, filters, effectiveSearch, instanceId, getSelectionIdentity, selectedActionTargets, excludedTorrents, excludeHashesForRequest])
+  }, [handleAction, isAllSelected, selectedRequestHashes, torrents, excludedFromSelectAll, effectiveSelectionCount, filters, effectiveSearch, instanceId, getSelectionIdentity, selectedActionTargets, excludedTorrents, excludeHashesForRequest, supportsQbittorrentOnlyActions])
 
   const handleBulkAction = useCallback((action: TorrentAction, extra?: Parameters<typeof handleAction>[2]) => {
     triggerSelectionAction(action, extra)
@@ -1932,6 +1980,9 @@ export function TorrentCardsMobile({
   }, [isAllSelected, selectedRequestHashes, handleUpdateTags, effectiveFilters, effectiveSearch, excludedFromSelectAll, torrents, effectiveSelectionCount, instanceId, getSelectionIdentity, excludeHashesForRequest, excludedTorrents, selectedActionTargets])
 
   const handleSetCategoryWrapper = useCallback(async (category: string) => {
+    if (!supportsQbittorrentOnlyActions) {
+      return
+    }
     const hashes = isAllSelected ? [] : selectedRequestHashes
     const visibleHashes = isAllSelected ? torrents.filter(t => !excludedFromSelectAll.has(getSelectionIdentity(t))).map(t => t.hash) : selectedRequestHashes
     const totalSelected = isAllSelected ? effectiveSelectionCount : selectedActionTargets.length || visibleHashes.length
@@ -1950,7 +2001,7 @@ export function TorrentCardsMobile({
       }
     )
     setActionTorrents([])
-  }, [isAllSelected, selectedRequestHashes, handleSetCategory, filters, effectiveSearch, excludedFromSelectAll, torrents, effectiveSelectionCount, instanceId, getSelectionIdentity, excludeHashesForRequest, excludedTorrents, selectedActionTargets])
+  }, [isAllSelected, selectedRequestHashes, handleSetCategory, filters, effectiveSearch, excludedFromSelectAll, torrents, effectiveSelectionCount, instanceId, getSelectionIdentity, excludeHashesForRequest, excludedTorrents, selectedActionTargets, supportsQbittorrentOnlyActions])
 
   const handleSetLocationWrapper = useCallback(async (location: string) => {
     const hashes = isAllSelected ? [] : selectedRequestHashes
@@ -1974,6 +2025,9 @@ export function TorrentCardsMobile({
   }, [isAllSelected, selectedRequestHashes, handleSetLocation, filters, effectiveSearch, excludedFromSelectAll, torrents, effectiveSelectionCount, instanceId, getSelectionIdentity, excludeHashesForRequest, excludedTorrents, selectedActionTargets])
 
   const handleTmmConfirmWrapper = useCallback(() => {
+    if (!supportsQbittorrentOnlyActions) {
+      return
+    }
     const visibleHashes = isAllSelected ? torrents.filter(t => !excludedFromSelectAll.has(getSelectionIdentity(t))).map(t => t.hash) : selectedRequestHashes
     const totalSelected = isAllSelected ? effectiveSelectionCount : visibleHashes.length || 1
     handleTmmConfirm(
@@ -1989,17 +2043,7 @@ export function TorrentCardsMobile({
         excludeTargets: isAllSelected? buildTorrentActionTargets(excludedTorrents, instanceId): undefined,
       }
     )
-  }, [isAllSelected, selectedRequestHashes, handleTmmConfirm, filters, effectiveSearch, excludedFromSelectAll, torrents, effectiveSelectionCount, instanceId, getSelectionIdentity, excludeHashesForRequest, excludedTorrents, selectedActionTargets])
-
-  const getSelectedTorrents = useMemo(() => {
-    if (isAllSelected) {
-      // When all are selected, return all torrents minus exclusions
-      return torrents.filter(t => !excludedFromSelectAll.has(getSelectionIdentity(t)))
-    } else {
-      // Regular selection mode
-      return selectedTorrentsForRequest
-    }
-  }, [torrents, isAllSelected, excludedFromSelectAll, getSelectionIdentity, selectedTorrentsForRequest])
+  }, [isAllSelected, selectedRequestHashes, handleTmmConfirm, filters, effectiveSearch, excludedFromSelectAll, torrents, effectiveSelectionCount, instanceId, getSelectionIdentity, excludeHashesForRequest, excludedTorrents, selectedActionTargets, supportsQbittorrentOnlyActions])
 
   const handleExport = () => {
     exportTorrents({
@@ -2191,6 +2235,8 @@ export function TorrentCardsMobile({
             const torrent = torrents[virtualItem.index]
             const selectionIdentity = getSelectionIdentity(torrent)
             const isSelected = isAllSelected ? !excludedFromSelectAll.has(selectionIdentity) : selectedHashes.has(selectionIdentity)
+            const rowInstanceId = (torrent as Partial<CrossInstanceTorrent>).instanceId ?? instanceId
+            const showCategory = instanceById.get(rowInstanceId)?.clientType !== "transmission"
 
             return (
               <div
@@ -2219,6 +2265,7 @@ export function TorrentCardsMobile({
                   supportsTrackerHealth={supportsTrackerHealth}
                   trackerIcons={trackerIcons}
                   trackerCustomizationLookup={trackerCustomizationLookup}
+                  showCategory={showCategory}
                 />
               </div>
             )
@@ -2270,7 +2317,7 @@ export function TorrentCardsMobile({
               <span className="truncate">{t("managementBar.pause")}</span>
             </button>
 
-            <button
+            {supportsQbittorrentOnlyActions && <button
               onClick={() => {
                 setActionTorrents(getSelectedTorrents)
                 setShowCategoryDialog(true)
@@ -2279,7 +2326,7 @@ export function TorrentCardsMobile({
             >
               <Folder className="h-5 w-5" />
               <span className="truncate">{t("managementBar.setCategory")}</span>
-            </button>
+            </button>}
 
             <button
               onClick={() => {
@@ -2312,7 +2359,7 @@ export function TorrentCardsMobile({
             </SheetTitle>
           </SheetHeader>
           <div className="grid gap-2 py-4 px-4">
-            {(() => {
+            {supportsQbittorrentOnlyActions && (() => {
               const { allEnabled: allForceStarted, mixed: forceStartMixed } = getToggleSelectionState(getSelectedTorrents.map(t => t.force_start), stateUnknownForSelection)
 
               if (forceStartMixed) {
@@ -2365,7 +2412,7 @@ export function TorrentCardsMobile({
               <Radio className="mr-2 h-4 w-4" />
               {t("managementBar.reannounce")}
             </Button>
-            {(() => {
+            {supportsQbittorrentOnlyActions && (() => {
               const { allEnabled: allSeqDlEnabled, mixed: seqDlMixed } = getToggleSelectionState(getSelectedTorrents.map(t => t.seq_dl), stateUnknownForSelection)
 
               if (seqDlMixed) {
@@ -2465,7 +2512,7 @@ export function TorrentCardsMobile({
               <ChevronDown className="mr-2 h-4 w-4" />
               {t("managementBar.bottomPriority")}
             </Button>
-            {(() => {
+            {supportsQbittorrentOnlyActions && (() => {
               const { allEnabled, mixed } = getToggleSelectionState(getSelectedTorrents.map(t => t.auto_tmm), stateUnknownForSelection)
 
               if (mixed) {
@@ -2560,7 +2607,7 @@ export function TorrentCardsMobile({
               <FolderOpen className="mr-2 h-4 w-4" />
               {t("managementBar.setLocation")}
             </Button>
-            {(capabilities?.supportsTorrentExport ?? true) && (
+            {supportsQbittorrentOnlyActions && (capabilities?.supportsTorrentExport ?? true) && (
               <Button
                 variant="outline"
                 onClick={handleExport}
@@ -2638,7 +2685,7 @@ export function TorrentCardsMobile({
       />
 
       {/* Category dialog */}
-      <SetCategoryDialog
+      {supportsQbittorrentOnlyActions && <SetCategoryDialog
         open={showCategoryDialog}
         onOpenChange={setShowCategoryDialog}
         availableCategories={availableCategories}
@@ -2647,7 +2694,7 @@ export function TorrentCardsMobile({
         isPending={isPending}
         initialCategory={getCommonCategory(actionTorrents)}
         useSubcategories={allowSubcategories}
-      />
+      />}
 
       {/* Share Limits Dialog */}
       <MobileShareLimitsDialog
@@ -2655,8 +2702,9 @@ export function TorrentCardsMobile({
         onOpenChange={setShowShareLimitDialog}
         hashCount={effectiveSelectionCount}
         torrents={getSelectedTorrents}
-        supportsShareLimitsAction={capabilities?.supportsShareLimitsAction}
-        supportsShareLimitsMode={capabilities?.supportsShareLimitsMode}
+        supportsShareLimitsAction={supportsShareLimitAction}
+        supportsShareLimitsMode={supportsShareLimitsMode}
+        supportsSeedingTimeLimit={supportsQbittorrentOnlyActions}
         onConfirm={async (ratioLimit, seedingTimeLimit, inactiveSeedingTimeLimit, shareLimitAction, shareLimitsMode) => {
           const hashes = isAllSelected ? [] : selectedRequestHashes
           const visibleHashes = isAllSelected ? torrents.filter(t => !excludedFromSelectAll.has(getSelectionIdentity(t))).map(t => t.hash) : selectedRequestHashes

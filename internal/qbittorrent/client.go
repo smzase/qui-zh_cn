@@ -503,6 +503,16 @@ func (c *Client) applyCapabilitiesLocked(version string) {
 		return
 	}
 
+	// The Transmission adapter exposes a synthetic qBittorrent Web API
+	// version so the shared client can complete its login handshake. Its
+	// feature set is independent of that version, however: applying the
+	// qBittorrent version gates here would advertise endpoints that the
+	// bridge deliberately rejects (and hide endpoints it translates).
+	if c.transmissionBridge != nil {
+		c.applyTransmissionCapabilitiesLocked()
+		return
+	}
+
 	c.supportsSetTags = !v.LessThan(setTagsMinVersion)
 	c.supportsSetComment = !v.LessThan(setCommentMinVersion)
 	c.supportsTorrentCreation = !v.LessThan(torrentCreationMinVersion)
@@ -520,6 +530,33 @@ func (c *Client) applyCapabilitiesLocked(version string) {
 	c.supportsSetRSSFeedURL = !v.LessThan(rssSetFeedURLMinVersion)
 	c.supportsShareLimitsAction = !v.LessThan(shareLimitsActionMinVersion)
 	c.supportsShareLimitsMode = !v.LessThan(shareLimitsModeMinVersion)
+}
+
+// applyTransmissionCapabilitiesLocked describes the subset of the shared
+// qBittorrent surface translated by the Transmission RPC bridge. The caller
+// must hold c.mu.
+func (c *Client) applyTransmissionCapabilitiesLocked() {
+	c.supportsSetTags = true
+	c.supportsSetComment = false
+	// Transmission can add existing torrent files/magnets through the bridge,
+	// but qui's torrent-creator endpoint is qBittorrent-specific.
+	c.supportsTorrentCreation = false
+	c.supportsTorrentExport = false
+	c.supportsTrackerEditing = true
+	c.trackerIncludeSupported = true
+	c.supportsFilePriority = true
+	c.supportsRenameTorrent = true
+	c.supportsRenameFile = true
+	c.supportsRenameFolder = true
+	c.supportsSubcategories = false
+	c.subcategoriesAlwaysEnabled = false
+	c.supportsTorrentTmpPath = false
+	c.supportsPathAutocomplete = false
+	c.supportsSetRSSFeedURL = false
+	// Transmission maps ratio and idle-seeding limits, but has no MatchAny/
+	// MatchAll mode or qBittorrent-style action to take when a limit is reached.
+	c.supportsShareLimitsAction = false
+	c.supportsShareLimitsMode = false
 }
 
 func (c *Client) updateServerState(data *qbt.MainData) {

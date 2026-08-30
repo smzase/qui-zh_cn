@@ -25,9 +25,9 @@ const DAY_EVERYDAY = 127
 const DAY_WEEKDAYS = 62
 const DAY_WEEKENDS = 65
 
-const ENCRYPTION_PREFER = 1
-const ENCRYPTION_ALLOW = 0
-const ENCRYPTION_REQUIRE = 2
+const ENCRYPTION_PREFER = "preferred"
+const ENCRYPTION_ALLOW = "tolerated"
+const ENCRYPTION_REQUIRE = "required"
 
 function minutesToTimeInput(minutes: number | undefined): string {
   const total = minutes ?? 0
@@ -44,12 +44,16 @@ function timeInputToMinutes(value: string): number {
 
 interface TransmissionPreferencesFormProps {
   instanceId: number
+  section?: "torrents" | "speed" | "peers" | "network"
   onSuccess?: () => void
 }
 
-export function TransmissionPreferencesForm({ instanceId, onSuccess }: TransmissionPreferencesFormProps) {
+export function TransmissionPreferencesForm({ instanceId, section = "torrents", onSuccess }: TransmissionPreferencesFormProps) {
   const { t } = useTranslation("instances")
   const queryClient = useQueryClient()
+  // Each section is force-mounted by the preferences dialog so unsaved edits
+  // survive tab switches. Keep labels and controls unique across those mounts.
+  const fieldId = (name: string) => `tr-${section}-${name}`
   const [draft, setDraft] = useState<TransmissionPreferences | null>(null)
   const [dirty, setDirty] = useState<ReadonlySet<string>>(new Set())
 
@@ -152,19 +156,18 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
       )}
     >
       <div className="space-y-8">
-        {/* Torrents */}
-        <section className="space-y-4">
+        {section === "torrents" && <section className="space-y-4">
           <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             <HardDrive className="h-4 w-4" aria-hidden="true" />
             {t("preferences.transmission.torrents.title")}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="tr-download-dir" className="text-sm font-medium">
+              <Label htmlFor={fieldId("download-dir")} className="text-sm font-medium">
                 {t("preferences.transmission.torrents.downloadDir")}
               </Label>
               <Input
-                id="tr-download-dir"
+                id={fieldId("download-dir")}
                 value={draft["download-dir"] ?? ""}
                 onChange={e => setField("download-dir", e.target.value)}
                 className="font-mono"
@@ -173,11 +176,11 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-incomplete-enabled"
+                  id={fieldId("incomplete-enabled")}
                   checked={draft["incomplete-dir-enabled"] ?? false}
                   onCheckedChange={checked => setField("incomplete-dir-enabled", checked)}
                 />
-                <Label htmlFor="tr-incomplete-enabled" className="text-sm font-medium">
+                <Label htmlFor={fieldId("incomplete-enabled")} className="text-sm font-medium">
                   {t("preferences.transmission.torrents.tempFolder")}
                 </Label>
               </div>
@@ -192,32 +195,32 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             </div>
             <div className="flex items-center gap-3">
               <Switch
-                id="tr-start-added"
-                checked={draft["start-added"] ?? false}
-                onCheckedChange={checked => setField("start-added", checked)}
+                id={fieldId("start-added-torrents")}
+                checked={draft["start-added-torrents"] ?? false}
+                onCheckedChange={checked => setField("start-added-torrents", checked)}
               />
-              <Label htmlFor="tr-start-added" className="text-sm font-medium">
+              <Label htmlFor={fieldId("start-added-torrents")} className="text-sm font-medium">
                 {t("preferences.transmission.torrents.startAdded")}
               </Label>
             </div>
             <div className="flex items-center gap-3">
               <Switch
-                id="tr-rename-partial"
-                checked={draft["rename-partial"] ?? false}
-                onCheckedChange={checked => setField("rename-partial", checked)}
+                id={fieldId("rename-partial-files")}
+                checked={draft["rename-partial-files"] ?? false}
+                onCheckedChange={checked => setField("rename-partial-files", checked)}
               />
-              <Label htmlFor="tr-rename-partial" className="text-sm font-medium">
+              <Label htmlFor={fieldId("rename-partial-files")} className="text-sm font-medium">
                 {t("preferences.transmission.torrents.appendPart")}
               </Label>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-dl-queue-enabled"
+                  id={fieldId("dl-queue-enabled")}
                   checked={draft["download-queue-enabled"] ?? false}
                   onCheckedChange={checked => setField("download-queue-enabled", checked)}
                 />
-                <Label htmlFor="tr-dl-queue-enabled" className="text-sm font-medium">
+                <Label htmlFor={fieldId("dl-queue-enabled")} className="text-sm font-medium">
                   {t("preferences.transmission.torrents.downloadQueue")}
                 </Label>
               </div>
@@ -235,11 +238,11 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-seed-ratio-limited"
+                  id={fieldId("seed-ratio-limited")}
                   checked={draft["seedRatioLimited"] ?? false}
                   onCheckedChange={checked => setField("seedRatioLimited", checked)}
                 />
-                <Label htmlFor="tr-seed-ratio-limited" className="text-sm font-medium">
+                <Label htmlFor={fieldId("seed-ratio-limited")} className="text-sm font-medium">
                   {t("preferences.transmission.torrents.stopRatio")}
                 </Label>
               </div>
@@ -258,11 +261,11 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-idle-limited"
+                  id={fieldId("idle-limited")}
                   checked={draft["idle-seeding-limit-enabled"] ?? false}
                   onCheckedChange={checked => setField("idle-seeding-limit-enabled", checked)}
                 />
-                <Label htmlFor="tr-idle-limited" className="text-sm font-medium">
+                <Label htmlFor={fieldId("idle-limited")} className="text-sm font-medium">
                   {t("preferences.transmission.torrents.stopIdle")}
                 </Label>
               </div>
@@ -281,10 +284,10 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
               )}
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* Speed */}
-        <section className="space-y-4 border-t border-border pt-6">
+        {section === "speed" && <section className="space-y-4 border-t border-border pt-6">
           <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             <Gauge className="h-4 w-4" aria-hidden="true" />
             {t("preferences.transmission.speed.title")}
@@ -293,11 +296,11 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-speed-up-enabled"
+                  id={fieldId("speed-up-enabled")}
                   checked={draft["speed-limit-up-enabled"] ?? false}
                   onCheckedChange={checked => setField("speed-limit-up-enabled", checked)}
                 />
-                <Label htmlFor="tr-speed-up-enabled" className="text-sm font-medium">
+                <Label htmlFor={fieldId("speed-up-enabled")} className="text-sm font-medium">
                   {t("preferences.transmission.speed.uploadLimit")}
                 </Label>
               </div>
@@ -318,11 +321,11 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-speed-down-enabled"
+                  id={fieldId("speed-down-enabled")}
                   checked={draft["speed-limit-down-enabled"] ?? false}
                   onCheckedChange={checked => setField("speed-limit-down-enabled", checked)}
                 />
-                <Label htmlFor="tr-speed-down-enabled" className="text-sm font-medium">
+                <Label htmlFor={fieldId("speed-down-enabled")} className="text-sm font-medium">
                   {t("preferences.transmission.speed.downloadLimit")}
                 </Label>
               </div>
@@ -345,11 +348,11 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
           <div className="space-y-4 border-t border-border pt-4">
             <div className="flex items-center gap-3">
               <Switch
-                id="tr-alt-enabled"
+                id={fieldId("alt-enabled")}
                 checked={draft["alt-speed-enabled"] ?? false}
                 onCheckedChange={checked => setField("alt-speed-enabled", checked)}
               />
-              <Label htmlFor="tr-alt-enabled" className="text-sm font-medium">
+              <Label htmlFor={fieldId("alt-enabled")} className="text-sm font-medium">
                 {t("preferences.transmission.speed.altLimits")}
               </Label>
             </div>
@@ -381,47 +384,47 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-alt-time-enabled"
+                  id={fieldId("alt-time-enabled")}
                   checked={draft["alt-speed-time-enabled"] ?? false}
                   onCheckedChange={checked => setField("alt-speed-time-enabled", checked)}
                 />
-                <Label htmlFor="tr-alt-time-enabled" className="text-sm font-medium">
+                <Label htmlFor={fieldId("alt-time-enabled")} className="text-sm font-medium">
                   {t("preferences.transmission.speed.schedule")}
                 </Label>
               </div>
               {(draft["alt-speed-time-enabled"] ?? false) && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="tr-alt-from" className="text-sm font-medium">
+                    <Label htmlFor={fieldId("alt-from")} className="text-sm font-medium">
                       {t("preferences.transmission.speed.from")}
                     </Label>
                     <Input
-                      id="tr-alt-from"
+                      id={fieldId("alt-from")}
                       type="time"
                       value={minutesToTimeInput(draft["alt-speed-time-begin"])}
                       onChange={e => setField("alt-speed-time-begin", timeInputToMinutes(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="tr-alt-to" className="text-sm font-medium">
+                    <Label htmlFor={fieldId("alt-to")} className="text-sm font-medium">
                       {t("preferences.transmission.speed.to")}
                     </Label>
                     <Input
-                      id="tr-alt-to"
+                      id={fieldId("alt-to")}
                       type="time"
                       value={minutesToTimeInput(draft["alt-speed-time-end"])}
                       onChange={e => setField("alt-speed-time-end", timeInputToMinutes(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="tr-alt-days" className="text-sm font-medium">
+                    <Label htmlFor={fieldId("alt-days")} className="text-sm font-medium">
                       {t("preferences.transmission.speed.onDays")}
                     </Label>
                     <Select
                       value={scheduleDays.toString()}
                       onValueChange={value => setField("alt-speed-time-day", parseInt(value, 10))}
                     >
-                      <SelectTrigger id="tr-alt-days" className="w-full">
+                      <SelectTrigger id={fieldId("alt-days")} className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -441,21 +444,21 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
               )}
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* Peers */}
-        <section className="space-y-4 border-t border-border pt-6">
+        {section === "peers" && <section className="space-y-4 border-t border-border pt-6">
           <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             <Users className="h-4 w-4" aria-hidden="true" />
             {t("preferences.transmission.peers.title")}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="tr-peer-limit-torrent" className="text-sm font-medium">
+              <Label htmlFor={fieldId("peer-limit-torrent")} className="text-sm font-medium">
                 {t("preferences.transmission.peers.maxPeersPerTorrent")}
               </Label>
               <Input
-                id="tr-peer-limit-torrent"
+                id={fieldId("peer-limit-torrent")}
                 type="number"
                 min="0"
                 value={draft["peer-limit-per-torrent"] ?? 0}
@@ -464,11 +467,11 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tr-peer-limit-global" className="text-sm font-medium">
+              <Label htmlFor={fieldId("peer-limit-global")} className="text-sm font-medium">
                 {t("preferences.transmission.peers.maxPeersOverall")}
               </Label>
               <Input
-                id="tr-peer-limit-global"
+                id={fieldId("peer-limit-global")}
                 type="number"
                 min="0"
                 value={draft["peer-limit-global"] ?? 0}
@@ -477,24 +480,24 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tr-encryption" className="text-sm font-medium">
+              <Label htmlFor={fieldId("encryption")} className="text-sm font-medium">
                 {t("preferences.transmission.peers.encryption")}
               </Label>
               <Select
-                value={(draft.encryption ?? ENCRYPTION_ALLOW).toString()}
-                onValueChange={value => setField("encryption", parseInt(value, 10))}
+                value={draft.encryption ?? ENCRYPTION_ALLOW}
+                onValueChange={value => setField("encryption", value as TransmissionPreferences["encryption"])}
               >
-                <SelectTrigger id="tr-encryption" className="w-full">
+                <SelectTrigger id={fieldId("encryption")} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ENCRYPTION_PREFER.toString()}>
+                  <SelectItem value={ENCRYPTION_PREFER}>
                     {t("preferences.transmission.peers.encryptionPrefer")}
                   </SelectItem>
-                  <SelectItem value={ENCRYPTION_ALLOW.toString()}>
+                  <SelectItem value={ENCRYPTION_ALLOW}>
                     {t("preferences.transmission.peers.encryptionAllow")}
                   </SelectItem>
-                  <SelectItem value={ENCRYPTION_REQUIRE.toString()}>
+                  <SelectItem value={ENCRYPTION_REQUIRE}>
                     {t("preferences.transmission.peers.encryptionRequire")}
                   </SelectItem>
                 </SelectContent>
@@ -503,27 +506,27 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-pex"
+                  id={fieldId("pex")}
                   checked={draft["pex-enabled"] ?? false}
                   onCheckedChange={checked => setField("pex-enabled", checked)}
                 />
-                <Label htmlFor="tr-pex" className="text-sm font-medium">PEX</Label>
+                <Label htmlFor={fieldId("pex")} className="text-sm font-medium">PEX</Label>
               </div>
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-dht"
+                  id={fieldId("dht")}
                   checked={draft["dht-enabled"] ?? false}
                   onCheckedChange={checked => setField("dht-enabled", checked)}
                 />
-                <Label htmlFor="tr-dht" className="text-sm font-medium">DHT</Label>
+                <Label htmlFor={fieldId("dht")} className="text-sm font-medium">DHT</Label>
               </div>
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-lpd"
+                  id={fieldId("lpd")}
                   checked={draft["lpd-enabled"] ?? false}
                   onCheckedChange={checked => setField("lpd-enabled", checked)}
                 />
-                <Label htmlFor="tr-lpd" className="text-sm font-medium">LPD</Label>
+                <Label htmlFor={fieldId("lpd")} className="text-sm font-medium">LPD</Label>
               </div>
             </div>
           </div>
@@ -531,22 +534,22 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
           <div className="space-y-4 border-t border-border pt-4">
             <div className="flex items-center gap-3">
               <Switch
-                id="tr-blocklist-enabled"
+                id={fieldId("blocklist-enabled")}
                 checked={draft["blocklist-enabled"] ?? false}
                 onCheckedChange={checked => setField("blocklist-enabled", checked)}
               />
-              <Label htmlFor="tr-blocklist-enabled" className="text-sm font-medium">
+              <Label htmlFor={fieldId("blocklist-enabled")} className="text-sm font-medium">
                 {t("preferences.transmission.peers.blocklistEnable")}
               </Label>
             </div>
             {(draft["blocklist-enabled"] ?? false) && (
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <Label htmlFor="tr-blocklist-url" className="text-sm font-medium">
+                  <Label htmlFor={fieldId("blocklist-url")} className="text-sm font-medium">
                     {t("preferences.transmission.peers.blocklistUrl")}
                   </Label>
                   <Input
-                    id="tr-blocklist-url"
+                    id={fieldId("blocklist-url")}
                     type="url"
                     value={draft["blocklist-url"] ?? ""}
                     onChange={e => setField("blocklist-url", e.target.value)}
@@ -571,21 +574,21 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
               </div>
             )}
           </div>
-        </section>
+        </section>}
 
         {/* Network */}
-        <section className="space-y-4 border-t border-border pt-6">
+        {section === "network" && <section className="space-y-4 border-t border-border pt-6">
           <h4 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             <Globe className="h-4 w-4" aria-hidden="true" />
             {t("preferences.transmission.network.title")}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="tr-peer-port" className="text-sm font-medium">
+              <Label htmlFor={fieldId("peer-port")} className="text-sm font-medium">
                 {t("preferences.transmission.network.peerPort")}
               </Label>
               <Input
-                id="tr-peer-port"
+                id={fieldId("peer-port")}
                 type="number"
                 min="1"
                 max="65535"
@@ -598,31 +601,31 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-port-random"
+                  id={fieldId("port-random")}
                   checked={draft["peer-port-random-on-start"] ?? false}
                   onCheckedChange={checked => setField("peer-port-random-on-start", checked)}
                 />
-                <Label htmlFor="tr-port-random" className="text-sm font-medium">
+                <Label htmlFor={fieldId("port-random")} className="text-sm font-medium">
                   {t("preferences.transmission.network.randomizePort")}
                 </Label>
               </div>
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-port-forwarding"
+                  id={fieldId("port-forwarding")}
                   checked={draft["port-forwarding-enabled"] ?? false}
                   onCheckedChange={checked => setField("port-forwarding-enabled", checked)}
                 />
-                <Label htmlFor="tr-port-forwarding" className="text-sm font-medium">
+                <Label htmlFor={fieldId("port-forwarding")} className="text-sm font-medium">
                   {t("preferences.transmission.network.portForwarding")}
                 </Label>
               </div>
               <div className="flex items-center gap-3">
                 <Switch
-                  id="tr-utp"
+                  id={fieldId("utp")}
                   checked={draft["utp-enabled"] ?? false}
                   onCheckedChange={checked => setField("utp-enabled", checked)}
                 />
-                <Label htmlFor="tr-utp" className="text-sm font-medium">
+                <Label htmlFor={fieldId("utp")} className="text-sm font-medium">
                   {t("preferences.transmission.network.utp")}
                 </Label>
               </div>
@@ -630,12 +633,12 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
           </div>
           {draft["default-trackers"] !== undefined && (
             <div className="space-y-2">
-              <Label htmlFor="tr-default-trackers" className="flex items-center gap-2 text-sm font-medium">
+              <Label htmlFor={fieldId("default-trackers")} className="flex items-center gap-2 text-sm font-medium">
                 {t("preferences.transmission.network.defaultTrackers")}
                 <FieldHelp>{t("preferences.transmission.network.defaultTrackersHelp")}</FieldHelp>
               </Label>
               <textarea
-                id="tr-default-trackers"
+                id={fieldId("default-trackers")}
                 value={draft["default-trackers"] ?? ""}
                 onChange={e => setField("default-trackers", e.target.value)}
                 rows={4}
@@ -643,7 +646,7 @@ export function TransmissionPreferencesForm({ instanceId, onSuccess }: Transmiss
               />
             </div>
           )}
-        </section>
+        </section>}
       </div>
     </PreferencesFormShell>
   )

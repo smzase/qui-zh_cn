@@ -90,6 +90,7 @@ export function TrackerReannounceForm({ instanceId, onInstanceChange, onSuccess,
     return reason
   }
   const instance = useMemo(() => instances?.find((item) => item.id === instanceId), [instances, instanceId])
+  const supportsCategories = instance?.clientType === "qbittorrent"
   const activeInstances = useMemo(
     () => (instances ?? []).filter((inst) => inst.isActive),
     [instances]
@@ -118,7 +119,7 @@ export function TrackerReannounceForm({ instanceId, onInstanceChange, onSuccess,
   const categoriesQuery = useQuery({
     queryKey: ["instance-categories", instanceId],
     queryFn: () => api.getCategories(instanceId),
-    enabled: !!instance,
+    enabled: supportsCategories,
     staleTime: 1000 * 60 * 5,
   })
 
@@ -258,7 +259,7 @@ export function TrackerReannounceForm({ instanceId, onInstanceChange, onSuccess,
       return
     }
 
-    const sanitized = sanitizeSettings(nextSettings)
+    const sanitized = sanitizeSettings(nextSettings, supportsCategories)
     const payload: Partial<InstanceFormData> = {
       name: instance.name,
       host: instance.host,
@@ -291,7 +292,7 @@ export function TrackerReannounceForm({ instanceId, onInstanceChange, onSuccess,
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const sanitized = sanitizeSettings(settings)
+    const sanitized = sanitizeSettings(settings, supportsCategories)
     const wasEnabled = instance?.reannounceSettings?.enabled ?? DEFAULT_SETTINGS.enabled
 
     if (!wasEnabled && sanitized.enabled) {
@@ -526,7 +527,7 @@ export function TrackerReannounceForm({ instanceId, onInstanceChange, onSuccess,
                   const next = { ...prev, monitorAll: v }
                   // Automatically switch to exclude mode if monitoring all
                   if (v) {
-                    next.excludeCategories = true
+                    next.excludeCategories = supportsCategories
                     next.excludeTags = true
                     next.excludeTrackers = true
                   }
@@ -539,7 +540,7 @@ export function TrackerReannounceForm({ instanceId, onInstanceChange, onSuccess,
 
           <div className="grid gap-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
             {/* Categories */}
-            <div className="space-y-3">
+            {supportsCategories && <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="scope-categories">{t("preferences.reannounceOverview.form.categories")}</Label>
                 <Tabs
@@ -567,7 +568,7 @@ export function TrackerReannounceForm({ instanceId, onInstanceChange, onSuccess,
                 creatable
                 onCreateOption={(value) => appendUniqueValue("categories", value)}
               />
-            </div>
+            </div>}
 
             {/* Tags */}
             <div className="space-y-3">
@@ -928,7 +929,10 @@ function cloneSettings(settings?: InstanceReannounceSettings): InstanceReannounc
   }
 }
 
-function sanitizeSettings(settings: InstanceReannounceSettings): InstanceReannounceSettings {
+function sanitizeSettings(
+  settings: InstanceReannounceSettings,
+  supportsCategories: boolean
+): InstanceReannounceSettings {
   const clamp = (value: number, fallback: number, min: number, max?: number) => {
     const parsed = Number.isFinite(value) ? Math.floor(value) : fallback
     const clamped = Math.max(min, parsed)
@@ -943,8 +947,8 @@ function sanitizeSettings(settings: InstanceReannounceSettings): InstanceReannou
     maxAgeSeconds: clamp(settings.maxAgeSeconds, DEFAULT_SETTINGS.maxAgeSeconds, REANNOUNCE_CONSTRAINTS.MIN_MAX_AGE),
     maxRetries: clamp(settings.maxRetries, DEFAULT_SETTINGS.maxRetries, REANNOUNCE_CONSTRAINTS.MIN_MAX_RETRIES, REANNOUNCE_CONSTRAINTS.MAX_MAX_RETRIES),
     monitorAll: settings.monitorAll,
-    excludeCategories: settings.excludeCategories,
-    categories: normalizeList(settings.categories),
+    excludeCategories: supportsCategories ? settings.excludeCategories : false,
+    categories: supportsCategories ? normalizeList(settings.categories) : [],
     excludeTags: settings.excludeTags,
     tags: normalizeList(settings.tags),
     excludeTrackers: settings.excludeTrackers,

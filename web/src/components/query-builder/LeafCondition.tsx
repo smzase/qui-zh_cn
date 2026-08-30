@@ -120,6 +120,8 @@ interface LeafConditionProps {
   isOnly?: boolean;
   /** Optional category options for EXISTS_IN/CONTAINS_IN operators */
   categoryOptions?: Array<{ label: string; value: string }>;
+  /** Whether category-dependent NAME operators are available */
+  allowCategoryOperators?: boolean;
   /** Optional list of fields to disable with reasons */
   disabledFields?: DisabledField[];
   /** Optional list of "state" option values to disable with reasons */
@@ -135,6 +137,7 @@ export function LeafCondition({
   onRemove,
   isOnly,
   categoryOptions,
+  allowCategoryOperators = true,
   disabledFields,
   disabledStateValues,
   groupOptions,
@@ -153,7 +156,11 @@ export function LeafCondition({
   };
 
   const fieldType = condition.field ? getFieldType(condition.field) : "string";
-  const operators = condition.field ? getTranslatedOperatorsForField(condition.field, t) : [];
+  const operators = condition.field
+    ? getTranslatedOperatorsForField(condition.field, t).filter(
+      (operator) => allowCategoryOperators || (operator.value !== "EXISTS_IN" && operator.value !== "CONTAINS_IN")
+    )
+    : [];
   const isGroupingField = isGroupingConditionField(condition.field);
   const availableGroupOptions = (groupOptions && groupOptions.length > 0)? groupOptions: [{ id: DEFAULT_GROUP_ID, label: t("queryBuilder.defaultGroupLabel") }];
   const groupIdValue = condition.groupId || DEFAULT_GROUP_ID;

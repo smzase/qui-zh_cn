@@ -431,7 +431,8 @@ export const createColumns = (
   viewMode: TableViewMode = "normal",
   trackerCustomizationLookup?: TrackerCustomizationLookup,
   includeSelectionColumn: boolean = true,
-  t?: TFunction
+  t?: TFunction,
+  shouldShowCategory: (torrent: Torrent) => boolean = () => true
 ): TorrentTableColumnDef[] => {
   // Badge padding classes based on view mode
   const badgePadding = viewMode === "dense" ? "px-1.5 py-0" : ""
@@ -823,7 +824,9 @@ export const createColumns = (
       accessorKey: "category",
       header: t?.("tableColumns.category") ?? "Category",
       cell: ({ row }) => {
-        const displayCategory = incognitoMode ? getLinuxCategory(row.original.hash) : row.original.category
+        const displayCategory = shouldShowCategory(row.original)
+          ? (incognitoMode ? getLinuxCategory(row.original.hash) : row.original.category)
+          : ""
         return (
           <div className="overflow-hidden whitespace-nowrap text-sm" title={displayCategory || ""}>
             {displayCategory || ""}

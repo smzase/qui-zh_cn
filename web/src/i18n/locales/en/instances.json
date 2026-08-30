@@ -252,7 +252,9 @@
         "username": "Username",
         "password": "Password",
         "qbittorrentAuth": "qBittorrent Authentication",
-        "qbittorrentAuthDescription": "Select how qui should authenticate to qBittorrent."
+        "qbittorrentAuthDescription": "Select how qui should authenticate to qBittorrent.",
+        "transmissionAuth": "Transmission Authentication",
+        "transmissionAuthDescription": "Select how qui should authenticate to the Transmission daemon."
       },
       "placeholders": {
         "instanceName": "e.g., Main Server",

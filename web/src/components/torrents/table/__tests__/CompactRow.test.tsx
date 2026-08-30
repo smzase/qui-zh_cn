@@ -43,6 +43,7 @@ function renderCompactRow(overrides: {
       onCheckboxPointerDown={vi.fn()}
       onCheckboxChange={overrides.onCheckboxChange ?? vi.fn()}
       incognitoMode={overrides.incognitoMode ?? false}
+      showCategory
       speedUnit="bytes"
       supportsTrackerHealth={false}
       trackerIcons={undefined}

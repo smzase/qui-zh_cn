@@ -26,6 +26,7 @@ import { useInstanceMetadata } from "@/hooks/useInstanceMetadata"
 import { useInstances } from "@/hooks/useInstances"
 import { TORRENT_ACTIONS, useTorrentActions } from "@/hooks/useTorrentActions"
 import { buildTorrentActionTargets } from "@/lib/torrent-action-targets"
+import { resolveTorrentTargetCapabilities } from "@/lib/instance-capabilities"
 import { anyTorrentHasTag, getCommonCategory, getCommonSavePath, getTorrentHashesWithTag, getTotalSize, parseTorrentTags } from "@/lib/torrent-utils"
 import { formatBytes } from "@/lib/utils"
 import type { Category, Torrent, TorrentFilters } from "@/types"
@@ -49,7 +50,7 @@ import {
   Tag,
   Trash2
 } from "lucide-react"
-import { memo, useCallback, useMemo } from "react"
+import { memo, useCallback, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { DeleteTorrentDialog } from "./DeleteTorrentDialog"
 import {
@@ -147,6 +148,17 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
   // Get instance name for cross-seed warning
   const { instances } = useInstances()
   const instance = useMemo(() => instances?.find(i => i.id === actionInstanceId), [instances, actionInstanceId])
+  const targetCapabilities = useMemo(() => resolveTorrentTargetCapabilities({
+    torrents: selectedTorrents,
+    fallbackInstanceId: actionInstanceId,
+    instanceIds,
+    isAllSelected,
+    isAllInstancesView: actionInstanceId <= 0,
+    instances,
+  }), [selectedTorrents, actionInstanceId, instanceIds, isAllSelected, instances])
+  const supportsQbittorrentOnlyActions = targetCapabilities.supportsQbittorrentOnlyActions
+  const supportsShareLimitAction = supportsQbittorrentOnlyActions && (capabilities?.supportsShareLimitsAction ?? false)
+  const supportsShareLimitsMode = supportsQbittorrentOnlyActions && (capabilities?.supportsShareLimitsMode ?? false)
 
   // Use the shared torrent actions hook
   const {
@@ -209,6 +221,13 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
       }
     },
   })
+
+  useEffect(() => {
+    if (!supportsQbittorrentOnlyActions) {
+      setShowCategoryDialog(false)
+      setShowTmmDialog(false)
+    }
+  }, [supportsQbittorrentOnlyActions, setShowCategoryDialog, setShowTmmDialog])
 
   // Cross-seed warning for delete dialog
   const crossSeedWarning = useCrossSeedWarning({
@@ -376,6 +395,9 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
   }, [handleUpdateTags, selectedRequestHashes, isAllSelected, filters, search, excludeHashes, clientMeta])
 
   const handleSetCategoryWrapper = useCallback((category: string) => {
+    if (!supportsQbittorrentOnlyActions) {
+      return
+    }
     handleSetCategory(
       category,
       selectedHashes,
@@ -385,7 +407,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
       excludeHashes,
       clientMeta
     )
-  }, [handleSetCategory, selectedHashes, isAllSelected, filters, search, excludeHashes, clientMeta])
+  }, [handleSetCategory, selectedHashes, isAllSelected, filters, search, excludeHashes, clientMeta, supportsQbittorrentOnlyActions])
 
   const handleSetLocationWrapper = useCallback((location: string) => {
     handleSetLocation(
@@ -479,11 +501,17 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
   }, [handleSetSpeedLimits, selectedHashes, isAllSelected, filters, search, excludeHashes, clientMeta])
 
   const handleTmmClick = useCallback((enable: boolean) => {
+    if (!supportsQbittorrentOnlyActions) {
+      return
+    }
     const count = totalSelectionCount || selectedHashes.length
     prepareTmmAction(selectedHashes, count, enable)
-  }, [totalSelectionCount, selectedHashes, prepareTmmAction])
+  }, [totalSelectionCount, selectedHashes, prepareTmmAction, supportsQbittorrentOnlyActions])
 
   const handleTmmConfirmWrapper = useCallback(() => {
+    if (!supportsQbittorrentOnlyActions) {
+      return
+    }
     handleTmmConfirm(
       selectedHashes,
       isAllSelected,
@@ -492,7 +520,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
       excludeHashes,
       clientMeta
     )
-  }, [handleTmmConfirm, selectedHashes, isAllSelected, filters, search, excludeHashes, clientMeta])
+  }, [handleTmmConfirm, selectedHashes, isAllSelected, filters, search, excludeHashes, clientMeta, supportsQbittorrentOnlyActions])
 
   const hasSelection = selectionCount > 0 || isAllSelected
   const isDisabled = !hasActionScope || !hasSelection
@@ -573,7 +601,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
             <TooltipContent>{t("managementBar.reannounce")}</TooltipContent>
           </Tooltip>
 
-          {(() => {
+          {supportsQbittorrentOnlyActions && (() => {
             const seqDlStates = selectedTorrents?.map(t => t.seq_dl) ?? []
             const allSeqDlEnabled = seqDlStates.length > 0 && seqDlStates.every(state => state === true)
 
@@ -608,7 +636,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
             <TooltipContent>{t("managementBar.setTags")}</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
+          {supportsQbittorrentOnlyActions && <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
@@ -620,7 +648,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t("managementBar.setCategory")}</TooltipContent>
-          </Tooltip>
+          </Tooltip>}
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -719,7 +747,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
           </DropdownMenu>
 
           {/* TMM Toggle */}
-          {(() => {
+          {supportsQbittorrentOnlyActions && (() => {
             const tmmStates = selectedTorrents?.map(t => t.auto_tmm) ?? []
             const allEnabled = tmmStates.length > 0 && tmmStates.every(state => state === true)
             const mixed = tmmStates.length > 0 && !tmmStates.every(state => state === allEnabled)
@@ -808,7 +836,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
       />
 
       {/* Set Category Dialog */}
-      <SetCategoryDialog
+      {supportsQbittorrentOnlyActions && <SetCategoryDialog
         open={showCategoryDialog}
         onOpenChange={setShowCategoryDialog}
         availableCategories={availableCategories}
@@ -818,7 +846,7 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
         initialCategory={getCommonCategory(selectedTorrents)}
         isLoadingCategories={isLoadingCategoriesData}
         useSubcategories={allowSubcategories}
-      />
+      />}
 
       {/* Set Location Dialog */}
       <SetLocationDialog
@@ -839,8 +867,9 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
         torrents={selectedTorrents}
         onConfirm={handleSetShareLimitWrapper}
         isPending={isPending}
-        supportsShareLimitsAction={capabilities?.supportsShareLimitsAction}
-        supportsShareLimitsMode={capabilities?.supportsShareLimitsMode}
+        supportsSeedingTimeLimit={supportsQbittorrentOnlyActions}
+        supportsShareLimitsAction={supportsShareLimitAction}
+        supportsShareLimitsMode={supportsShareLimitsMode}
       />
 
       <SpeedLimitsDialog
@@ -893,14 +922,14 @@ export const TorrentManagementBar = memo(function TorrentManagementBar({
       </Dialog>
 
       {/* TMM Confirmation Dialog */}
-      <TmmConfirmDialog
+      {supportsQbittorrentOnlyActions && <TmmConfirmDialog
         open={showTmmDialog}
         onOpenChange={setShowTmmDialog}
         count={totalSelectionCount || selectedHashes.length}
         enable={pendingTmmEnable}
         onConfirm={handleTmmConfirmWrapper}
         isPending={isPending}
-      />
+      />}
 
       {/* Location Warning Dialog */}
       <LocationWarningDialog

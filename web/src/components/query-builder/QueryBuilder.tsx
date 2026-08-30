@@ -37,6 +37,8 @@ interface QueryBuilderProps {
   allowEmpty?: boolean;
   /** Optional category options for EXISTS_IN/CONTAINS_IN operators */
   categoryOptions?: Array<{ label: string; value: string }>;
+  /** Whether category-dependent NAME operators are available */
+  allowCategoryOperators?: boolean;
   /** Optional list of fields to disable with reasons */
   disabledFields?: DisabledField[];
   /** Optional list of "state" option values to disable with reasons */
@@ -51,6 +53,7 @@ export function QueryBuilder({
   className,
   allowEmpty,
   categoryOptions,
+  allowCategoryOperators = true,
   disabledFields,
   disabledStateValues,
   groupOptions,
@@ -250,6 +253,7 @@ export function QueryBuilder({
           onRemove={allowEmpty ? () => onChange(null) : undefined}
           isRoot
           categoryOptions={categoryOptions}
+          allowCategoryOperators={allowCategoryOperators}
           disabledFields={disabledFields}
           disabledStateValues={disabledStateValues}
           groupOptions={groupOptions}

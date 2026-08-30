@@ -68,6 +68,8 @@ type EvalContext struct {
 	HasMissingFilesByHash map[string]bool
 	// InstanceHasLocalAccess indicates whether the instance has local filesystem access
 	InstanceHasLocalAccess bool
+	// DisableTagDefinitionReset disables qBittorrent's global tag deletion semantics.
+	DisableTagDefinitionReset bool
 	// FreeSpace is the free space on the instance's filesystem (current active source)
 	FreeSpace int64
 	// SpaceToClear is the amount of disk space that will be cleared by the "free space" condition (current active source)

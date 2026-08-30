@@ -38,6 +38,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { useInstanceCapabilities } from "@/hooks/useInstanceCapabilities.ts"
 import { useInstanceMetadata, type InstanceMetadata } from "@/hooks/useInstanceMetadata"
+import { useInstances } from "@/hooks/useInstances"
 import { usePathAutocomplete } from "@/hooks/usePathAutocomplete"
 import { usePersistedBulkAddTorrentInstances } from "@/hooks/usePersistedBulkAddTorrentInstances"
 import { usePersistedStartPaused } from "@/hooks/usePersistedStartPaused"
@@ -252,6 +253,11 @@ export function AddTorrentDialog({
 }: AddTorrentDialogProps) {
   const { t } = useTranslation("torrents")
   const isBulkMode = mode === "bulk"
+  const { instances: loadedInstances } = useInstances()
+  const effectiveInstances = useMemo(
+    () => instances.length > 0 ? instances : (loadedInstances ?? []),
+    [instances, loadedInstances]
+  )
   const [internalOpen, setInternalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabValue>("file")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -269,8 +275,8 @@ export function AddTorrentDialog({
   const queryClient = useQueryClient()
   const [persistedBulkInstanceIds, saveBulkInstanceIds] = usePersistedBulkAddTorrentInstances()
   const selectableInstances = useMemo(
-    () => instances.filter((instance) => instance.connected && instance.isActive),
-    [instances]
+    () => effectiveInstances.filter((instance) => instance.connected && instance.isActive),
+    [effectiveInstances]
   )
   const selectableInstanceIds = useMemo(
     () => selectableInstances.map((instance) => instance.id),
@@ -280,7 +286,7 @@ export function AddTorrentDialog({
     const selectedIdSet = new Set(bulkSelectedInstanceIds)
     return selectableInstances.filter((instance) => selectedIdSet.has(instance.id))
   }, [bulkSelectedInstanceIds, selectableInstances])
-  const primaryInstanceId = isBulkMode ? selectableInstances[0]?.id ?? instanceId : instanceId
+  const primaryInstanceId = isBulkMode ? selectedBulkInstances[0]?.id ?? selectableInstances[0]?.id ?? instanceId : instanceId
   // NOTE: Use localStorage-persisted preference instead of qBittorrent's preference
   // This works around qBittorrent API not supporting start_paused_enabled setting
   const [startPausedEnabled] = usePersistedStartPaused(primaryInstanceId, false)
@@ -329,8 +335,19 @@ export function AddTorrentDialog({
   const preferences = metadata?.preferences
 
   const { data: capabilities } = useInstanceCapabilities(primaryInstanceId)
-  const supportsTorrentTmpPath = capabilities?.supportsTorrentTmpPath ?? false
-  const supportsPathAutocomplete = capabilities?.supportsPathAutocomplete ?? false
+  const targetInstances = useMemo(
+    () => isBulkMode
+      ? selectedBulkInstances
+      : effectiveInstances.filter((instance) => instance.id === instanceId),
+    [effectiveInstances, instanceId, isBulkMode, selectedBulkInstances]
+  )
+  const hasUnknownTargetInstance = isBulkMode
+    ? selectedBulkInstances.length === 0 || selectedBulkInstances.some((instance) => !instance.clientType)
+    : targetInstances.length === 0
+  const hasTransmissionTarget = targetInstances.some((instance) => instance.clientType === "transmission")
+  const supportsQbittorrentOnlyOptions = !hasTransmissionTarget && !hasUnknownTargetInstance
+  const supportsTorrentTmpPath = supportsQbittorrentOnlyOptions && (capabilities?.supportsTorrentTmpPath ?? false)
+  const supportsPathAutocomplete = supportsQbittorrentOnlyOptions && (capabilities?.supportsPathAutocomplete ?? false)
 
   useEffect(() => {
     if (!isBulkMode) {
@@ -701,29 +718,29 @@ export function AddTorrentDialog({
     retry: false, // Don't retry - could cause duplicate torrent additions
     mutationFn: async (data: FormData) => {
       // Use the user's explicit TMM choice
-      const autoTMM = data.autoTMM
+      const autoTMM = supportsQbittorrentOnlyOptions ? data.autoTMM : undefined
       // When autoTMM is enabled, temp path settings aren't visible/relevant
       const tempPathChanged =
-        !autoTMM && (data.tempPathEnabled !== (preferences?.temp_path_enabled ?? false) ||
+        supportsQbittorrentOnlyOptions && !autoTMM && (data.tempPathEnabled !== (preferences?.temp_path_enabled ?? false) ||
         (data.tempPathEnabled && data.tempPath !== (preferences?.temp_path || "")))
 
       const submitData: Parameters<typeof api.addTorrent>[1] = {
         startPaused: data.startPaused,
-        savePath: !autoTMM && data.savePath ? data.savePath : undefined,
+        savePath: (!supportsQbittorrentOnlyOptions || !autoTMM) && data.savePath ? data.savePath : undefined,
         useDownloadPath: tempPathChanged ? data.tempPathEnabled : undefined,
         downloadPath: tempPathChanged && data.tempPathEnabled ? data.tempPath : undefined,
         autoTMM: autoTMM,
-        category: data.category === "__none__" ? undefined : data.category || undefined,
+        category: supportsQbittorrentOnlyOptions && data.category !== "__none__" ? data.category || undefined : undefined,
         tags: data.tags.length > 0 ? data.tags : undefined,
-        skipHashCheck: data.skipHashCheck,
-        sequentialDownload: data.sequentialDownload,
-        firstLastPiecePrio: data.firstLastPiecePrio,
+        skipHashCheck: supportsQbittorrentOnlyOptions ? data.skipHashCheck : undefined,
+        sequentialDownload: supportsQbittorrentOnlyOptions ? data.sequentialDownload : undefined,
+        firstLastPiecePrio: supportsQbittorrentOnlyOptions ? data.firstLastPiecePrio : undefined,
         limitUploadSpeed: data.limitUploadSpeed > 0 ? data.limitUploadSpeed : undefined,
         limitDownloadSpeed: data.limitDownloadSpeed > 0 ? data.limitDownloadSpeed : undefined,
         limitRatio: data.limitRatio > 0 ? data.limitRatio : undefined,
-        limitSeedTime: data.limitSeedTime > 0 ? data.limitSeedTime : undefined,
-        contentLayout: data.contentLayout === "__global__" ? undefined : data.contentLayout || undefined,
-        rename: data.rename || undefined,
+        limitSeedTime: supportsQbittorrentOnlyOptions && data.limitSeedTime > 0 ? data.limitSeedTime : undefined,
+        contentLayout: supportsQbittorrentOnlyOptions && data.contentLayout !== "__global__" ? data.contentLayout || undefined : undefined,
+        rename: supportsQbittorrentOnlyOptions ? data.rename || undefined : undefined,
       }
 
       if (activeTab === "file" && data.torrentFiles && data.torrentFiles.length > 0) {
@@ -1443,24 +1460,26 @@ export function AddTorrentDialog({
                     )}
                   </form.Field>
 
-                  <div className="w-px h-6 bg-border" />
+                  {supportsQbittorrentOnlyOptions && <>
+                    <div className="w-px h-6 bg-border" />
 
-                  <form.Field name="skipHashCheck">
-                    {(field) => (
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id="skipHashCheck-left"
-                          checked={field.state.value}
-                          onCheckedChange={field.handleChange}
-                        />
-                        <Label htmlFor="skipHashCheck-left">{t("addTorrentDialog.options.skipHashCheck")}</Label>
-                      </div>
-                    )}
-                  </form.Field>
+                    <form.Field name="skipHashCheck">
+                      {(field) => (
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="skipHashCheck-left"
+                            checked={field.state.value}
+                            onCheckedChange={field.handleChange}
+                          />
+                          <Label htmlFor="skipHashCheck-left">{t("addTorrentDialog.options.skipHashCheck")}</Label>
+                        </div>
+                      )}
+                    </form.Field>
+                  </>}
                 </div>
 
                 {/* Category */}
-                <div className="space-y-3">
+                {supportsQbittorrentOnlyOptions && <div className="space-y-3">
                   <form.Field name="category">
                     {(field) => (
                       <>
@@ -1545,7 +1564,7 @@ export function AddTorrentDialog({
                       </>
                     )}
                   </form.Field>
-                </div>
+                </div>}
 
                 {/* Tags */}
                 <div className="space-y-3 pt-2">
@@ -1662,7 +1681,7 @@ export function AddTorrentDialog({
               <TabsContent value="advanced" className="space-y-4 mt-4">
 
                 {/* Automatic Torrent Management */}
-                <form.Field name="autoTMM">
+                {supportsQbittorrentOnlyOptions && <form.Field name="autoTMM">
                   {(field) => (
                     <div className="flex items-center space-x-2">
                       <Switch
@@ -1673,13 +1692,13 @@ export function AddTorrentDialog({
                       <Label htmlFor="autoTMM">{t("addTorrentDialog.options.autoTmm")}</Label>
                     </div>
                   )}
-                </form.Field>
+                </form.Field>}
 
                 {/* Save Path - show based on TMM toggle */}
                 <form.Field name="autoTMM">
                   {(autoTMMField) => (
                     <>
-                      {!autoTMMField.state.value ? (
+                      {!supportsQbittorrentOnlyOptions || !autoTMMField.state.value ? (
                         <>
                           <form.Field name="savePath">
                             {(field) => (
@@ -1833,7 +1852,7 @@ export function AddTorrentDialog({
                   <Label className="text-sm font-medium">{t("addTorrentDialog.options.advancedOptions")}</Label>
                   {/* Sequential Download & First/Last Piece Priority */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <form.Field name="sequentialDownload">
+                    {supportsQbittorrentOnlyOptions && <form.Field name="sequentialDownload">
                       {(field) => (
                         <div className="flex items-center space-x-2">
                           <Switch
@@ -1847,10 +1866,10 @@ export function AddTorrentDialog({
                           </span>
                         </div>
                       )}
-                    </form.Field>
+                    </form.Field>}
 
                     {/* First/Last Piece Priority */}
-                    <form.Field name="firstLastPiecePrio">
+                    {supportsQbittorrentOnlyOptions && <form.Field name="firstLastPiecePrio">
                       {(field) => (
                         <div className="flex items-center space-x-2">
                           <Switch
@@ -1864,7 +1883,7 @@ export function AddTorrentDialog({
                           </span>
                         </div>
                       )}
-                    </form.Field>
+                    </form.Field>}
 
                   </div>
 
@@ -1922,7 +1941,7 @@ export function AddTorrentDialog({
                       )}
                     </form.Field>
 
-                    <form.Field name="limitSeedTime">
+                    {supportsQbittorrentOnlyOptions && <form.Field name="limitSeedTime">
                       {(field) => (
                         <div className="space-y-2">
                           <Label htmlFor="limitSeedTime">{t("addTorrentDialog.options.seedTimeLimit")}</Label>
@@ -1936,11 +1955,11 @@ export function AddTorrentDialog({
                           />
                         </div>
                       )}
-                    </form.Field>
+                    </form.Field>}
                   </div>
 
                   {/* Content Layout & Rename - available regardless of TMM */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {supportsQbittorrentOnlyOptions && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <form.Field name="contentLayout">
                       {(field) => (
                         <div className="space-y-2">
@@ -1977,7 +1996,7 @@ export function AddTorrentDialog({
                         </div>
                       )}
                     </form.Field>
-                  </div>
+                  </div>}
                 </div>
               </TabsContent>
             </Tabs>

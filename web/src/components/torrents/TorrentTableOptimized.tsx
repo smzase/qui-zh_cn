@@ -27,7 +27,12 @@ import { usePersistedColumnSizing } from "@/hooks/usePersistedColumnSizing"
 import { usePersistedColumnSorting } from "@/hooks/usePersistedColumnSorting"
 import { usePersistedColumnVisibility } from "@/hooks/usePersistedColumnVisibility"
 import { usePersistedCompactViewState } from "@/hooks/usePersistedCompactViewState"
-import { SYNCED_TORRENT_LAYOUT_KEY, usePersistedTorrentLayoutSync } from "@/hooks/usePersistedTorrentLayoutSync"
+import {
+  SYNCED_TORRENT_LAYOUT_KEY,
+  SYNCED_TRANSMISSION_TORRENT_LAYOUT_KEY,
+  SYNCED_UNIFIED_TORRENT_LAYOUT_KEY,
+  usePersistedTorrentLayoutSync
+} from "@/hooks/usePersistedTorrentLayoutSync"
 import { usePersistedZoomLevel } from "@/hooks/usePersistedZoomLevel"
 import { TORRENT_ACTIONS, useTorrentActions } from "@/hooks/useTorrentActions"
 import { useTorrentExporter } from "@/hooks/useTorrentExporter"
@@ -271,8 +276,23 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
 }: TorrentTableOptimizedProps) {
   const isReadOnly = readOnly
   const isUnifiedView = isAllInstancesScope(instanceId)
+  const { instances } = useInstances()
+  const instance = useMemo(() => instances?.find(i => i.id === instanceId), [instances, instanceId])
+  const instanceById = useMemo(
+    () => new Map((instances ?? []).map(item => [item.id, item])),
+    [instances]
+  )
+  const shouldShowCategory = useCallback((torrent: Torrent) => {
+    const rowInstanceId = (torrent as Partial<CrossInstanceTorrent>).instanceId ?? instanceId
+    return instanceById.get(rowInstanceId)?.clientType !== "transmission"
+  }, [instanceById, instanceId])
   const [torrentLayoutSyncEnabled, setTorrentLayoutSyncEnabled] = usePersistedTorrentLayoutSync()
-  const torrentLayoutKey = torrentLayoutSyncEnabled ? SYNCED_TORRENT_LAYOUT_KEY : instanceId
+  const syncedTorrentLayoutKey = isUnifiedView
+    ? SYNCED_UNIFIED_TORRENT_LAYOUT_KEY
+    : instance?.clientType === "transmission"
+      ? SYNCED_TRANSMISSION_TORRENT_LAYOUT_KEY
+      : SYNCED_TORRENT_LAYOUT_KEY
+  const torrentLayoutKey = torrentLayoutSyncEnabled ? syncedTorrentLayoutKey : instanceId
   // State management
   // Move default values outside the component for stable references
   // (This should be at module scope, not inside the component)
@@ -292,9 +312,6 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   const [speedUnit, setSpeedUnit] = useSpeedUnits()
   const { formatTimestamp } = useDateTimeFormatters()
   const { preferences } = useInstancePreferences(instanceId, { fetchIfMissing: false, enabled: instanceId > 0 })
-  const { instances } = useInstances()
-  const instance = useMemo(() => instances?.find(i => i.id === instanceId), [instances, instanceId])
-
   const { viewMode: desktopViewMode, cycleViewMode } = usePersistedCompactViewState("desktop")
 
   // Zoom level for the torrent list (persisted, synced with Torrents.tsx via custom event)
@@ -305,6 +322,22 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   const showRowGutter = useSpreadsheetDisguise() && desktopViewMode !== "compact"
 
   const { trackerIcons, trackerCustomizationLookup } = useTrackerIconCache()
+
+  const hiddenColumnIds = useMemo<ReadonlySet<string> | undefined>(() => {
+    if (isUnifiedView || instance?.clientType !== "transmission") {
+      return undefined
+    }
+
+    return new Set([
+      "category",
+      "popularity",
+      "availability",
+      "downloaded_session",
+      "uploaded_session",
+      "infohash_v2",
+      "reannounce",
+    ])
+  }, [instance?.clientType, isUnifiedView])
 
   // These should be defined at module scope, not inside the component, to ensure stable references
   // (If not already, move them to the top of the file)
@@ -332,14 +365,14 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
 
   const handleTorrentLayoutSyncToggle = useCallback(() => {
     const nextEnabled = !torrentLayoutSyncEnabled
-    persistTorrentLayout(nextEnabled ? SYNCED_TORRENT_LAYOUT_KEY : instanceId, {
+    persistTorrentLayout(nextEnabled ? syncedTorrentLayoutKey : instanceId, {
       sorting,
       columnVisibility,
       columnOrder,
       columnSizing,
     })
     setTorrentLayoutSyncEnabled(nextEnabled)
-  }, [columnOrder, columnSizing, columnVisibility, instanceId, setTorrentLayoutSyncEnabled, sorting, torrentLayoutSyncEnabled])
+  }, [columnOrder, columnSizing, columnVisibility, instanceId, setTorrentLayoutSyncEnabled, sorting, syncedTorrentLayoutKey, torrentLayoutSyncEnabled])
 
   // Use the shared torrent actions hook
   const {
@@ -789,6 +822,8 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
     desktopViewMode,
     trackerCustomizationLookup,
     isReadOnly,
+    hiddenColumnIds,
+    shouldShowCategory,
     t,
     sortedTorrents,
   })
@@ -1299,6 +1334,8 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
   // differ.
   const rowMenuProps = useMemo<TorrentRowMenuProps>(() => ({
     instanceId,
+    instanceIds,
+    instances,
     readOnly: isReadOnly,
     isAllSelected,
     selectedHashes,
@@ -1330,19 +1367,20 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
     isCrossSeedSearching,
     onFilterChange,
     onFetchTorrentField: fetchTorrentField,
-  }), [instanceId, isReadOnly, isAllSelected, selectedHashes, selectedTorrents, effectiveSelectionCount, onTorrentSelect, runAction, prepareDeleteAction, prepareTagsAction, prepareCommentAction, prepareCategoryAction, prepareCreateCategoryAction, prepareShareLimitAction, prepareSpeedLimitAction, prepareLocationAction, prepareRenameTorrentAction, prepareRecheckAction, prepareReannounceAction, prepareTmmAction, availableCategories, handleSetCategoryDirect, isPending, handleExportWrapper, isExportingTorrent, capabilities, allowSubcategories, canCrossSeedSearch, onCrossSeedSearch, isCrossSeedSearching, onFilterChange, fetchTorrentField])
+  }), [instanceId, instanceIds, instances, isReadOnly, isAllSelected, selectedHashes, selectedTorrents, effectiveSelectionCount, onTorrentSelect, runAction, prepareDeleteAction, prepareTagsAction, prepareCommentAction, prepareCategoryAction, prepareCreateCategoryAction, prepareShareLimitAction, prepareSpeedLimitAction, prepareLocationAction, prepareRenameTorrentAction, prepareRecheckAction, prepareReannounceAction, prepareTmmAction, availableCategories, handleSetCategoryDirect, isPending, handleExportWrapper, isExportingTorrent, capabilities, allowSubcategories, canCrossSeedSearch, onCrossSeedSearch, isCrossSeedSearching, onFilterChange, fetchTorrentField])
 
   const showCompactCheckbox = table.getColumn("select")?.getIsVisible() !== false
   const compactRowProps = useMemo<CompactRowSharedProps>(() => ({
     showCheckbox: showCompactCheckbox,
     incognitoMode,
+    shouldShowCategory,
     speedUnit,
     supportsTrackerHealth,
     trackerIcons,
     trackerCustomizationLookup,
     onCheckboxPointerDown: handleCompactCheckboxPointerDown,
     onCheckboxChange: handleCompactCheckboxChange,
-  }), [showCompactCheckbox, incognitoMode, speedUnit, supportsTrackerHealth, trackerIcons, trackerCustomizationLookup, handleCompactCheckboxPointerDown, handleCompactCheckboxChange])
+  }), [showCompactCheckbox, incognitoMode, shouldShowCategory, speedUnit, supportsTrackerHealth, trackerIcons, trackerCustomizationLookup, handleCompactCheckboxPointerDown, handleCompactCheckboxChange])
 
   return (
     <>
@@ -1992,6 +2030,7 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
         <TorrentTableDialogs
           instanceId={instanceId}
           instanceIds={instanceIds}
+          instances={instances}
           contextHashes={contextHashes}
           contextTorrents={contextTorrents}
           isPending={isPending}

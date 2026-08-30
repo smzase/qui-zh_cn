@@ -29,6 +29,7 @@ export type TorrentRowMenuProps = Omit<TorrentContextMenuProps, "children" | "to
 export interface CompactRowSharedProps {
   showCheckbox: boolean
   incognitoMode: boolean
+  shouldShowCategory: (torrent: Torrent) => boolean
   speedUnit: SpeedUnit
   supportsTrackerHealth: boolean
   trackerIcons?: Record<string, string>
@@ -118,6 +119,7 @@ export const TorrentTableRow = memo(function TorrentTableRow({
           onClick={(e) => onRowClick(e, row, isSelected, isRowSelected)}
           onContextMenu={() => onRowContextMenu(row, isRowSelected)}
           incognitoMode={compact.incognitoMode}
+          showCategory={compact.shouldShowCategory(torrent)}
           speedUnit={compact.speedUnit}
           supportsTrackerHealth={compact.supportsTrackerHealth}
           trackerIcons={compact.trackerIcons}

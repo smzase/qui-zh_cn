@@ -252,7 +252,9 @@
         "username": "Nom d'utilisateur",
         "password": "Mot de passe",
         "qbittorrentAuth": "Authentification qBittorrent",
-        "qbittorrentAuthDescription": "Sélectionnez comment qui doit s'authentifier auprès de qBittorrent."
+        "qbittorrentAuthDescription": "Sélectionnez comment qui doit s'authentifier auprès de qBittorrent.",
+        "transmissionAuth": "Authentification Transmission",
+        "transmissionAuthDescription": "Sélectionnez comment qui doit s'authentifier auprès du démon Transmission."
       },
       "placeholders": {
         "instanceName": "ex: Serveur Principal",

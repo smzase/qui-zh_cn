@@ -39,12 +39,12 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
   const { updateInstance, isUpdating } = useInstances()
   const [incognitoMode] = useIncognitoMode()
   const isTransmission = instance.clientType === "transmission"
-  const [showBasicAuth, setShowBasicAuth] = useState(!!instance?.basicUsername)
+  const [showBasicAuth, setShowBasicAuth] = useState(!isTransmission && !!instance?.basicUsername)
   const [authType, setAuthType] = useState<InstanceAuthType>(() => getInstanceAuthType(instance))
 
   useEffect(() => {
-    setShowBasicAuth(!!instance?.basicUsername)
-  }, [instance?.basicUsername])
+    setShowBasicAuth(!isTransmission && !!instance?.basicUsername)
+  }, [instance?.basicUsername, isTransmission])
 
   const handleSubmit = (data: InstanceFormData) => {
     if (authType === "apiKey") {
@@ -59,7 +59,7 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
 
     let submitData: InstanceFormData
 
-    if (showBasicAuth) {
+    if (showBasicAuth && !isTransmission) {
       if (data.basicPassword === "<redacted>") {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { basicPassword, ...dataWithoutPassword } = data
@@ -130,9 +130,9 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
       host: instance?.host ?? "http://localhost:8080",
       username: instance?.username ?? "",
       password: "",
-      apiKey: instance?.hasApiKey ? "<redacted>" : "",
-      basicUsername: instance?.basicUsername ?? "",
-      basicPassword: instance?.basicUsername ? "<redacted>" : "",
+      apiKey: !isTransmission && instance?.hasApiKey ? "<redacted>" : "",
+      basicUsername: !isTransmission ? (instance?.basicUsername ?? "") : "",
+      basicPassword: !isTransmission && instance?.basicUsername ? "<redacted>" : "",
       tlsSkipVerify: instance?.tlsSkipVerify ?? false,
       hasLocalFilesystemAccess: instance?.hasLocalFilesystemAccess ?? false,
       reannounceSettings: instance?.reannounceSettings ?? DEFAULT_REANNOUNCE_SETTINGS,
@@ -153,17 +153,17 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
         host: instance?.host ?? "http://localhost:8080",
         username: instance?.username ?? "",
         password: "",
-        apiKey: instance?.hasApiKey ? "<redacted>" : "",
-        basicUsername: instance?.basicUsername ?? "",
-        basicPassword: instance?.basicUsername ? "<redacted>" : "",
+        apiKey: !isTransmission && instance?.hasApiKey ? "<redacted>" : "",
+        basicUsername: !isTransmission ? (instance?.basicUsername ?? "") : "",
+        basicPassword: !isTransmission && instance?.basicUsername ? "<redacted>" : "",
         tlsSkipVerify: instance?.tlsSkipVerify ?? false,
         hasLocalFilesystemAccess: instance?.hasLocalFilesystemAccess ?? false,
         reannounceSettings: instance?.reannounceSettings ?? DEFAULT_REANNOUNCE_SETTINGS,
       })
-      setShowBasicAuth(!!instance?.basicUsername)
+      setShowBasicAuth(!isTransmission && !!instance?.basicUsername)
       setAuthType(getInstanceAuthType(instance))
     }
-  }, [instance, form])
+  }, [instance, form, isTransmission])
 
   return (
     <PreferencesFormShell
@@ -304,10 +304,10 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
           <div className="rounded-lg border bg-muted/40 p-4 flex flex-col">
             <div className="space-y-2">
               <Label htmlFor="auth-type" className="flex items-center gap-2 text-sm font-medium">
-                {isTransmission ? t("form.labels.authType") : t("preferences.settingsPanel.labels.qbittorrentAuth")}
+                {isTransmission ? t("preferences.settingsPanel.labels.transmissionAuth") : t("preferences.settingsPanel.labels.qbittorrentAuth")}
                 <FieldHelp>
                   {isTransmission
-                    ? t("form.labels.authTypeTransmissionDescription")
+                    ? t("preferences.settingsPanel.labels.transmissionAuthDescription")
                     : t("preferences.settingsPanel.labels.qbittorrentAuthDescription")}
                 </FieldHelp>
               </Label>
@@ -394,8 +394,8 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
             )}
           </div>
 
-          {/* HTTP Basic Auth */}
-          <div className="rounded-lg border bg-muted/40 p-4 flex flex-col">
+          {/* HTTP Basic Auth is a qBittorrent reverse-proxy option. */}
+          {!isTransmission && <div className="rounded-lg border bg-muted/40 p-4 flex flex-col">
             <label htmlFor="basic-auth-toggle" className="flex items-center justify-between cursor-pointer">
               <span className="flex items-center gap-2 text-sm font-medium">
                 {t("preferences.settingsPanel.labels.httpBasicAuth")}
@@ -461,7 +461,7 @@ export function InstanceSettingsPanel({ instance, onSuccess }: InstanceSettingsP
                 </form.Field>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
     </PreferencesFormShell>

@@ -760,7 +760,8 @@ func processTagAction(rule *models.Automation, tagAction *models.TagAction, torr
 			tagsToManage = nil
 		}
 	}
-	resetFromClient := shouldResetTagActionInClient(tagAction)
+	resetFromClient := (evalCtx == nil || !evalCtx.DisableTagDefinitionReset) &&
+		shouldResetTagActionInClient(tagAction)
 
 	for _, managedTag := range tagsToManage {
 		// Check current state AND pending changes from earlier rules

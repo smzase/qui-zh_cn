@@ -67,14 +67,9 @@ func TestMapState(t *testing.T) {
 	}
 }
 
-func TestSplitLabels(t *testing.T) {
-	category, tags := splitLabels([]string{"tv", "hd", ""})
-	assert.Equal(t, "tv", category)
-	assert.Equal(t, []string{"hd"}, tags)
-
-	category, tags = splitLabels(nil)
-	assert.Empty(t, category)
-	assert.Nil(t, tags)
+func TestNormalizeLabels(t *testing.T) {
+	assert.Equal(t, []string{"tv", "hd"}, normalizeLabels([]string{"tv", "hd", "", "tv", " hd "}))
+	assert.Empty(t, normalizeLabels(nil))
 }
 
 func TestMapEta(t *testing.T) {
@@ -122,8 +117,8 @@ func TestQbitTorrentFrom(t *testing.T) {
 
 	assert.Equal(t, "abcdef0123456789abcdef0123456789abcdef01", qt.Hash)
 	assert.Equal(t, "abcdef0123456789abcdef0123456789abcdef01", qt.InfohashV1)
-	assert.Equal(t, "movies", qt.Category)
-	assert.Equal(t, "hd", qt.Tags)
+	assert.Empty(t, qt.Category)
+	assert.Equal(t, "movies, hd", qt.Tags)
 	assert.Equal(t, "/data", qt.SavePath)
 	assert.Equal(t, "/data/test.torrent", qt.ContentPath)
 	assert.Equal(t, "downloading", qt.State)
@@ -134,6 +129,7 @@ func TestQbitTorrentFrom(t *testing.T) {
 	assert.Equal(t, int64(3), qt.NumIncomplete)
 	assert.Equal(t, "http://tracker.example.com/announce", qt.Tracker)
 	assert.Equal(t, int64(0), qt.CompletionOn) // not complete yet
+	assert.Equal(t, int64(600), qt.Completed)
 }
 
 func TestTrackerDomain(t *testing.T) {

@@ -1726,6 +1726,8 @@ interface ShareLimitDialogProps {
   torrents?: TorrentLimitSnapshot[]
   onConfirm: (ratioLimit: number, seedingTimeLimit: number, inactiveSeedingTimeLimit: number, shareLimitAction?: string, shareLimitsMode?: string) => void
   isPending?: boolean
+  /** Whether the target client supports a total seeding-time limit. */
+  supportsSeedingTimeLimit?: boolean
   supportsShareLimitsAction?: boolean
   supportsShareLimitsMode?: boolean
 }
@@ -1795,6 +1797,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
   torrents,
   onConfirm,
   isPending = false,
+  supportsSeedingTimeLimit = true,
   supportsShareLimitsAction = false,
   supportsShareLimitsMode = false,
 }: ShareLimitDialogProps) {
@@ -1873,7 +1876,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
   }, [open, torrents, supportsShareLimitsAction, supportsShareLimitsMode])
 
   const hasUnresolvedMixed = (ratioMixed && !ratioTouched) ||
-    (seedTimeMixed && !seedTimeTouched) ||
+    (supportsSeedingTimeLimit && seedTimeMixed && !seedTimeTouched) ||
     (inactiveTimeMixed && !inactiveTimeTouched) ||
     (supportsShareLimitsAction && (shareLimitActionMixed && !shareLimitActionTouched)) ||
     (supportsShareLimitsMode && (shareLimitsModeMixed && !shareLimitsModeTouched))
@@ -1881,7 +1884,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
   const handleConfirm = useCallback((): void => {
     onConfirm(
       fieldStateToValue(ratioMode, ratioCustom, true),
-      fieldStateToValue(seedTimeMode, seedTimeCustom, false),
+      supportsSeedingTimeLimit ? fieldStateToValue(seedTimeMode, seedTimeCustom, false) : -1,
       fieldStateToValue(inactiveTimeMode, inactiveTimeCustom, false),
       shareLimitAction !== "default" ? shareLimitAction : undefined,
       supportsShareLimitsMode && shareLimitsMode !== "default" ? shareLimitsMode : undefined
@@ -1916,6 +1919,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
     inactiveTimeCustom,
     shareLimitAction,
     shareLimitsMode,
+    supportsSeedingTimeLimit,
     supportsShareLimitsMode,
   ])
 
@@ -1944,8 +1948,10 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
   const setAllGlobal = useCallback(() => {
     setRatioMode("global")
     setRatioTouched(true)
-    setSeedTimeMode("global")
-    setSeedTimeTouched(true)
+    if (supportsSeedingTimeLimit) {
+      setSeedTimeMode("global")
+      setSeedTimeTouched(true)
+    }
     setInactiveTimeMode("global")
     setInactiveTimeTouched(true)
     if (supportsShareLimitsAction) {
@@ -1958,7 +1964,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
       setShareLimitsModeTouched(true)
       shareLimitsEdited.current = true
     }
-  }, [supportsShareLimitsAction, supportsShareLimitsMode])
+  }, [supportsSeedingTimeLimit, supportsShareLimitsAction, supportsShareLimitsMode])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2026,7 +2032,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
           </div>
 
           {/* Seeding time limit */}
-          <div className="space-y-2">
+          {supportsSeedingTimeLimit && <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">{t("dialogs.shareLimit.seedingTimeLimit")}</Label>
               {seedTimeMixed && !seedTimeTouched && (
@@ -2070,7 +2076,7 @@ export const ShareLimitDialog = memo(function ShareLimitDialog({
             <p className="text-xs text-muted-foreground">
               {seedTimeMode === "global" ? t("dialogs.shareLimit.seedTimeGlobalHelp") : seedTimeMode === "unlimited" ? t("dialogs.shareLimit.seedTimeUnlimitedHelp") : t("dialogs.shareLimit.seedTimeCustomHelp")}
             </p>
-          </div>
+          </div>}
 
           {/* Inactive seeding time limit */}
           <div className="space-y-2">

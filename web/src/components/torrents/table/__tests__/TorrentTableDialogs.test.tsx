@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render } from "@testing-library/react"
 import type { ReactNode } from "react"
+import type { InstanceResponse } from "@/types"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 // i18n passthrough (the inline recheck/reannounce dialogs call t()).
@@ -63,6 +64,9 @@ function makeProps(overrides: Partial<TorrentTableDialogsProps> = {}): TorrentTa
   return {
     instanceId: 1,
     instanceIds: undefined,
+    // Instance metadata resolves the target capabilities; instance 1 is a
+    // plain qBittorrent client so the qBittorrent-only dialogs render.
+    instances: [{ id: 1, clientType: "qbittorrent", isActive: true } as InstanceResponse],
     contextHashes: ["h0"],
     contextTorrents: [],
     closeDeleteDialog: noop,

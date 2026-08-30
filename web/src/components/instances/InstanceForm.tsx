@@ -31,7 +31,10 @@ interface InstanceFormProps {
 }
 
 function getInstanceAuthType(instance?: Instance): InstanceAuthType {
-  return instance?.hasApiKey ? "apiKey" : instance?.username ? "usernamePassword" : "none"
+  if (instance?.clientType !== "transmission" && instance?.hasApiKey) {
+    return "apiKey"
+  }
+  return instance?.username ? "usernamePassword" : "none"
 }
 
 function defaultHostForClientType(clientType: InstanceClientType): string {
@@ -46,9 +49,9 @@ function getInstanceFormDefaults(instance?: Instance): InstanceFormData {
     host: instance?.host ?? defaultHostForClientType(clientType),
     username: instance?.username ?? "",
     password: "",
-    apiKey: instance?.hasApiKey ? "<redacted>" : "",
-    basicUsername: instance?.basicUsername ?? "",
-    basicPassword: instance?.basicUsername ? "<redacted>" : "",
+    apiKey: clientType !== "transmission" && instance?.hasApiKey ? "<redacted>" : "",
+    basicUsername: clientType !== "transmission" ? (instance?.basicUsername ?? "") : "",
+    basicPassword: clientType !== "transmission" && instance?.basicUsername ? "<redacted>" : "",
     tlsSkipVerify: instance?.tlsSkipVerify ?? false,
     hasLocalFilesystemAccess: instance?.hasLocalFilesystemAccess ?? false,
     reannounceSettings: instance?.reannounceSettings ?? DEFAULT_REANNOUNCE_SETTINGS,
@@ -79,13 +82,13 @@ function getAuthValidationError(data: InstanceFormData, authType: InstanceAuthTy
 export function InstanceForm({ instance, onSuccess, onCancel, formId }: InstanceFormProps) {
   const { t } = useTranslation("instances")
   const { createInstance, updateInstance, isCreating, isUpdating } = useInstances()
-  const [showBasicAuth, setShowBasicAuth] = useState(!!instance?.basicUsername)
-  const [authType, setAuthType] = useState<InstanceAuthType>(() => getInstanceAuthType(instance))
   const [clientType, setClientType] = useState<InstanceClientType>(() => instance?.clientType ?? "qbittorrent")
 
   // Transmission authenticates with the daemon's own RPC credentials; the
   // API-key option and the reverse-proxy basic auth layer do not apply.
   const isTransmission = clientType === "transmission"
+  const [showBasicAuth, setShowBasicAuth] = useState(!isTransmission && !!instance?.basicUsername)
+  const [authType, setAuthType] = useState<InstanceAuthType>(() => getInstanceAuthType(instance))
 
   const switchClientType = (next: InstanceClientType) => {
     if (instance || next === clientType) {
@@ -220,7 +223,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
     if (prevInstanceId.current !== instance?.id) {
       prevInstanceId.current = instance?.id
       form.reset(getInstanceFormDefaults(instance))
-      setShowBasicAuth(!!instance?.basicUsername)
+      setShowBasicAuth(instance?.clientType !== "transmission" && !!instance?.basicUsername)
       setAuthType(getInstanceAuthType(instance))
       setClientType(instance?.clientType ?? "qbittorrent")
     }
@@ -353,8 +356,8 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
 
         <div className="space-y-2">
           <Label htmlFor="auth-type" className="flex items-center gap-2">
-            {t("form.labels.authType")}
-            <FieldHelp>{isTransmission ? t("form.labels.authTypeTransmissionDescription") : t("form.labels.authTypeDescription")}</FieldHelp>
+            {isTransmission ? t("preferences.settingsPanel.labels.transmissionAuth") : t("form.labels.authType")}
+            <FieldHelp>{isTransmission ? t("preferences.settingsPanel.labels.transmissionAuthDescription") : t("form.labels.authTypeDescription")}</FieldHelp>
           </Label>
           <select
             id="auth-type"
@@ -412,7 +415,7 @@ export function InstanceForm({ instance, onSuccess, onCancel, formId }: Instance
           </>
         )}
 
-        {authType === "apiKey" && (
+        {!isTransmission && authType === "apiKey" && (
           <form.Field name="apiKey">
             {(field) => (
               <div className="space-y-2">

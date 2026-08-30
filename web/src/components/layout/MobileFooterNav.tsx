@@ -142,6 +142,10 @@ export function MobileFooterNav() {
     }
     return instances.filter(instance => instance.isActive)
   }, [instances])
+  const hasActiveQbittorrent = useMemo(
+    () => activeInstances.some(instance => instance.clientType === "qbittorrent"),
+    [activeInstances]
+  )
   const activeInstanceIds = useMemo(
     () => activeInstances.map(instance => instance.id),
     [activeInstances]
@@ -301,7 +305,9 @@ export function MobileFooterNav() {
                   )}
                   {activeInstances.map((instance) => {
                     const csState = crossSeedInstanceState[instance.id]
-                    const hasRss = csState?.rssEnabled || csState?.rssRunning
+                    const hasRss =
+                      instance.clientType === "qbittorrent" &&
+                      (csState?.rssEnabled || csState?.rssRunning)
                     const hasSearch = csState?.searchRunning
 
                     return (
@@ -469,15 +475,17 @@ export function MobileFooterNav() {
                 {t("nav.instanceBackups")}
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link
-                to="/rss"
-                className="flex items-center gap-2"
-              >
-                <Rss className="h-4 w-4" />
-                {t("nav.rss")}
-              </Link>
-            </DropdownMenuItem>
+            {hasActiveQbittorrent && (
+              <DropdownMenuItem asChild>
+                <Link
+                  to="/rss"
+                  className="flex items-center gap-2"
+                >
+                  <Rss className="h-4 w-4" />
+                  {t("nav.rss")}
+                </Link>
+              </DropdownMenuItem>
+            )}
 
             <DropdownMenuSeparator />
 

@@ -96,7 +96,11 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   const [pendingFileIndices, setPendingFileIndices] = useState<Set<number>>(() => new Set())
   const supportsFilePriority = capabilities?.supportsFilePriority ?? false
   const { data: instances } = useQuery({ queryKey: ["instances"], queryFn: () => api.getInstances(), staleTime: 60000 })
-  const hasLocalFilesystemAccess = instances?.find(i => i.id === instanceId)?.hasLocalFilesystemAccess ?? false
+  const instance = instances?.find(i => i.id === instanceId)
+  const hasLocalFilesystemAccess = instance?.hasLocalFilesystemAccess ?? false
+  // Transmission exposes peer statistics but not qBittorrent's add/ban peer
+  // actions. Unknown instance metadata is treated conservatively.
+  const supportsPeerActions = instance?.clientType === "qbittorrent"
   const [selectedCrossSeedTorrents, setSelectedCrossSeedTorrents] = useState<Set<string>>(() => new Set())
   const [showDeleteCrossSeedDialog, setShowDeleteCrossSeedDialog] = useState(false)
   const [deleteCrossSeedFiles, setDeleteCrossSeedFiles] = useState(false)
@@ -117,6 +121,14 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   useEffect(() => {
     setSelectedCrossSeedTorrents(new Set())
   }, [torrent?.hash])
+
+  useEffect(() => {
+    if (!supportsPeerActions) {
+      setShowAddPeersDialog(false)
+      setShowBanPeerDialog(false)
+      setPeerToBan(null)
+    }
+  }, [supportsPeerActions])
 
   const handleTabChange = useCallback((value: string) => {
     const nextTab = isTabValue(value) ? value : DEFAULT_TAB
@@ -143,7 +155,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
     }
   }, [torrent?.hash])
   // Fetch torrent properties
-  const { data: properties, isLoading: loadingProperties } = useQuery({
+  const { data: properties, isLoading: loadingProperties, error: propertiesError } = useQuery({
     queryKey: ["torrent-properties", instanceId, torrent?.hash],
     queryFn: () => api.getTorrentProperties(instanceId, torrent!.hash),
     enabled: !!torrent && isReady,
@@ -458,7 +470,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   // Add peers mutation
   const addPeersMutation = useMutation({
     mutationFn: async (peers: string[]) => {
-      if (!torrent) throw new Error("No torrent selected")
+      if (!torrent || !supportsPeerActions) throw new Error("Peer actions are not supported")
       await api.addPeersToTorrents(instanceId, [torrent.hash], peers)
     },
     onSuccess: () => {
@@ -475,6 +487,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
   // Ban peer mutation
   const banPeerMutation = useMutation({
     mutationFn: async (peer: string) => {
+      if (!supportsPeerActions) throw new Error("Peer actions are not supported")
       await api.banPeers(instanceId, [peer])
     },
     onSuccess: () => {
@@ -594,25 +607,31 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
 
   // Handle ban peer click
   const handleBanPeerClick = useCallback((peer: TorrentPeer) => {
+    if (!supportsPeerActions) {
+      return
+    }
     setPeerToBan(peer)
     setShowBanPeerDialog(true)
-  }, [])
+  }, [supportsPeerActions])
 
   // Handle ban peer confirmation
   const handleBanPeerConfirm = useCallback(() => {
-    if (peerToBan) {
+    if (peerToBan && supportsPeerActions) {
       const peerAddress = `${peerToBan.ip}:${peerToBan.port}`
       banPeerMutation.mutate(peerAddress)
     }
-  }, [peerToBan, banPeerMutation])
+  }, [banPeerMutation, peerToBan, supportsPeerActions])
 
   // Handle add peers submit
   const handleAddPeersSubmit = useCallback(() => {
+    if (!supportsPeerActions) {
+      return
+    }
     const peers = peersToAdd.split(/[\n,]/).map(p => p.trim()).filter(p => p)
     if (peers.length > 0) {
       addPeersMutation.mutate(peers)
     }
-  }, [peersToAdd, addPeersMutation])
+  }, [addPeersMutation, peersToAdd, supportsPeerActions])
 
   // Handle cross-seed torrent selection
   const handleToggleCrossSeedSelection = useCallback((key: string) => {
@@ -803,6 +822,9 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
 
   const downloadLimitLabel = formatLimitLabel(properties?.dl_limit ?? torrent.dl_limit)
   const uploadLimitLabel = formatLimitLabel(properties?.up_limit ?? torrent.up_limit)
+  const propertiesErrorMessage = propertiesError instanceof Error && propertiesError.message
+    ? propertiesError.message
+    : t("common:status.error")
 
   // Determine layout mode
   const isHorizontal = layout === "horizontal"
@@ -880,6 +902,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                 torrent={displayTorrent!}
                 properties={properties}
                 loading={loadingProperties}
+                error={propertiesError}
                 speedUnit={speedUnit}
                 downloadLimit={properties?.dl_limit ?? displayTorrent!.dl_limit ?? 0}
                 uploadLimit={properties?.up_limit ?? displayTorrent!.up_limit ?? 0}
@@ -899,6 +922,13 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                   {loadingProperties && !properties ? (
                     <div className="flex items-center justify-center p-8">
                       <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : propertiesError ? (
+                    <div className="flex flex-col items-center justify-center h-32 gap-2 text-sm text-destructive">
+                      <span>{t("common:status.error")}</span>
+                      {propertiesErrorMessage !== t("common:status.error") && (
+                        <span className="max-w-full break-all text-center text-xs text-muted-foreground">{propertiesErrorMessage}</span>
+                      )}
                     </div>
                   ) : properties ? (
                     <div className="space-y-6">
@@ -1286,15 +1316,17 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                   <span className="text-muted-foreground">
                     {t("detailsPanel.counts.connectedPeers", { count: peersData?.sorted_peers?.length ?? 0 })}
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 text-xs"
-                    onClick={() => setShowAddPeersDialog(true)}
-                  >
-                    <UserPlus className="h-3 w-3 mr-1.5" />
-                    {t("detailsPanel.addPeers.title")}
-                  </Button>
+                  {supportsPeerActions && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => setShowAddPeersDialog(true)}
+                    >
+                      <UserPlus className="h-3 w-3 mr-1.5" />
+                      {t("detailsPanel.addPeers.title")}
+                    </Button>
+                  )}
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <PeersTable
@@ -1303,7 +1335,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                     speedUnit={speedUnit}
                     showFlags={true}
                     incognitoMode={incognitoMode}
-                    onBanPeer={handleBanPeerClick}
+                    onBanPeer={supportsPeerActions ? handleBanPeerClick : undefined}
                   />
                 </div>
               </div>
@@ -1321,14 +1353,16 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("detailsPanel.sections.connectedPeers")}</h3>
                           <p className="text-xs text-muted-foreground mt-1">{t("detailsPanel.counts.connectedPeers", { count: Object.keys(peersData.peers).length })}</p>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowAddPeersDialog(true)}
-                        >
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          {t("detailsPanel.addPeers.title")}
-                        </Button>
+                        {supportsPeerActions && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddPeersDialog(true)}
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            {t("detailsPanel.addPeers.title")}
+                          </Button>
+                        )}
                       </div>
                       <div className="space-y-4 mt-4">
                         {(peersData.sorted_peers ||
@@ -1479,14 +1513,18 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                                   <Copy className="h-4 w-4 mr-2" />
                                   {t("detailsPanel.actions.copyIpPort")}
                                 </ContextMenuItem>
-                                <ContextMenuSeparator />
-                                <ContextMenuItem
-                                  onClick={() => handleBanPeerClick(peer)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Ban className="h-4 w-4 mr-2" />
-                                  {t("detailsPanel.actions.banPeerPermanently")}
-                                </ContextMenuItem>
+                                {supportsPeerActions && (
+                                  <>
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem
+                                      onClick={() => handleBanPeerClick(peer)}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <Ban className="h-4 w-4 mr-2" />
+                                      {t("detailsPanel.actions.banPeerPermanently")}
+                                    </ContextMenuItem>
+                                  </>
+                                )}
                               </ContextMenuContent>
                             </ContextMenu>
                           )
@@ -1496,14 +1534,16 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
                   ) : (
                     <div className="flex flex-col items-center justify-center h-32 text-sm text-muted-foreground gap-3">
                       <p>{t("peersTable.noPeersConnected")}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowAddPeersDialog(true)}
-                      >
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        {t("detailsPanel.addPeers.title")}
-                      </Button>
+                      {supportsPeerActions && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAddPeersDialog(true)}
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          {t("detailsPanel.addPeers.title")}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1913,7 +1953,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
       </Tabs>
 
       {/* Add Peers Dialog */}
-      <Dialog open={showAddPeersDialog} onOpenChange={setShowAddPeersDialog}>
+      {supportsPeerActions && <Dialog open={showAddPeersDialog} onOpenChange={setShowAddPeersDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("detailsPanel.addPeers.title")}</DialogTitle>
@@ -1946,10 +1986,10 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {/* Ban Peer Confirmation Dialog */}
-      <Dialog open={showBanPeerDialog} onOpenChange={setShowBanPeerDialog}>
+      {supportsPeerActions && <Dialog open={showBanPeerDialog} onOpenChange={setShowBanPeerDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("detailsPanel.banPeerPermanent.title")}</DialogTitle>
@@ -1997,7 +2037,7 @@ export const TorrentDetailsPanel = memo(function TorrentDetailsPanel({ instanceI
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {/* Delete Cross-Seed Torrents Dialog */}
       <Dialog open={showDeleteCrossSeedDialog} onOpenChange={setShowDeleteCrossSeedDialog}>

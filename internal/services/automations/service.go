@@ -2038,8 +2038,9 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 
 	// Initialize evaluation context
 	evalCtx := &EvalContext{
-		InstanceHasLocalAccess: instance.HasLocalFilesystemAccess,
-		ReleaseParser:          s.releaseParser,
+		InstanceHasLocalAccess:    instance.HasLocalFilesystemAccess,
+		DisableTagDefinitionReset: instance.ClientType.Normalize() == models.ClientTypeTransmission,
+		ReleaseParser:             s.releaseParser,
 	}
 
 	// Build category index for EXISTS_IN/CONTAINS_IN operators
@@ -2220,6 +2221,9 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 
 	// Group rules into batches based on sorting config equality
 	s.buildAndExecuteBatches(instanceID, eligibleRules, torrents, evalCtx, skipCheck, ruleStats, states)
+	if instance.ClientType.Normalize() == models.ClientTypeTransmission {
+		sanitizeTransmissionDesiredStates(states)
+	}
 
 	if len(states) == 0 {
 		log.Trace().
@@ -3170,7 +3174,10 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 	}
 
 	// Execute tag actions for expression-based rules
-	tagsToResetInClient := collectManagedTagsForClientReset(eligibleRules)
+	var tagsToResetInClient []string
+	if instance.ClientType.Normalize() != models.ClientTypeTransmission {
+		tagsToResetInClient = collectManagedTagsForClientReset(eligibleRules)
+	}
 	if len(tagsToResetInClient) > 0 && !dryRun {
 		if err := s.syncManager.DeleteTags(ctx, instanceID, tagsToResetInClient); err != nil {
 			log.Warn().
@@ -6128,6 +6135,38 @@ func sortActivityRunItems(items []ActivityRunTorrent) {
 		}
 		return items[i].Hash < items[j].Hash
 	})
+}
+
+// sanitizeTransmissionDesiredStates removes actions that have no Transmission
+// RPC equivalent. This also protects existing rules and direct API callers that
+// can still submit legacy qBittorrent-only action fields.
+func sanitizeTransmissionDesiredStates(states map[string]*torrentDesiredState) {
+	for hash, state := range states {
+		state.seedingMinutes = nil
+		state.shareLimitAction = ""
+		state.shareLimitsMode = ""
+		state.seedingRule = ruleRef{}
+		state.shareActionRule = ruleRef{}
+		state.shareModeRule = ruleRef{}
+
+		state.shouldAutoManage = false
+		state.autoManageValue = false
+		state.autoManageRule = ruleRef{}
+
+		state.category = nil
+		state.categoryGroupID = ""
+		state.categoryRuleID = 0
+		state.categoryIncludeCrossSeeds = false
+		state.categoryRule = ruleRef{}
+
+		state.exportToInstance = nil
+		state.exportToInstanceRuleID = 0
+		state.exportToInstanceRuleName = ""
+
+		if !hasActions(state) {
+			delete(states, hash)
+		}
+	}
 }
 
 func collectManagedTagsForClientReset(rules []*models.Automation) []string {

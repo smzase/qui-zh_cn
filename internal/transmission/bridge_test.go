@@ -28,6 +28,7 @@ type fakeTransmissionDaemon struct {
 	downloadDir string
 	stopped     map[string]bool
 	labelSets   map[string][]string
+	torrentSet  map[string]any
 	calls       []string
 	// dropStringIDs simulates daemon builds that cannot resolve hash-string
 	// ids: torrent-get with ids returns an empty list.
@@ -44,7 +45,7 @@ func newFakeDaemon() *fakeTransmissionDaemon {
 		labelSets:   make(map[string][]string),
 		sessionState: map[string]any{
 			"download-dir": "/data", "incomplete-dir": "/data/tmp", "incomplete-dir-enabled": false,
-			"start-added": true, "rename-partial": false,
+			"start-added-torrents": true, "rename-partial-files": false,
 			"download-queue-enabled": true, "download-queue-size": 5,
 			"speed-limit-up": 100, "speed-limit-up-enabled": true,
 			"speed-limit-down": 0, "speed-limit-down-enabled": false,
@@ -52,7 +53,7 @@ func newFakeDaemon() *fakeTransmissionDaemon {
 			"alt-speed-time-enabled": false, "alt-speed-time-begin": 540,
 			"alt-speed-time-end": 1020, "alt-speed-time-day": 127,
 			"peer-limit-per-torrent": 60, "peer-limit-global": 400,
-			"encryption": 1, "pex-enabled": true, "dht-enabled": true, "lpd-enabled": false,
+			"encryption": "preferred", "pex-enabled": true, "dht-enabled": true, "lpd-enabled": false,
 			"blocklist-enabled": false, "blocklist-url": "", "blocklist-size": 0,
 			"peer-port": 51413, "peer-port-random-on-start": false,
 			"port-forwarding-enabled": true, "utp-enabled": true,
@@ -289,6 +290,7 @@ func (f *fakeTransmissionDaemon) handle(w http.ResponseWriter, r *http.Request) 
 		arguments = map[string]any{}
 	case "torrent-set":
 		f.mu.Lock()
+		f.torrentSet = req.Arguments
 		if raw, ok := req.Arguments["ids"].([]any); ok {
 			if labels, ok := req.Arguments["labels"].([]any); ok {
 				for _, v := range raw {
@@ -370,16 +372,19 @@ func TestBridgeMaindataSync(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "first", first.Name)
 	assert.Equal(t, "downloading", string(first.State))
-	assert.Equal(t, "tv", first.Category)
+	assert.Empty(t, first.Category)
+	assert.Equal(t, "tv", first.Tags)
 	assert.Equal(t, int64(1024), first.DlSpeed)
 
 	second := data.Torrents["bb00000000000000000000000000000000000002"]
 	assert.Equal(t, "uploading", string(second.State))
-	assert.Equal(t, "movies", second.Category)
+	assert.Empty(t, second.Category)
+	assert.Equal(t, int64(100), second.Completed)
 	assert.Equal(t, int64(1700000200), second.CompletionOn)
 
-	assert.Contains(t, data.Categories, "tv")
-	assert.Contains(t, data.Categories, "movies")
+	assert.Empty(t, data.Categories)
+	assert.Contains(t, data.Tags, "tv")
+	assert.Contains(t, data.Tags, "movies")
 	assert.Contains(t, data.Trackers, "tracker.example.com")
 
 	state := data.ServerState
@@ -425,10 +430,27 @@ func TestBridgeTorrentActions(t *testing.T) {
 	assert.True(t, daemon.stopped[strings.ToUpper(hash)] || daemon.stopped[hash])
 	daemon.mu.Unlock()
 
-	// Category assignment maps to labels.
-	require.NoError(t, client.SetCategoryCtx(ctx, []string{hash}, "anime"))
+	// Transmission labels are exposed as qBittorrent tags.
+	require.NoError(t, client.AddTagsCtx(ctx, []string{hash}, "anime"))
+	daemon.mu.Lock()
+	assert.Equal(t, []string{"tv", "anime"}, daemon.labelSets[hash])
+	daemon.mu.Unlock()
+	require.NoError(t, client.RemoveTagsCtx(ctx, []string{hash}, "tv"))
 	daemon.mu.Lock()
 	assert.Equal(t, []string{"anime"}, daemon.labelSets[hash])
+	daemon.mu.Unlock()
+
+	// Both APIs express idle seeding limits in minutes.
+	require.NoError(t, client.SetTorrentShareLimitCtx(ctx, []string{hash}, qbt.ShareLimitOptions{
+		RatioLimit:               2.5,
+		SeedingTimeLimit:         -1,
+		InactiveSeedingTimeLimit: 10080,
+	}))
+	daemon.mu.Lock()
+	assert.InDelta(t, 2.5, daemon.torrentSet["seedRatioLimit"], 1e-9)
+	assert.InDelta(t, 1, daemon.torrentSet["seedRatioMode"], 1e-9)
+	assert.InDelta(t, 10080, daemon.torrentSet["seedIdleLimit"], 1e-9)
+	assert.InDelta(t, 1, daemon.torrentSet["seedIdleMode"], 1e-9)
 	daemon.mu.Unlock()
 
 	// Trackers come back mapped with pseudo entries.
@@ -534,7 +556,7 @@ func TestBridgeTransmissionPreferences(t *testing.T) {
 	require.Contains(t, settings, "peer-port")
 	assert.InDelta(t, 51413, settings["peer-port"], 0.0001)
 	require.Contains(t, settings, "encryption")
-	assert.InDelta(t, 1, settings["encryption"], 0.0001)
+	assert.Equal(t, "preferred", settings["encryption"])
 
 	// Non-allowlisted session fields stay private.
 	_, ok := settings["version"]
@@ -545,7 +567,7 @@ func TestBridgeTransmissionPreferences(t *testing.T) {
 	// Writes round-trip through session-set.
 	require.NoError(t, bridge.SetSession(ctx, map[string]any{
 		"peer-limit-per-torrent": 120,
-		"encryption":             2,
+		"encryption":             "required",
 		"peer-port":              51410,
 		"utp-enabled":            false,
 		"blocklist-enabled":      true,
@@ -555,7 +577,7 @@ func TestBridgeTransmissionPreferences(t *testing.T) {
 	updated, err := bridge.GetSession(ctx)
 	require.NoError(t, err)
 	assert.InDelta(t, 120, updated["peer-limit-per-torrent"], 0.0001)
-	assert.InDelta(t, 2, updated["encryption"], 0.0001)
+	assert.Equal(t, "required", updated["encryption"])
 	assert.InDelta(t, 51410, updated["peer-port"], 0.0001)
 	assert.Equal(t, false, updated["utp-enabled"])
 	assert.Equal(t, true, updated["blocklist-enabled"])
@@ -589,12 +611,13 @@ func TestBridgeCategories(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, client.LoginCtx(ctx))
 
-	require.NoError(t, client.CreateCategoryCtx(ctx, "empty-cat", ""))
-	require.NoError(t, client.RemoveCategoriesCtx(ctx, []string{"empty-cat"}))
+	require.Error(t, client.CreateCategoryCtx(ctx, "empty-cat", ""))
 
 	categories, err := client.GetCategoriesCtx(ctx)
 	require.NoError(t, err)
-	assert.Contains(t, categories, "tv")
-	assert.Contains(t, categories, "movies")
-	assert.NotContains(t, categories, "empty-cat")
+	assert.Empty(t, categories)
+
+	tags, err := client.GetTagsCtx(ctx)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"tv", "movies"}, tags)
 }

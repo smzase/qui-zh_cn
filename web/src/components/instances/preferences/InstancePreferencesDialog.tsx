@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useInstances } from "@/hooks/useInstances"
 import { cn, formatErrorMessage } from "@/lib/utils"
 import type { Instance } from "@/types"
-import { Clock, Cog, Folder, Gauge, MoreVertical, Power, Radar, RefreshCw, Server, Settings, Trash2, Upload, Wifi } from "lucide-react"
+import { Clock, Cog, Folder, Gauge, Globe, HardDrive, MoreVertical, Power, Radar, RefreshCw, Server, Settings, Trash2, Upload, Users, Wifi } from "lucide-react"
 import { Component, lazy, Suspense, useCallback, useMemo, useState, type ErrorInfo, type ReactNode } from "react"
 
 import { useTranslation } from "react-i18next"
@@ -110,12 +110,17 @@ interface PreferencesTabSectionProps {
   value: string
   title: string
   description: string
+  forceMount?: true
   children: ReactNode
 }
 
-function PreferencesTabSection({ value, title, description, children }: PreferencesTabSectionProps) {
+function PreferencesTabSection({ value, title, description, forceMount, children }: PreferencesTabSectionProps) {
   return (
-    <TabsContent value={value} className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+    <TabsContent
+      value={value}
+      forceMount={forceMount}
+      className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
+    >
       <div className="space-y-1 mb-6 shrink-0">
         <h3 className="text-lg font-medium">{title}</h3>
         <p className="text-sm text-muted-foreground">
@@ -237,6 +242,19 @@ export function InstancePreferencesDialog({
 
   const isStatusUpdating = currentInstance && isUpdatingStatus && updatingStatusId === currentInstance.id
 
+  const transmissionTabValues = new Set([
+    "transmission-torrents",
+    "transmission-speed",
+    "transmission-peers",
+    "transmission-network",
+  ])
+  const requestedDefaultTab = defaultTab === "transmission" ? "transmission-torrents" : defaultTab
+  const initialTab = isTransmission
+    ? (requestedDefaultTab === "instance" || !requestedDefaultTab
+      ? "instance"
+      : transmissionTabValues.has(requestedDefaultTab) ? requestedDefaultTab : "instance")
+    : requestedDefaultTab ?? "instance"
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -284,7 +302,7 @@ export function InstancePreferencesDialog({
           </DialogHeader>
 
           <Tabs
-            defaultValue={isTransmission && defaultTab !== "instance" ? "instance" : defaultTab ?? "instance"}
+            defaultValue={initialTab}
             className="flex w-full min-h-0 flex-1 flex-col"
           >
             <div className="relative shrink-0">
@@ -296,9 +314,21 @@ export function InstancePreferencesDialog({
                 {isTransmission ? (
                   <>
                     <div className="h-6 w-px bg-muted-foreground/50 mx-1 sm:mx-2 self-center shrink-0" />
-                    <TabsTrigger value="transmission" className="flex items-center gap-1.5 shrink-0">
-                      <Settings className="h-4 w-4" />
-                      <span className="text-xs sm:text-sm">{t("preferences.dialog.tabs.transmission")}</span>
+                    <TabsTrigger value="transmission-torrents" className="flex items-center gap-1.5 shrink-0">
+                      <HardDrive className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.transmission.torrents.title")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="transmission-speed" className="flex items-center gap-1.5 shrink-0">
+                      <Gauge className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.transmission.speed.title")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="transmission-peers" className="flex items-center gap-1.5 shrink-0">
+                      <Users className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.transmission.peers.title")}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="transmission-network" className="flex items-center gap-1.5 shrink-0">
+                      <Globe className="h-4 w-4" />
+                      <span className="text-xs sm:text-sm">{t("preferences.transmission.network.title")}</span>
                     </TabsTrigger>
                   </>
                 ) : (
@@ -352,17 +382,56 @@ export function InstancePreferencesDialog({
             </PreferencesTabSection>
 
             {isTransmission ? (
-              <PreferencesTabSection
-                value="transmission"
-                title={t("preferences.dialog.sections.transmission.title")}
-                description={t("preferences.dialog.sections.transmission.description")}
-              >
-                <TabErrorBoundary onRetry={handleLazyRetry}>
-                  <Suspense fallback={<TabLoadingFallback />}>
-                    <TransmissionPreferencesForm instanceId={instanceId} onSuccess={handleSuccess} />
-                  </Suspense>
-                </TabErrorBoundary>
-              </PreferencesTabSection>
+              <>
+                <PreferencesTabSection
+                  value="transmission-torrents"
+                  title={t("preferences.transmission.torrents.title")}
+                  description={t("preferences.dialog.sections.transmission.description")}
+                  forceMount
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <TransmissionPreferencesForm instanceId={instanceId} section="torrents" onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="transmission-speed"
+                  title={t("preferences.transmission.speed.title")}
+                  description={t("preferences.dialog.sections.transmission.description")}
+                  forceMount
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <TransmissionPreferencesForm instanceId={instanceId} section="speed" onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="transmission-peers"
+                  title={t("preferences.transmission.peers.title")}
+                  description={t("preferences.dialog.sections.transmission.description")}
+                  forceMount
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <TransmissionPreferencesForm instanceId={instanceId} section="peers" onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
+                <PreferencesTabSection
+                  value="transmission-network"
+                  title={t("preferences.transmission.network.title")}
+                  description={t("preferences.dialog.sections.transmission.description")}
+                  forceMount
+                >
+                  <TabErrorBoundary onRetry={handleLazyRetry}>
+                    <Suspense fallback={<TabLoadingFallback />}>
+                      <TransmissionPreferencesForm instanceId={instanceId} section="network" onSuccess={handleSuccess} />
+                    </Suspense>
+                  </TabErrorBoundary>
+                </PreferencesTabSection>
+              </>
             ) : (
               <>
                 <PreferencesTabSection

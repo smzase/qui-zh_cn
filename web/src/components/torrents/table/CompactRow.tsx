@@ -30,6 +30,7 @@ interface CompactRowProps {
   onCheckboxPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void
   onCheckboxChange: (torrent: Torrent, rowId: string, checked: boolean) => void
   incognitoMode: boolean
+  showCategory: boolean
   speedUnit: "bytes" | "bits"
   supportsTrackerHealth: boolean
   trackerIcons?: Record<string, string>
@@ -52,6 +53,7 @@ export function CompactRow({
   onCheckboxPointerDown,
   onCheckboxChange,
   incognitoMode,
+  showCategory,
   speedUnit,
   supportsTrackerHealth,
   trackerIcons,
@@ -60,7 +62,9 @@ export function CompactRow({
 }: CompactRowProps) {
   const { t } = useTranslation("torrents")
   const displayName = incognitoMode ? getLinuxIsoName(torrent.hash) : torrent.name
-  const displayCategory = incognitoMode ? getLinuxCategory(torrent.hash) : torrent.category
+  const displayCategory = showCategory
+    ? (incognitoMode ? getLinuxCategory(torrent.hash) : torrent.category)
+    : ""
   const displayTags = incognitoMode ? getLinuxTags(torrent.hash) : torrent.tags
   const displayRatio = incognitoMode ? getLinuxRatio(torrent.hash) : torrent.ratio
 

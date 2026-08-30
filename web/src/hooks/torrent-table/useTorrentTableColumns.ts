@@ -34,6 +34,9 @@ export interface UseTorrentTableColumnsParams {
   desktopViewMode: string
   trackerCustomizationLookup?: TrackerCustomizationLookup
   isReadOnly: boolean
+  /** Columns whose values are not meaningful for the selected client. */
+  hiddenColumnIds?: ReadonlySet<string>
+  shouldShowCategory?: (torrent: Torrent) => boolean
   t: TFunction
   // Data (for the duplicate-identity counts that feed the table's getRowId)
   sortedTorrents: Torrent[]
@@ -71,12 +74,14 @@ export function useTorrentTableColumns({
   desktopViewMode,
   trackerCustomizationLookup,
   isReadOnly,
+  hiddenColumnIds,
+  shouldShowCategory,
   t,
   sortedTorrents,
 }: UseTorrentTableColumnsParams): TorrentTableColumns {
   // Memoize columns to avoid unnecessary recalculations
-  const columns = useMemo(
-    () => createColumns(incognitoMode, {
+  const columns = useMemo(() => {
+    const allColumns = createColumns(incognitoMode, {
       shiftPressedRef,
       lastSelectedIndexRef,
       // Pass custom selection handlers
@@ -89,9 +94,23 @@ export function useTorrentTableColumns({
       getSelectionIdentity,
       isAllSelected,
       excludedFromSelectAll,
-    }, speedUnit, trackerIcons, (timestamp: number) => formatTimestamp(timestamp, true), preferences, supportsTrackerHealth, isUnifiedView && isCrossInstanceEndpoint, desktopViewMode as TableViewMode, trackerCustomizationLookup, !isReadOnly, t),
-    // shiftPressedRef/lastSelectedIndexRef are stable refs (passed in); listed to satisfy exhaustive-deps.
-    [shiftPressedRef, lastSelectedIndexRef, incognitoMode, speedUnit, trackerIcons, formatTimestamp, handleSelectAll, isSelectAllChecked, isSelectAllIndeterminate, handleRowSelection, getSelectionIdentity, isAllSelected, excludedFromSelectAll, preferences, supportsTrackerHealth, isUnifiedView, isCrossInstanceEndpoint, desktopViewMode, trackerCustomizationLookup, isReadOnly, t]
+    }, speedUnit, trackerIcons, (timestamp: number) => formatTimestamp(timestamp, true), preferences, supportsTrackerHealth, isUnifiedView && isCrossInstanceEndpoint, desktopViewMode as TableViewMode, trackerCustomizationLookup, !isReadOnly, t, shouldShowCategory)
+
+    if (!hiddenColumnIds || hiddenColumnIds.size === 0) {
+      return allColumns
+    }
+
+    return allColumns.filter(column => {
+      const columnId = column.id ?? (
+        "accessorKey" in column && typeof column.accessorKey === "string"
+          ? column.accessorKey
+          : undefined
+      )
+      return !columnId || !hiddenColumnIds.has(columnId)
+    })
+  },
+  // shiftPressedRef/lastSelectedIndexRef are stable refs (passed in); listed to satisfy exhaustive-deps.
+  [shiftPressedRef, lastSelectedIndexRef, incognitoMode, speedUnit, trackerIcons, formatTimestamp, handleSelectAll, isSelectAllChecked, isSelectAllIndeterminate, handleRowSelection, getSelectionIdentity, isAllSelected, excludedFromSelectAll, preferences, supportsTrackerHealth, isUnifiedView, isCrossInstanceEndpoint, desktopViewMode, trackerCustomizationLookup, isReadOnly, hiddenColumnIds, shouldShowCategory, t]
   )
 
   const torrentIdentityCounts = useMemo(() => {

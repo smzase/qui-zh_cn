@@ -60,12 +60,15 @@ function settingsToForm(settings: InstanceCrossSeedCompletionSettings | undefine
   }
 }
 
-function formToSettings(form: CompletionFormState): Omit<InstanceCrossSeedCompletionSettings, "instanceId"> {
+function formToSettings(
+  form: CompletionFormState,
+  supportsCategories: boolean
+): Omit<InstanceCrossSeedCompletionSettings, "instanceId"> {
   return {
     enabled: form.enabled,
-    categories: form.categories,
+    categories: supportsCategories ? form.categories : [],
     tags: form.tags,
-    excludeCategories: form.excludeCategories,
+    excludeCategories: supportsCategories ? form.excludeCategories : [],
     excludeTags: form.excludeTags,
     indexerIds: form.indexerIds,
     bypassTorznabCache: form.bypassTorznabCache,
@@ -128,6 +131,10 @@ export function CompletionOverview() {
     queries: activeInstances.map((instance) => ({
       queryKey: ["instance-metadata", instance.id],
       queryFn: async () => {
+        if (instance.clientType === "transmission") {
+          const tags = await api.getTags(instance.id)
+          return { categories: {}, tags }
+        }
         const [categories, tags] = await Promise.all([
           api.getCategories(instance.id),
           api.getTags(instance.id),
@@ -174,7 +181,7 @@ export function CompletionOverview() {
     const currentForm = formMap[instance.id] ?? settingsToForm(query?.data)
     updateMutation.mutate({
       instanceId: instance.id,
-      settings: formToSettings({ ...currentForm, enabled }),
+      settings: formToSettings({ ...currentForm, enabled }, instance.clientType === "qbittorrent"),
     })
   }
 
@@ -208,7 +215,7 @@ export function CompletionOverview() {
     const form = formMap[instance.id] ?? settingsToForm(query?.data)
     updateMutation.mutate({
       instanceId: instance.id,
-      settings: formToSettings(form),
+      settings: formToSettings(form, instance.clientType === "qbittorrent"),
     })
   }
 
@@ -414,7 +421,7 @@ export function CompletionOverview() {
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="rounded-md border border-border/50 bg-muted/30 p-3 space-y-3">
                             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("preferences.completionOverview.includeFilters")}</p>
-                            <div className="space-y-2">
+                            {instance.clientType === "qbittorrent" && <div className="space-y-2">
                               <Label className="text-xs">{t("preferences.completionOverview.categories")}</Label>
                               <MultiSelect
                                 options={categoryOptions}
@@ -427,7 +434,7 @@ export function CompletionOverview() {
                               <p className="text-xs text-muted-foreground">
                                 {form.categories.length === 0? t("preferences.completionOverview.allCategoriesIncluded"): t("preferences.completionOverview.selectedCategories", { count: form.categories.length })}
                               </p>
-                            </div>
+                            </div>}
                             <div className="space-y-2">
                               <Label className="text-xs">{t("preferences.completionOverview.tags")}</Label>
                               <MultiSelect
@@ -459,7 +466,7 @@ export function CompletionOverview() {
 
                           <div className="rounded-md border border-border/50 bg-muted/30 p-3 space-y-3">
                             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("preferences.completionOverview.excludeFilters")}</p>
-                            <div className="space-y-2">
+                            {instance.clientType === "qbittorrent" && <div className="space-y-2">
                               <Label className="text-xs">{t("preferences.completionOverview.categories")}</Label>
                               <MultiSelect
                                 options={categoryOptions}
@@ -470,7 +477,7 @@ export function CompletionOverview() {
                                 disabled={isSaving}
                               />
                               <p className="text-xs text-muted-foreground">{t("preferences.completionOverview.skipCategoriesDescription")}</p>
-                            </div>
+                            </div>}
                             <div className="space-y-2">
                               <Label className="text-xs">{t("preferences.completionOverview.tags")}</Label>
                               <MultiSelect

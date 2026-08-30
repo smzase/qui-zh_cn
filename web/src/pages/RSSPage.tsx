@@ -131,17 +131,26 @@ export function RSSPage({
 }: RSSPageProps) {
   const { t } = useTranslation("rss")
   const { instances } = useInstances()
+  const rssInstances = useMemo(
+    () => instances?.filter(instance => instance.clientType === "qbittorrent"),
+    [instances]
+  )
   const [selectedInstanceId, setSelectedInstanceId] = usePersistedInstanceSelection("rss")
 
   // Auto-select/validate instance selection
   useEffect(() => {
-    const next = resolveInstanceSelection(instances, selectedInstanceId)
+    const next = resolveInstanceSelection(rssInstances, selectedInstanceId)
     if (next !== selectedInstanceId) {
       setSelectedInstanceId(next)
     }
-  }, [selectedInstanceId, setSelectedInstanceId, instances])
+  }, [selectedInstanceId, setSelectedInstanceId, rssInstances])
 
-  const instanceId = selectedInstanceId ?? 0
+  // RSS is implemented by qBittorrent only. Keep a stale Transmission
+  // selection from issuing requests while the persisted picker state catches
+  // up with the filtered instance list.
+  const instanceId = rssInstances?.some(instance => instance.id === selectedInstanceId)
+    ? selectedInstanceId ?? 0
+    : 0
 
   const handleInstanceSelection = (value: string) => {
     if (value === "") {
@@ -156,7 +165,7 @@ export function RSSPage({
     setSelectedInstanceId(parsed)
   }
 
-  const hasInstances = (instances?.length ?? 0) > 0
+  const hasInstances = (rssInstances?.length ?? 0) > 0
 
   // Queries
   const {
@@ -222,7 +231,7 @@ export function RSSPage({
         </div>
       </SelectTrigger>
       <SelectContent>
-        {instances?.map((inst) => (
+        {rssInstances?.map((inst) => (
           <SelectItem key={inst.id} value={inst.id.toString()}>
             <div className="flex items-center max-w-40 gap-2">
               <span className="truncate">{inst.name}</span>

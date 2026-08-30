@@ -252,7 +252,9 @@
         "username": "사용자 이름",
         "password": "비밀번호",
         "qbittorrentAuth": "qBittorrent 인증",
-        "qbittorrentAuthDescription": "qui가 qBittorrent에 인증하는 방식을 선택하세요."
+        "qbittorrentAuthDescription": "qui가 qBittorrent에 인증하는 방식을 선택하세요.",
+        "transmissionAuth": "Transmission 인증",
+        "transmissionAuthDescription": "qui가 Transmission 데몬에 인증하는 방식을 선택하세요."
       },
       "placeholders": {
         "instanceName": "예: 메인 서버",

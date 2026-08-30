@@ -77,15 +77,19 @@ type qbitTorrent struct {
 // seedRatioLimit modes: 0 = use global limit, 1 = use torrent limit, 2 = unlimited.
 func qbitTorrentFrom(t *torrent) qbitTorrent {
 	hash := strings.ToLower(t.HashString)
-
-	category, tags := splitLabels(t.Labels)
+	labels := normalizeLabels(t.Labels)
+	completed := t.SizeWhenDone - t.LeftUntilDone
+	if completed < 0 {
+		completed = 0
+	}
 
 	qt := qbitTorrent{
 		AddedOn:      t.AddedDate,
 		AmountLeft:   t.LeftUntilDone,
 		Availability: -1,
-		Category:     category,
+		Category:     "",
 		Comment:      t.Comment,
+		Completed:    completed,
 		CreatedBy:    t.Creator,
 		ContentPath:  joinPath(t.DownloadDir, t.Name),
 		DlLimit:      limitBytes(t.DownloadLimited, t.DownloadLimit),
@@ -109,7 +113,7 @@ func qbitTorrentFrom(t *torrent) qbitTorrent {
 		SeenComplete: t.DoneDate,
 		Size:         t.TotalSize,
 		State:        mapState(t),
-		Tags:         strings.Join(tags, ", "),
+		Tags:         strings.Join(labels, ", "),
 		TimeActive:   t.SecondsDownloading + t.SecondsSeeding,
 		TotalSize:    t.SizeWhenDone,
 		UpLimit:      limitBytes(t.UploadLimited, t.UploadLimit),
@@ -119,11 +123,9 @@ func qbitTorrentFrom(t *torrent) qbitTorrent {
 
 	if t.DoneDate > 0 {
 		qt.CompletionOn = t.DoneDate
-		qt.Completed = t.DoneDate
 		qt.SeenComplete = t.DoneDate
 	} else {
 		qt.CompletionOn = 0
-		qt.Completed = 0
 		qt.SeenComplete = 0
 	}
 
@@ -186,19 +188,23 @@ func qbitTorrentFrom(t *torrent) qbitTorrent {
 	return qt
 }
 
-// splitLabels maps Transmission labels onto qBittorrent's category + tags:
-// the first label becomes the category, the remaining ones become tags.
-func splitLabels(labels []string) (category string, tags []string) {
-	var nonEmpty []string
-	for _, l := range labels {
-		if l != "" {
-			nonEmpty = append(nonEmpty, l)
+// normalizeLabels removes empty and duplicate Transmission labels while
+// preserving their daemon order for qBittorrent's comma-separated tag field.
+func normalizeLabels(labels []string) []string {
+	normalized := make([]string, 0, len(labels))
+	seen := make(map[string]struct{}, len(labels))
+	for _, label := range labels {
+		label = strings.TrimSpace(label)
+		if label == "" {
+			continue
 		}
+		if _, ok := seen[label]; ok {
+			continue
+		}
+		seen[label] = struct{}{}
+		normalized = append(normalized, label)
 	}
-	if len(nonEmpty) == 0 {
-		return "", nil
-	}
-	return nonEmpty[0], nonEmpty[1:]
+	return normalized
 }
 
 // limitBytes converts a Transmission KB/s limit to the qBittorrent bytes/s

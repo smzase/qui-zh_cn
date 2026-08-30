@@ -279,7 +279,10 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   }
 
   // Check if create torrent modal should be open
-  const isCreateTorrentModalOpen = !isAllInstances && search?.modal === "create-torrent"
+  const isCreateTorrentModalOpen =
+    !isAllInstances &&
+    instance?.clientType === "qbittorrent" &&
+    search?.modal === "create-torrent"
 
   const handleCreateTorrentModalChange = (open: boolean) => {
     if (open) {
@@ -770,7 +773,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
       )}
 
       {/* Torrent Creator Dialog */}
-      {!isAllInstances && (
+      {!isAllInstances && instance?.clientType === "qbittorrent" && (
         <TorrentCreatorDialog
           instanceId={instanceId}
           open={isCreateTorrentModalOpen}

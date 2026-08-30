@@ -121,6 +121,7 @@ type ActionType = "speedLimits" | "shareLimits" | "pause" | "resume" | "recheck"
 
 // Actions that can be combined (Delete must be standalone)
 const COMBINABLE_ACTIONS: ActionType[] = ["speedLimits", "shareLimits", "pause", "resume", "recheck", "reannounce", "autoManagement", "tag", "category", "move", "externalProgram", "exportToInstance"]
+const QBITTORRENT_ONLY_ACTIONS = new Set<ActionType>(["autoManagement", "category", "exportToInstance"])
 
 const ACTION_LABEL_KEYS: Record<ActionType, string> = {
   speedLimits: "preferences.workflowDialog.actions.speedLimits",
@@ -234,10 +235,16 @@ function formatDryRunEventSummary(
   }
 }
 
-function getDisabledFields(capabilities: Capabilities): DisabledField[] {
-  return Object.entries(FIELD_REQUIREMENTS)
+function getDisabledFields(capabilities: Capabilities, supportsCategories: boolean): DisabledField[] {
+  const disabledFields: DisabledField[] = Object.entries(FIELD_REQUIREMENTS)
     .filter(([, capability]) => !capabilities[capability as keyof Capabilities])
     .map(([field, capability]) => ({ field, reason: CAPABILITY_REASONS[capability] }))
+
+  if (!supportsCategories) {
+    disabledFields.push({ field: "CATEGORY", reason: "Requires qBittorrent" })
+  }
+
+  return disabledFields
 }
 
 function getDisabledStateValues(capabilities: Capabilities): DisabledStateValue[] {
@@ -718,6 +725,9 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
   const { data: targetMetadata, isLoading: targetMetadataLoading } = useInstanceMetadata(formState.exprExportTargetInstanceId ?? 0)
   const { data: capabilities } = useInstanceCapabilities(instanceId, { enabled: open })
   const { instances, isLoading: instancesLoading, error: instancesError } = useInstances()
+  const sourceInstance = instances?.find(instance => instance.id === instanceId)
+  // Treat missing instance metadata conservatively while the instance list loads.
+  const supportsQbittorrentOnlyActions = sourceInstance?.clientType === "qbittorrent"
   const {
     data: allExternalPrograms,
     isError: externalProgramsError,
@@ -745,8 +755,8 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
   const supportsFreeSpacePathSource = capabilities?.supportsFreeSpacePathSource ?? false
   const supportsPathAutocomplete = capabilities?.supportsPathAutocomplete ?? false
   const hasLocalFilesystemAccess = useMemo(
-    () => instances?.find(i => i.id === instanceId)?.hasLocalFilesystemAccess ?? false,
-    [instances, instanceId]
+    () => sourceInstance?.hasLocalFilesystemAccess ?? false,
+    [sourceInstance]
   )
 
   const fieldCapabilities = useMemo<Capabilities>(
@@ -1064,14 +1074,14 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
             ?? conditions.resume?.condition
             ?? conditions.recheck?.condition
             ?? conditions.reannounce?.condition
-            ?? conditions.autoManagement?.condition
             ?? conditions.delete?.condition
             ?? conditions.tags?.[0]?.condition
             ?? conditions.tag?.condition
-            ?? conditions.category?.condition
             ?? conditions.move?.condition
             ?? conditions.externalProgram?.condition
-            ?? conditions.exportToInstance?.condition
+            ?? (supportsQbittorrentOnlyActions ? conditions.autoManagement?.condition : undefined)
+            ?? (supportsQbittorrentOnlyActions ? conditions.category?.condition : undefined)
+            ?? (supportsQbittorrentOnlyActions ? conditions.exportToInstance?.condition : undefined)
             ?? null
 
           if (conditions.speedLimits?.enabled) {
@@ -1092,14 +1102,16 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
             exprRatioLimitMode = ratio.mode
             exprRatioLimitValue = ratio.value
 
-            const seedTime = hydrateShareLimit(conditions.shareLimits.seedingTimeMinutes)
-            exprSeedingTimeMode = seedTime.mode
-            exprSeedingTimeValue = seedTime.value
+            if (supportsQbittorrentOnlyActions) {
+              const seedTime = hydrateShareLimit(conditions.shareLimits.seedingTimeMinutes)
+              exprSeedingTimeMode = seedTime.mode
+              exprSeedingTimeValue = seedTime.value
 
-            const rawAction = conditions.shareLimits.shareLimitAction
-            exprShareLimitAction = rawAction !== undefined && rawAction !== "" ? rawAction : "default"
-            const rawMode = conditions.shareLimits.shareLimitsMode
-            exprShareLimitsMode = rawMode !== undefined && rawMode !== "" ? rawMode : "default"
+              const rawAction = conditions.shareLimits.shareLimitAction
+              exprShareLimitAction = rawAction !== undefined && rawAction !== "" ? rawAction : "default"
+              const rawMode = conditions.shareLimits.shareLimitsMode
+              exprShareLimitsMode = rawMode !== undefined && rawMode !== "" ? rawMode : "default"
+            }
           }
           if (conditions.pause?.enabled) {
             pauseEnabled = true
@@ -1113,7 +1125,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
           if (conditions.reannounce?.enabled) {
             reannounceEnabled = true
           }
-          if (conditions.autoManagement != null) {
+          if (supportsQbittorrentOnlyActions && conditions.autoManagement != null) {
             autoManagementEnabled = true
           }
           if (conditions.delete?.enabled) {
@@ -1130,12 +1142,12 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
             exprTagActions = resolvedTagActions.map((action) => ({
               tags: action.tags ?? [],
               mode: action.mode ?? "full",
-              deleteFromClient: action.deleteFromClient ?? false,
+              deleteFromClient: supportsQbittorrentOnlyActions && (action.deleteFromClient ?? false),
               useTrackerAsTag: action.useTrackerAsTag ?? false,
               useDisplayName: action.useDisplayName ?? false,
             }))
           }
-          if (conditions.category?.enabled) {
+          if (supportsQbittorrentOnlyActions && conditions.category?.enabled) {
             categoryEnabled = true
             exprCategory = conditions.category.category ?? ""
             exprIncludeCrossSeeds = conditions.category.includeCrossSeeds ?? false
@@ -1153,7 +1165,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
             externalProgramEnabled = true
             exprExternalProgramId = conditions.externalProgram.programId ?? null
           }
-          if (conditions.exportToInstance?.enabled) {
+          if (supportsQbittorrentOnlyActions && conditions.exportToInstance?.enabled) {
             exportToInstanceEnabled = true
             exprExportTargetInstanceId = conditions.exportToInstance.targetInstanceId ?? null
             exprExportSavePath = conditions.exportToInstance.savePath ?? ""
@@ -1248,7 +1260,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
     }
 
     return () => { cancelled = true }
-  }, [open, rule, mapDomainsToOptionValues])
+  }, [open, rule, mapDomainsToOptionValues, supportsQbittorrentOnlyActions])
 
   useEffect(() => {
     if (!open) {
@@ -1404,12 +1416,14 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
       // "no_change" leaves ratioLimit as undefined
 
       let seedingTimeMinutes: number | undefined
-      if (input.exprSeedingTimeMode === "global") {
-        seedingTimeMinutes = -2
-      } else if (input.exprSeedingTimeMode === "unlimited") {
-        seedingTimeMinutes = -1
-      } else if (input.exprSeedingTimeMode === "custom" && input.exprSeedingTimeValue !== undefined) {
-        seedingTimeMinutes = input.exprSeedingTimeValue
+      if (supportsQbittorrentOnlyActions) {
+        if (input.exprSeedingTimeMode === "global") {
+          seedingTimeMinutes = -2
+        } else if (input.exprSeedingTimeMode === "unlimited") {
+          seedingTimeMinutes = -1
+        } else if (input.exprSeedingTimeMode === "custom" && input.exprSeedingTimeValue !== undefined) {
+          seedingTimeMinutes = input.exprSeedingTimeValue
+        }
       }
       // "no_change" leaves seedingTimeMinutes as undefined
 
@@ -1417,8 +1431,8 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
         enabled: true,
         ratioLimit,
         seedingTimeMinutes,
-        shareLimitAction: input.exprShareLimitAction !== "default" ? input.exprShareLimitAction : undefined,
-        shareLimitsMode: input.exprShareLimitsMode !== "default" ? input.exprShareLimitsMode : undefined,
+        shareLimitAction: supportsQbittorrentOnlyActions && input.exprShareLimitAction !== "default" ? input.exprShareLimitAction : undefined,
+        shareLimitsMode: supportsQbittorrentOnlyActions && input.exprShareLimitsMode !== "default" ? input.exprShareLimitsMode : undefined,
         condition: input.actionCondition ?? undefined,
       }
     }
@@ -1446,7 +1460,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
         condition: input.actionCondition ?? undefined,
       }
     }
-    if (input.autoManagementEnabled) {
+    if (supportsQbittorrentOnlyActions && input.autoManagementEnabled) {
       conditions.autoManagement = {
         enabled: input.autoManageMode === "enable",
         condition: input.actionCondition ?? undefined,
@@ -1470,7 +1484,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
           enabled: true,
           tags: action.tags,
           mode: action.mode,
-          deleteFromClient: action.deleteFromClient,
+          deleteFromClient: supportsQbittorrentOnlyActions && action.deleteFromClient,
           useTrackerAsTag: action.useTrackerAsTag,
           useDisplayName: action.useDisplayName,
           condition: input.actionCondition ?? undefined,
@@ -1482,7 +1496,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
         conditions.tag = tagActions[0]
       }
     }
-    if (input.categoryEnabled) {
+    if (supportsQbittorrentOnlyActions && input.categoryEnabled) {
       conditions.category = {
         enabled: true,
         category: input.exprCategory,
@@ -1510,7 +1524,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
         condition: input.actionCondition ?? undefined,
       }
     }
-    if (input.exportToInstanceEnabled) {
+    if (supportsQbittorrentOnlyActions && input.exportToInstanceEnabled) {
       if (!input.exprExportTargetInstanceId) {
         throw new Error("Export to instance requires a target instance")
       }
@@ -1608,11 +1622,11 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
       freeSpaceSource,
       sortingConfig,
     }
-  }, [])
+  }, [supportsQbittorrentOnlyActions])
 
   // Check if current form state represents a delete or category rule (both need previews)
   const isDeleteRule = formState.deleteEnabled
-  const isCategoryRule = formState.categoryEnabled
+  const isCategoryRule = supportsQbittorrentOnlyActions && formState.categoryEnabled
 
   // Check if condition uses FREE_SPACE field (for free space source UI - shown regardless of action)
   const conditionUsesFreeSpace = useMemo(() => {
@@ -1643,13 +1657,13 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
     formState.resumeEnabled,
     formState.recheckEnabled,
     formState.reannounceEnabled,
-    formState.autoManagementEnabled,
+    supportsQbittorrentOnlyActions && formState.autoManagementEnabled,
     formState.deleteEnabled,
     formState.tagEnabled,
-    formState.categoryEnabled,
+    supportsQbittorrentOnlyActions && formState.categoryEnabled,
     formState.moveEnabled,
     formState.externalProgramEnabled,
-    formState.exportToInstanceEnabled,
+    supportsQbittorrentOnlyActions && formState.exportToInstanceEnabled,
   ].filter(Boolean).length
 
   const latestDryRunOperationCount = useMemo(
@@ -1881,6 +1895,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
   }
 
   const validateExportTarget = useCallback((state: FormState): boolean => {
+    if (!supportsQbittorrentOnlyActions) return true
     if (!state.exportToInstanceEnabled) return true
     if (!state.exprExportTargetInstanceId) {
       toast.error(t("preferences.workflowDialog.toast.selectTargetInstance"))
@@ -1894,7 +1909,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
       return false
     }
     return true
-  }, [nonSelfInstances, t])
+  }, [nonSelfInstances, supportsQbittorrentOnlyActions, t])
 
   const applyEnabledChange = useCallback((checked: boolean, options?: { forceDryRun?: boolean }) => {
     if (checked && isDeleteRule && !formState.actionCondition) {
@@ -2115,7 +2130,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
       // At least one of the limits must be set to something other than "no_change"
       const ratioIsSet = submitState.exprRatioLimitMode !== "no_change" &&
         (submitState.exprRatioLimitMode !== "custom" || submitState.exprRatioLimitValue !== undefined)
-      const seedingTimeIsSet = submitState.exprSeedingTimeMode !== "no_change" &&
+      const seedingTimeIsSet = supportsQbittorrentOnlyActions && submitState.exprSeedingTimeMode !== "no_change" &&
         (submitState.exprSeedingTimeMode !== "custom" || submitState.exprSeedingTimeValue !== undefined)
       if (!ratioIsSet && !seedingTimeIsSet) {
         toast.error(t("preferences.workflowDialog.toast.setShareLimit"))
@@ -2129,7 +2144,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
         return
       }
     }
-    if (submitState.categoryEnabled) {
+    if (supportsQbittorrentOnlyActions && submitState.categoryEnabled) {
       if (!submitState.exprCategory) {
         toast.error(t("preferences.workflowDialog.toast.selectCategory"))
         return
@@ -2450,7 +2465,8 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                                 }
                               }}
                               categoryOptions={categoryOptions}
-                              disabledFields={getDisabledFields(fieldCapabilities)}
+                              allowCategoryOperators={supportsQbittorrentOnlyActions}
+                              disabledFields={getDisabledFields(fieldCapabilities, supportsQbittorrentOnlyActions)}
                               disabledStateValues={getDisabledStateValues(fieldCapabilities)}
                             />
                             <div className="flex items-center gap-2">
@@ -2532,7 +2548,8 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                     }}
                     allowEmpty
                     categoryOptions={categoryOptions}
-                    disabledFields={getDisabledFields(fieldCapabilities)}
+                    allowCategoryOperators={supportsQbittorrentOnlyActions}
+                    disabledFields={getDisabledFields(fieldCapabilities, supportsQbittorrentOnlyActions)}
                     disabledStateValues={getDisabledStateValues(fieldCapabilities)}
                     groupOptions={groupedConditionOptions}
                   />
@@ -2691,7 +2708,10 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                     {/* Add action dropdown - only show if Delete is not enabled, at least one action exists, and there are available actions to add */}
                     {!formState.deleteEnabled && enabledActionsCount > 0 && (() => {
                       const enabledActions = getEnabledActions(formState)
-                      const availableActions = COMBINABLE_ACTIONS.filter(a => !enabledActions.includes(a))
+                      const availableActions = COMBINABLE_ACTIONS.filter(action =>
+                        !enabledActions.includes(action) &&
+                        (supportsQbittorrentOnlyActions || !QBITTORRENT_ONLY_ACTIONS.has(action))
+                      )
                       if (availableActions.length === 0) return null
                       return (
                         <Select
@@ -2767,11 +2787,17 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                         <SelectItem value="recheck">{t("preferences.workflowDialog.actions.recheck")}</SelectItem>
                         <SelectItem value="reannounce">{t("preferences.workflowDialog.actions.reannounce")}</SelectItem>
                         <SelectItem value="tag">{t("preferences.workflowDialog.actions.tag")}</SelectItem>
-                        <SelectItem value="category">{t("preferences.workflowDialog.actions.category")}</SelectItem>
+                        {supportsQbittorrentOnlyActions && (
+                          <SelectItem value="category">{t("preferences.workflowDialog.actions.category")}</SelectItem>
+                        )}
                         <SelectItem value="move">{t("preferences.workflowDialog.actions.move")}</SelectItem>
                         <SelectItem value="externalProgram">{t("preferences.workflowDialog.actions.externalProgram")}</SelectItem>
-                        <SelectItem value="autoManagement">{t("preferences.workflowDialog.actions.autoManagement")}</SelectItem>
-                        <SelectItem value="exportToInstance">{t("preferences.workflowDialog.actions.exportToInstance")}</SelectItem>
+                        {supportsQbittorrentOnlyActions && (
+                          <SelectItem value="autoManagement">{t("preferences.workflowDialog.actions.autoManagement")}</SelectItem>
+                        )}
+                        {supportsQbittorrentOnlyActions && (
+                          <SelectItem value="exportToInstance">{t("preferences.workflowDialog.actions.exportToInstance")}</SelectItem>
+                        )}
                         <SelectItem value="delete" className="text-destructive focus:text-destructive">{t("preferences.workflowDialog.actions.deleteStandalone")}</SelectItem>
                       </SelectContent>
                     </Select>
@@ -3006,7 +3032,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                             </div>
                           </div>
                           {/* Seed time */}
-                          <div className="space-y-1.5">
+                          {supportsQbittorrentOnlyActions && <div className="space-y-1.5">
                             <Label className="text-xs">{t("preferences.workflowDialog.shareLimits.seedTime")}</Label>
                             <div className="flex gap-2">
                               <Select
@@ -3045,8 +3071,8 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                                 />
                               )}
                             </div>
-                          </div>
-                          {capabilities?.supportsShareLimitsAction && (
+                          </div>}
+                          {supportsQbittorrentOnlyActions && capabilities?.supportsShareLimitsAction && (
                             <div className="space-y-1.5">
                               <Label className="text-xs">{t("preferences.workflowDialog.shareLimitAction.label")}</Label>
                               <Select
@@ -3069,7 +3095,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                               </Select>
                             </div>
                           )}
-                          {capabilities?.supportsShareLimitsMode && (
+                          {supportsQbittorrentOnlyActions && capabilities?.supportsShareLimitsMode && (
                             <div className="space-y-1.5">
                               <Label className="text-xs">{t("preferences.workflowDialog.shareLimitsMode.label")}</Label>
                               <Select
@@ -3163,7 +3189,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                       </div>
                     )}
                     {/* Auto management */}
-                    {formState.autoManagementEnabled && (
+                    {supportsQbittorrentOnlyActions && formState.autoManagementEnabled && (
                       <div className="rounded-lg border p-3 space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-sm font-medium">{t("preferences.workflowDialog.actions.autoManagement")}</Label>
@@ -3275,7 +3301,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                                     </SelectContent>
                                   </Select>
                                 </div>
-                                <div className="space-y-1">
+                                {supportsQbittorrentOnlyActions && <div className="space-y-1">
                                   <Label className="text-xs">{t("preferences.workflowDialog.tag.strategy")}</Label>
                                   <Select
                                     value={tagAction.deleteFromClient ? "replace" : "managed"}
@@ -3303,9 +3329,9 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                                       <SelectItem value="replace">{t("preferences.workflowDialog.tag.strategyReplace")}</SelectItem>
                                     </SelectContent>
                                   </Select>
-                                </div>
+                                </div>}
                               </div>
-                              {tagAction.deleteFromClient ? (
+                              {supportsQbittorrentOnlyActions && (tagAction.deleteFromClient ? (
                                 <div className="text-xs text-muted-foreground">
                                   {t("preferences.workflowDialog.tag.replaceDescription")}
                                 </div>
@@ -3313,7 +3339,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                                 <div className="text-xs text-muted-foreground">
                                   {t("preferences.workflowDialog.tag.managedDescription")}
                                 </div>
-                              )}
+                              ))}
                               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                                 <div className="flex items-center gap-2">
                                   <Switch
@@ -3392,7 +3418,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                     )}
 
                     {/* Category */}
-                    {formState.categoryEnabled && (
+                    {supportsQbittorrentOnlyActions && formState.categoryEnabled && (
                       <div className="rounded-lg border p-3 space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-sm font-medium">{t("preferences.workflowDialog.actions.category")}</Label>
@@ -3518,7 +3544,7 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                     )}
 
                     {/* Export to Instance */}
-                    {formState.exportToInstanceEnabled && (
+                    {supportsQbittorrentOnlyActions && formState.exportToInstanceEnabled && (
                       <div className="rounded-lg border p-3 space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-sm font-medium">{t("preferences.workflowDialog.export.title")}</Label>
