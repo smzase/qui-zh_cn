@@ -192,7 +192,19 @@ var sqliteMigrationFilenameRenames = []migrationFilenameRename{
 	},
 	{
 		from: "091_drop_unused_timestamp_indexes.sql",
-		to:   "093_drop_unused_timestamp_indexes.sql",
+		to:   "094_drop_unused_timestamp_indexes.sql",
+	},
+	{
+		from: "091_add_cross_seed_partial_pools.sql",
+		to:   "092_add_cross_seed_partial_pools.sql",
+	},
+	{
+		from: "092_drop_cross_seed_feed_items_touch_trigger.sql",
+		to:   "093_drop_cross_seed_feed_items_touch_trigger.sql",
+	},
+	{
+		from: "093_drop_unused_timestamp_indexes.sql",
+		to:   "094_drop_unused_timestamp_indexes.sql",
 	},
 }
 
@@ -255,7 +267,15 @@ var postgresMigrationFilenameRenames = []migrationFilenameRename{
 	},
 	{
 		from: "093_drop_unused_timestamp_indexes.sql",
-		to:   "094_drop_unused_timestamp_indexes.sql",
+		to:   "095_drop_unused_timestamp_indexes.sql",
+	},
+	{
+		from: "093_add_cross_seed_partial_pools.sql",
+		to:   "094_add_cross_seed_partial_pools.sql",
+	},
+	{
+		from: "094_drop_unused_timestamp_indexes.sql",
+		to:   "095_drop_unused_timestamp_indexes.sql",
 	},
 }
 
