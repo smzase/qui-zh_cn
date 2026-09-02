@@ -4,6 +4,8 @@
  */
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +22,7 @@ import { UpdateBanner } from "@/components/ui/UpdateBanner"
 import { useAuth } from "@/hooks/useAuth"
 import { useCrossSeedInstanceState } from "@/hooks/useCrossSeedInstanceState"
 import { usePersistedUnifiedInstanceFilter } from "@/hooks/usePersistedUnifiedInstanceFilter"
+import { usePersistedSidebarNavigation, type SidebarNavigationId } from "@/hooks/usePersistedSidebarNavigation"
 import { useTheme } from "@/hooks/useTheme"
 import { changeLanguage, languageNames, supportedLanguages } from "@/i18n"
 import { api } from "@/lib/api"
@@ -31,6 +34,8 @@ import { Link, useLocation, useNavigate, useSearch } from "@tanstack/react-route
 import { navigateWithSearch } from "@/lib/router-search"
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   Check,
   Code,
   Copyright,
@@ -46,13 +51,14 @@ import {
   Search,
   SearchCode,
   Settings,
+  Settings2,
   Zap
 } from "lucide-react"
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 interface NavItem {
-  id: string
+  id: SidebarNavigationId
   titleKey: string
   href: string
   icon: React.ComponentType<{ className?: string }>
@@ -116,6 +122,8 @@ const navigation: NavItem[] = [
   },
 ]
 
+const navigationById = new Map(navigation.map(item => [item.id, item]))
+
 export function Sidebar() {
   const { t, i18n } = useTranslation("common")
   const location = useLocation()
@@ -123,6 +131,8 @@ export function Sidebar() {
   const routeSearch = useSearch({ strict: false }) as Record<string, unknown> | undefined
   const { logout } = useAuth()
   const { theme } = useTheme()
+  const [sidebarNavigation, setSidebarNavigation] = usePersistedSidebarNavigation()
+  const [customizerOpen, setCustomizerOpen] = useState(false)
 
   const { data: instances } = useQuery({
     queryKey: ["instances"],
@@ -143,10 +153,40 @@ export function Sidebar() {
     [activeInstances]
   )
   const hasActiveQbittorrent = qbittorrentInstances.length > 0
-  const visibleNavigation = useMemo(
-    () => navigation.filter(item => item.id !== "rss" || hasActiveQbittorrent),
-    [hasActiveQbittorrent]
+  const orderedNavigation = useMemo(
+    () => sidebarNavigation.order
+      .map(id => navigationById.get(id))
+      .filter((item): item is NavItem => item !== undefined),
+    [sidebarNavigation.order]
   )
+  const visibleNavigation = useMemo(
+    () => orderedNavigation.filter(item => !sidebarNavigation.hidden.includes(item.id) && (item.id !== "rss" || hasActiveQbittorrent)),
+    [hasActiveQbittorrent, orderedNavigation, sidebarNavigation.hidden]
+  )
+  const moveNavigationItem = useCallback((id: SidebarNavigationId, direction: -1 | 1) => {
+    setSidebarNavigation(previous => {
+      const index = previous.order.indexOf(id)
+      const targetIndex = index + direction
+      if (id === "dashboard" || index < 1 || targetIndex < 1 || targetIndex >= previous.order.length) {
+        return previous
+      }
+
+      const order = [...previous.order]
+      const current = order[index]
+      order[index] = order[targetIndex]
+      order[targetIndex] = current
+      return { ...previous, order }
+    })
+  }, [setSidebarNavigation])
+  const toggleNavigationItem = useCallback((id: SidebarNavigationId, visible: boolean) => {
+    if (id === "dashboard") return
+    setSidebarNavigation(previous => ({
+      ...previous,
+      hidden: visible
+        ? previous.hidden.filter(hiddenId => hiddenId !== id)
+        : [...previous.hidden, id],
+    }))
+  }, [setSidebarNavigation])
   const activeInstanceIds = useMemo(
     () => activeInstances.map(instance => instance.id),
     [activeInstances]
@@ -263,7 +303,7 @@ export function Sidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col border-r bg-sidebar border-sidebar-border">
-      <div className="p-6">
+      <div className="flex items-center justify-between p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-sidebar-foreground">
           {theme === "swizzin" ? (
             <SwizzinLogo className="h-5 w-5" />
@@ -274,6 +314,62 @@ export function Sidebar() {
           )}
           qui
         </h2>
+        <Dialog open={customizerOpen} onOpenChange={setCustomizerOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground" aria-label={t("sidebar.customize")}>
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">{t("sidebar.customize")}</TooltipContent>
+          </Tooltip>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t("sidebar.customizeTitle")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-1">
+              {sidebarNavigation.order.map((id, index) => {
+                const item = navigationById.get(id)
+                if (!item) return null
+                const isDashboard = id === "dashboard"
+                const isVisible = isDashboard || !sidebarNavigation.hidden.includes(id)
+                return (
+                  <div key={id} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                    <Checkbox
+                      checked={isVisible}
+                      disabled={isDashboard}
+                      onCheckedChange={(checked) => toggleNavigationItem(id, checked === true)}
+                      aria-label={isVisible ? t("sidebar.hideItem", { item: t(item.titleKey) }) : t("sidebar.showItem", { item: t(item.titleKey) })}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">{t(item.titleKey)}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={isDashboard || index <= 1}
+                      onClick={() => moveNavigationItem(id, -1)}
+                      aria-label={t("sidebar.moveUp")}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={isDashboard || index === sidebarNavigation.order.length - 1}
+                      onClick={() => moveNavigationItem(id, 1)}
+                      aria-label={t("sidebar.moveDown")}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <nav className="flex flex-1 min-h-0 flex-col overflow-y-auto px-3">

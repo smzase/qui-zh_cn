@@ -26,7 +26,13 @@
     "rssEnabled": "RSS 已啟用",
     "scanRunning": "掃描執行中",
     "showSidebar": "顯示側邊欄",
-    "hideSidebar": "隱藏側邊欄"
+    "hideSidebar": "隱藏側邊欄",
+    "customize": "自訂側邊欄",
+    "customizeTitle": "自訂側邊欄",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "hideItem": "隱藏{{item}}",
+    "showItem": "顯示{{item}}"
   },
   "header": {
     "currentInstance": "目前實例：{{name}}。點選切換實例。",

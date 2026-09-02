@@ -26,7 +26,13 @@
     "rssEnabled": "RSS 已启用",
     "scanRunning": "扫描运行中",
     "showSidebar": "显示侧边栏",
-    "hideSidebar": "隐藏侧边栏"
+    "hideSidebar": "隐藏侧边栏",
+    "customize": "自定义侧边栏",
+    "customizeTitle": "自定义侧边栏",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "hideItem": "隐藏{{item}}",
+    "showItem": "显示{{item}}"
   },
   "header": {
     "currentInstance": "当前实例：{{name}}。点击切换实例。",

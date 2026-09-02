@@ -26,7 +26,13 @@
     "rssEnabled": "RSS je zapnuto",
     "scanRunning": "Scan běží",
     "showSidebar": "Zobrazit postranní panel",
-    "hideSidebar": "Skrýt postranní panel"
+    "hideSidebar": "Skrýt postranní panel",
+    "customize": "Přizpůsobit postranní panel",
+    "customizeTitle": "Přizpůsobit postranní panel",
+    "moveUp": "Přesunout nahoru",
+    "moveDown": "Přesunout dolů",
+    "hideItem": "Skrýt {{item}}",
+    "showItem": "Zobrazit {{item}}"
   },
   "expand": "Rozbalit",
   "collapse": "Sbalit",

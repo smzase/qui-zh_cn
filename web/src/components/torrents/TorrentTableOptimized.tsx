@@ -47,7 +47,7 @@ import {
   type ColumnVisibilityState,
   useTable
 } from "@tanstack/react-table"
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { InstancePreferencesDialog } from "../instances/preferences/InstancePreferencesDialog"
@@ -1311,10 +1311,12 @@ export const TorrentTableOptimized = memo(function TorrentTableOptimized({
 
     // If row is not selected, select only this torrent (replace selection).
     if (!isRowSelected) {
-      s.setIsAllSelected(false)
-      s.setExcludedFromSelectAll(new Set())
-      s.setRowSelection({ [row.id]: true })
-      lastSelectedIndexRef.current = currentIndex
+      startTransition(() => {
+        s.setIsAllSelected(false)
+        s.setExcludedFromSelectAll(new Set())
+        s.setRowSelection({ [row.id]: true })
+        lastSelectedIndexRef.current = currentIndex
+      })
     }
     s.onTorrentSelect?.(torrent)
   }, [lastSelectedIndexRef])

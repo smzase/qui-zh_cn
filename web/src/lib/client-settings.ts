@@ -48,6 +48,7 @@ const SYNCED_KEYS = new Set<string>([
   "qui-titlebar-speeds-enabled",
   "qui.language",
   "qui-sidebar-collapsed",
+  "qui-sidebar-navigation",
   "qui-filter-sidebar-collapsed",
   "qui-accordion",
   "qui-accordion-views-seeded",

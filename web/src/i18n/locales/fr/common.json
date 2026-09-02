@@ -26,7 +26,13 @@
     "rssEnabled": "RSS activé",
     "scanRunning": "Analyse en cours",
     "showSidebar": "Afficher la barre latérale",
-    "hideSidebar": "Masquer la barre latérale"
+    "hideSidebar": "Masquer la barre latérale",
+    "customize": "Personnaliser la barre latérale",
+    "customizeTitle": "Personnaliser la barre latérale",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "hideItem": "Masquer {{item}}",
+    "showItem": "Afficher {{item}}"
   },
   "expand": "Développer",
   "collapse": "Réduire",

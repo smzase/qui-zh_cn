@@ -133,6 +133,10 @@ export function useTorrentsList(
 
   const [currentPage, setCurrentPage] = useState(0)
   const [allTorrents, setAllTorrents] = useState<Torrent[]>([])
+  // Keep the list scoped to the render's query identity. During an instance or
+  // filter change, effects have not cleared the previous list yet; rendering
+  // those rows for one transition frame can block the new view for seconds.
+  const [allTorrentsScopeKey, setAllTorrentsScopeKey] = useState<string | null>(null)
   const [hasLoadedAll, setHasLoadedAll] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [lastRequestTime, setLastRequestTime] = useState(0)
@@ -484,6 +488,7 @@ export function useTorrentsList(
   // Reset state when instanceId, filters, search, or sort changes
   // Use JSON.stringify to avoid resetting on every object reference change during polling
   useEffect(() => {
+    setAllTorrentsScopeKey(viewScopeKey)
     setCurrentPage(0)
     setAllTorrents([])
     setHasLoadedAll(false)
@@ -759,7 +764,7 @@ export function useTorrentsList(
   )
 
   return {
-    torrents: allTorrents,
+    torrents: allTorrentsScopeKey === viewScopeKey ? allTorrents : [],
     totalCount: effectiveTotalCount,
     stats,
     counts: effectiveCounts,

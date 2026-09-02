@@ -26,7 +26,13 @@
     "rssEnabled": "RSS увімкнено",
     "scanRunning": "Сканування активне",
     "showSidebar": "Показати бічну панель",
-    "hideSidebar": "Приховати бічну панель"
+    "hideSidebar": "Приховати бічну панель",
+    "customize": "Налаштувати бічну панель",
+    "customizeTitle": "Налаштувати бічну панель",
+    "moveUp": "Перемістити вгору",
+    "moveDown": "Перемістити вниз",
+    "hideItem": "Сховати {{item}}",
+    "showItem": "Показати {{item}}"
   },
   "expand": "Розгорнути",
   "collapse": "Згорнути",

@@ -26,7 +26,13 @@
     "rssEnabled": "RSS enabled",
     "scanRunning": "Scan running",
     "showSidebar": "Show sidebar",
-    "hideSidebar": "Hide sidebar"
+    "hideSidebar": "Hide sidebar",
+    "customize": "Customize sidebar",
+    "customizeTitle": "Customize sidebar",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "hideItem": "Hide {{item}}",
+    "showItem": "Show {{item}}"
   },
   "header": {
     "currentInstance": "Current instance: {{name}}. Click to switch instances.",

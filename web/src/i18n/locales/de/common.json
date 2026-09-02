@@ -26,7 +26,13 @@
     "rssEnabled": "RSS aktiviert",
     "scanRunning": "Scan läuft",
     "showSidebar": "Sidebar anzeigen",
-    "hideSidebar": "Sidebar ausblenden"
+    "hideSidebar": "Sidebar ausblenden",
+    "customize": "Sidebar anpassen",
+    "customizeTitle": "Sidebar anpassen",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
+    "hideItem": "{{item}} ausblenden",
+    "showItem": "{{item}} anzeigen"
   },
   "expand": "Erweitern",
   "collapse": "Reduzieren",

@@ -122,6 +122,12 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
     return instanceId
   }, [instanceId])
   const selectedTorrentInstanceId = getTorrentInstanceId(selectedTorrent)
+  // Route changes can render once before the cleanup effect runs. Do not keep
+  // the previous instance's details panel in that transition frame.
+  const renderedSelectedTorrent = selectedTorrent &&
+    (isAllInstances || selectedTorrentInstanceId === instanceId)
+    ? selectedTorrent
+    : null
 
   // Push a history entry for the sheet so mobile Back closes it instead of
   // leaving the page. The unified view also records the owning instance, since
@@ -251,8 +257,8 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
   const [detailsPanelReady, setDetailsPanelReady] = useState(false)
 
   const panelIds = useMemo(
-    () => (selectedTorrent ? ["torrent-list", "torrent-details"] : ["torrent-list"]),
-    [selectedTorrent]
+    () => (renderedSelectedTorrent ? ["torrent-list", "torrent-details"] : ["torrent-list"]),
+    [renderedSelectedTorrent]
   )
   const { defaultLayout, onLayoutChange } = useDefaultLayout({
     id: "qui-torrent-details-panel",
@@ -607,14 +613,14 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
             >
               <ResizablePanel
                 id="torrent-list"
-                defaultSize={selectedTorrent ? "60%" : "100%"}
+                defaultSize={renderedSelectedTorrent ? "60%" : "100%"}
               >
                 <div className="h-full" style={{ zoom: zoomLevel !== 100 ? zoomLevel / 100 : undefined }}>
                   <TorrentTableResponsive
                     instanceId={instanceId}
                     instanceIds={unifiedScopeInstanceIds}
                     filters={filters}
-                    selectedTorrent={selectedTorrent}
+                    selectedTorrent={renderedSelectedTorrent}
                     onTorrentSelect={handleTorrentSelect}
                     addTorrentModalOpen={isAddTorrentModalOpen}
                     onAddTorrentModalChange={handleAddTorrentModalChange}
@@ -624,7 +630,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                 </div>
               </ResizablePanel>
 
-              {selectedTorrent && (
+              {renderedSelectedTorrent && (
                 <>
                   <ResizableHandle withHandle />
                   <ResizablePanel
@@ -637,7 +643,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                       if (!detailsPanelReady) {
                         setDetailsPanelReady(true)
                       }
-                      if (!selectedTorrent) {
+                      if (!renderedSelectedTorrent) {
                         return
                       }
                       if (prevPanelSize === undefined) {
@@ -655,8 +661,8 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
                       data-torrent-details-panel
                     >
                       <TorrentDetailsPanel
-                        instanceId={selectedTorrentInstanceId}
-                        torrent={selectedTorrent}
+                        instanceId={getTorrentInstanceId(renderedSelectedTorrent)}
+                        torrent={renderedSelectedTorrent}
                         initialTab={initialDetailsTab}
                         onInitialTabConsumed={handleInitialTabConsumed}
                         layout="horizontal"
@@ -681,7 +687,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
               instanceId={instanceId}
               instanceIds={unifiedScopeInstanceIds}
               filters={filters}
-              selectedTorrent={selectedTorrent}
+              selectedTorrent={renderedSelectedTorrent}
               onTorrentSelect={handleTorrentSelect}
               addTorrentModalOpen={isAddTorrentModalOpen}
               onAddTorrentModalChange={handleAddTorrentModalChange}
@@ -739,7 +745,7 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
       {/* Mobile Details Sheet - only renders on mobile */}
       {isMobile && (
         <Sheet
-          open={!!selectedTorrent}
+          open={!!renderedSelectedTorrent}
           onOpenChange={(open) => {
             if (!open) {
               closeMobileDetails()
@@ -754,14 +760,14 @@ export function Torrents({ instanceId, instanceName, isAllInstancesView = false,
             <SheetHeader className="sr-only">
               <VisuallyHidden>
                 <SheetTitle>
-                  {selectedTorrent ? t("page.torrentDetailsWithName", { name: selectedTorrent.name }) : t("page.torrentDetails")}
+                  {renderedSelectedTorrent ? t("page.torrentDetailsWithName", { name: renderedSelectedTorrent.name }) : t("page.torrentDetails")}
                 </SheetTitle>
               </VisuallyHidden>
             </SheetHeader>
-            {selectedTorrent && (
+            {renderedSelectedTorrent && (
               <TorrentDetailsPanel
-                instanceId={selectedTorrentInstanceId}
-                torrent={selectedTorrent}
+                instanceId={getTorrentInstanceId(renderedSelectedTorrent)}
+                torrent={renderedSelectedTorrent}
                 initialTab={initialDetailsTab}
                 onInitialTabConsumed={handleInitialTabConsumed}
                 onClose={closeMobileDetails}

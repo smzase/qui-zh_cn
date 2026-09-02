@@ -26,7 +26,13 @@
     "rssEnabled": "RSS abilitato",
     "scanRunning": "Scansione in esecuzione",
     "showSidebar": "Mostra barra laterale",
-    "hideSidebar": "Nascondi barra laterale"
+    "hideSidebar": "Nascondi barra laterale",
+    "customize": "Personalizza barra laterale",
+    "customizeTitle": "Personalizza barra laterale",
+    "moveUp": "Sposta su",
+    "moveDown": "Sposta giù",
+    "hideItem": "Nascondi {{item}}",
+    "showItem": "Mostra {{item}}"
   },
   "expand": "Espandi",
   "collapse": "Comprimi",
