@@ -86,10 +86,7 @@ func GetFileID(fi os.FileInfo, path string) (FileID, uint64, error) {
 		return FileID{}, 0, err
 	}
 
-	return FileID{
-		VolumeSerialNumber: idInfo.VolumeSerialNumber,
-		Identifier:         idInfo.Identifier,
-	}, uint64(standardInfo.NumberOfLinks), nil
+	return FileID(idInfo), uint64(standardInfo.NumberOfLinks), nil
 }
 
 // legacyFileID synthesizes a FileID from the pre-Win8 GetFileInformationByHandle

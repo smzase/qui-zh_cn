@@ -180,7 +180,7 @@ func newPartialPoolCoordinatorStore(t *testing.T, names ...string) (*models.Cros
 	local := true
 	instances := make([]*models.Instance, 0, len(names))
 	for _, name := range names {
-		instance, createErr := instanceStore.Create(t.Context(), name, "http://127.0.0.1/"+name, "user", "pass", nil, nil, false, &local)
+		instance, createErr := instanceStore.Create(t.Context(), models.ClientTypeQbittorrent, name, "http://127.0.0.1/"+name, "user", "pass", nil, nil, false, &local)
 		require.NoError(t, createErr)
 		instances = append(instances, instance)
 	}
@@ -2345,7 +2345,7 @@ func TestPartialPoolCompletedDependentResumesDurably(t *testing.T) {
 	instanceStore, err := models.NewInstanceStore(db, key)
 	require.NoError(t, err)
 	local := true
-	instance, err := instanceStore.Create(ctx, "partial-pool", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, &local)
+	instance, err := instanceStore.Create(ctx, models.ClientTypeQbittorrent, "partial-pool", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, &local)
 	require.NoError(t, err)
 
 	_, member, err := store.RegisterPartialPoolMember(ctx, models.CrossSeedPartialPoolRegistration{
@@ -2416,7 +2416,7 @@ func TestPartialPoolExceptionalStateRecovery(t *testing.T) {
 	instanceStore, err := models.NewInstanceStore(db, key)
 	require.NoError(t, err)
 	local := true
-	instance, err := instanceStore.Create(ctx, "partial-pool", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, &local)
+	instance, err := instanceStore.Create(ctx, models.ClientTypeQbittorrent, "partial-pool", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, &local)
 	require.NoError(t, err)
 
 	register := func(torrentKey, mode string) *models.CrossSeedPartialPoolMember {

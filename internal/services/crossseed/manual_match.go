@@ -332,7 +332,7 @@ func (s *Service) manualMatchEffectiveSavePath(
 		treeFiles = append(treeFiles, hardlinktree.TorrentFile{Path: f.Name, Size: f.Size})
 	}
 	candidate := CrossSeedCandidate{InstanceID: instance.ID, InstanceName: instance.Name}
-	return s.buildHardlinkDestDir(ctx, instance, baseDir, torrentHash, torrentName, candidate, trackerDomain, &CrossSeedRequest{}, treeFiles)
+	return normalizePath(s.buildHardlinkDestDir(ctx, instance, baseDir, torrentHash, torrentName, candidate, trackerDomain, &CrossSeedRequest{}, treeFiles))
 }
 
 // previewLinkBaseDir picks the configured link base directory on the same

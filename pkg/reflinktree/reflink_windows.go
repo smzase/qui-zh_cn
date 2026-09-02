@@ -60,7 +60,8 @@ var (
 	copyFileTailFn         = copyFileTail
 	copyBufferPool         = sync.Pool{
 		New: func() any {
-			return make([]byte, copyBufferSize)
+			buf := make([]byte, copyBufferSize)
+			return &buf
 		},
 	}
 )
@@ -442,10 +443,10 @@ func copyFileTail(srcFile, dstFile *os.File, offset, length int64) error {
 		return fmt.Errorf("seek destination: %w", err)
 	}
 
-	buffer := copyBufferPool.Get().([]byte)
-	defer copyBufferPool.Put(buffer)
+	bufPtr := copyBufferPool.Get().(*[]byte)
+	defer copyBufferPool.Put(bufPtr)
 
-	copied, err := io.CopyBuffer(dstFile, io.LimitReader(srcFile, length), buffer)
+	copied, err := io.CopyBuffer(dstFile, io.LimitReader(srcFile, length), *bufPtr)
 	if err != nil {
 		return err
 	}

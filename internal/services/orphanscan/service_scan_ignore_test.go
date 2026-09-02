@@ -41,7 +41,7 @@ func newScanTestService(t *testing.T) (*Service, *models.OrphanScanStore, string
 	db := testdb.NewMigratedSQLite(t, "orphanscan-ignore-roots")
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(t.Context(), "test", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(t.Context(), models.ClientTypeQbittorrent, "test", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, instance.ID)
 

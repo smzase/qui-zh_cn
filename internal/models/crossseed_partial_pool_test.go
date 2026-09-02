@@ -28,9 +28,9 @@ func newPartialPoolTestStoreWithDB(t *testing.T, db *database.DB) (*models.Cross
 	instanceStore, err := models.NewInstanceStore(db, key)
 	require.NoError(t, err)
 	local := true
-	first, err := instanceStore.Create(t.Context(), "first", "http://127.0.0.1:8081", "user", "pass", nil, nil, false, &local)
+	first, err := instanceStore.Create(t.Context(), models.ClientTypeQbittorrent, "first", "http://127.0.0.1:8081", "user", "pass", nil, nil, false, &local)
 	require.NoError(t, err)
-	second, err := instanceStore.Create(t.Context(), "second", "http://127.0.0.1:8082", "user", "pass", nil, nil, false, &local)
+	second, err := instanceStore.Create(t.Context(), models.ClientTypeQbittorrent, "second", "http://127.0.0.1:8082", "user", "pass", nil, nil, false, &local)
 	require.NoError(t, err)
 	store, err := models.NewCrossSeedStore(db, key)
 	require.NoError(t, err)

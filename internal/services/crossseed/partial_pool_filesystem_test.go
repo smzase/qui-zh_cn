@@ -1931,7 +1931,7 @@ func newPartialPoolFilesystemStore(t *testing.T) (*models.CrossSeedStore, int) {
 	instanceStore, err := models.NewInstanceStore(db, key)
 	require.NoError(t, err)
 	local := true
-	instance, err := instanceStore.Create(t.Context(), "partial-pool", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, &local)
+	instance, err := instanceStore.Create(t.Context(), models.ClientTypeQbittorrent, "partial-pool", "http://127.0.0.1:8080", "user", "pass", nil, nil, false, &local)
 	require.NoError(t, err)
 	return store, instance.ID
 }
