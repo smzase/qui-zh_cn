@@ -1016,6 +1016,24 @@
       "configDir": "Konfigurationsverzeichnis",
       "dataDir": "Datenverzeichnis"
     },
+    "manualUpdate": {
+      "title": "Manuelles Update",
+      "description": "Eine eigenständige Linux-qui-Datei oder ein Release-Archiv hochladen, um die laufende Binärdatei zu ersetzen.",
+      "install": "Installieren und neu starten",
+      "installing": "Wird installiert...",
+      "selectedFile": "Ausgewählt: {{name}} ({{size}})",
+      "warning": "Die Weboberfläche wird beim Neustart von qui kurz getrennt und anschließend aktualisiert.",
+      "confirm": {
+        "title": "Update installieren?",
+        "description": "{{name}} ersetzt die laufende qui-Binärdatei. Die Weboberfläche wird kurz getrennt.",
+        "cancel": "Abbrechen",
+        "confirm": "Installieren und neu starten"
+      },
+      "toasts": {
+        "success": "Update installiert. qui wird neu gestartet...",
+        "failed": "Update konnte nicht installiert werden"
+      }
+    },
     "copyTitle": "{{label}} kopieren",
     "toasts": {
       "copied": "{{label}} in die Zwischenablage kopiert",

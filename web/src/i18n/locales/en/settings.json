@@ -1016,6 +1016,24 @@
       "configDir": "Config Directory",
       "dataDir": "Data Directory"
     },
+    "manualUpdate": {
+      "title": "Manual Update",
+      "description": "Upload a standalone Linux qui executable or release archive to replace the running binary.",
+      "install": "Install and Restart",
+      "installing": "Installing...",
+      "selectedFile": "Selected: {{name}} ({{size}})",
+      "warning": "The web UI will disconnect briefly and refresh after qui restarts.",
+      "confirm": {
+        "title": "Install update?",
+        "description": "{{name}} will replace the running qui binary. The web UI will disconnect briefly.",
+        "cancel": "Cancel",
+        "confirm": "Install and Restart"
+      },
+      "toasts": {
+        "success": "Update installed. Restarting qui...",
+        "failed": "Failed to install update"
+      }
+    },
     "copyTitle": "Copy {{label}}",
     "toasts": {
       "copied": "{{label}} copied to clipboard",

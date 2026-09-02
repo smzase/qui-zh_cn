@@ -1016,6 +1016,24 @@
       "configDir": "Directory di configurazione",
       "dataDir": "Directory dei dati"
     },
+    "manualUpdate": {
+      "title": "Aggiornamento manuale",
+      "description": "Carica un eseguibile qui Linux autonomo o un archivio di rilascio per sostituire il binario in esecuzione.",
+      "install": "Installa e riavvia",
+      "installing": "Installazione...",
+      "selectedFile": "Selezionato: {{name}} ({{size}})",
+      "warning": "L’interfaccia web si disconnetterà brevemente e si aggiornerà dopo il riavvio di qui.",
+      "confirm": {
+        "title": "Installare l’aggiornamento?",
+        "description": "{{name}} sostituirà il binario qui in esecuzione. L’interfaccia web si disconnetterà brevemente.",
+        "cancel": "Annulla",
+        "confirm": "Installa e riavvia"
+      },
+      "toasts": {
+        "success": "Aggiornamento installato. Riavvio di qui...",
+        "failed": "Impossibile installare l’aggiornamento"
+      }
+    },
     "copyTitle": "Copia {{label}}",
     "toasts": {
       "copied": "{{label}} copiato negli appunti",

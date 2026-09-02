@@ -4972,6 +4972,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/VersionResponse'
 
+  /api/update/upload:
+    post:
+      tags:
+        - System
+      summary: Install an uploaded Linux update
+      description: Replaces a standalone Linux qui binary with an uploaded executable or standard release archive, then restarts qui.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - binary
+              properties:
+                binary:
+                  type: string
+                  format: binary
+                  description: Linux qui executable or tar.gz release archive
+      responses:
+        '202':
+          description: Update installed and restart scheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUpdateResponse'
+        '400':
+          description: Invalid or incompatible uploaded binary
+        '409':
+          description: Uploaded updates are unavailable or a restart is already pending
+        '413':
+          description: Uploaded binary exceeds the size limit
+
   /api/instances/{instanceID}/backups/import:
     post:
       tags:
@@ -6920,6 +6953,15 @@ components:
           type: boolean
           description: Whether a newer release than the running version is available
           example: true
+
+    UploadUpdateResponse:
+      type: object
+      required:
+        - restarting
+      properties:
+        restarting:
+          type: boolean
+          description: Whether qui is scheduled to restart with the uploaded binary
 
     QBittorrentBuildInfo:
       type: object

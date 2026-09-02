@@ -356,6 +356,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 	externalProgramsHandler := handlers.NewExternalProgramsHandler(s.externalProgramStore, s.externalProgramService, s.clientPool, s.automationStore)
 	arrHandler := handlers.NewArrHandler(s.arrInstanceStore, s.arrService)
 	versionHandler := handlers.NewVersionHandler(s.updateService, s.version)
+	updateHandler := handlers.NewUpdateHandler(update.NewBinaryInstaller())
 	applicationHandler := handlers.NewApplicationHandler(s.config, s.started)
 	qbittorrentInfoHandler := handlers.NewQBittorrentInfoHandler(s.clientPool)
 	backupsHandler := handlers.NewBackupsHandler(s.backupService)
@@ -540,6 +541,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			// Version endpoints (current running version + update checks)
 			r.Get("/version", versionHandler.GetVersion)
 			r.Get("/version/latest", versionHandler.GetLatestVersion)
+			r.Post("/update/upload", updateHandler.UploadBinary)
 			r.Get("/application/info", applicationHandler.GetInfo)
 
 			r.Get("/stream", s.streamManager.Serve)

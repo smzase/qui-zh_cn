@@ -60,7 +60,7 @@ import type { SettingsSearch } from "@/routes/_authenticated/settings"
 import type { ApplicationInfo, Instance, TorznabSearchCacheStats, User } from "@/types"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Bell, Globe, Copy, Database, ExternalLink, FileText, Info, Key, Layers, Link2, Loader2, Palette, Plus, RefreshCw, Server, Share2, Shield, Terminal, Trash2 } from "lucide-react"
+import { Bell, Globe, Copy, Database, ExternalLink, FileText, Info, Key, Layers, Link2, Loader2, Palette, Plus, RefreshCw, Server, Share2, Shield, Terminal, Trash2, Upload } from "lucide-react"
 import type { FormEvent, ReactNode } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -960,6 +960,86 @@ function ApplicationSection({ title, description, fields, onCopy, headerAction }
   )
 }
 
+function ManualUpdatePanel() {
+  const { t } = useTranslation("settings")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const uploadMutation = useMutation({
+    mutationFn: (binary: File) => api.uploadApplicationUpdate(binary),
+    onSuccess: () => {
+      setConfirmOpen(false)
+      toast.success(t("application.manualUpdate.toasts.success"))
+      window.setTimeout(() => window.location.reload(), 3000)
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, t("application.manualUpdate.toasts.failed")))
+    },
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("application.manualUpdate.title")}</CardTitle>
+        <CardDescription>{t("application.manualUpdate.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Input
+            type="file"
+            onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+            disabled={uploadMutation.isPending}
+          />
+          <Button
+            type="button"
+            className="shrink-0"
+            disabled={!selectedFile || uploadMutation.isPending}
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            {uploadMutation.isPending ? t("application.manualUpdate.installing") : t("application.manualUpdate.install")}
+          </Button>
+        </div>
+
+        {selectedFile && (
+          <p className="truncate text-sm text-muted-foreground" title={selectedFile.name}>
+            {t("application.manualUpdate.selectedFile", { name: selectedFile.name, size: formatBytes(selectedFile.size) })}
+          </p>
+        )}
+
+        <p className="text-sm text-muted-foreground">
+          {t("application.manualUpdate.warning")}
+        </p>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("application.manualUpdate.confirm.title")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("application.manualUpdate.confirm.description", { name: selectedFile?.name ?? "" })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={uploadMutation.isPending}>
+                {t("application.manualUpdate.confirm.cancel")}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={!selectedFile || uploadMutation.isPending}
+                onClick={() => {
+                  if (selectedFile) {
+                    uploadMutation.mutate(selectedFile)
+                  }
+                }}
+              >
+                {uploadMutation.isPending ? t("application.manualUpdate.installing") : t("application.manualUpdate.confirm.confirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ApplicationInfoPanel() {
   const { t } = useTranslation("settings")
   const appInfoQuery = useQuery({
@@ -1129,6 +1209,7 @@ function ApplicationInfoPanel() {
               </Button>
             )}
           />
+          {info.goOS === "linux" && <ManualUpdatePanel />}
           <ApplicationSection
             title={t("application.runtime.title")}
             description={t("application.runtime.description")}

@@ -2251,6 +2251,24 @@ class ApiClient {
     return this.request<Record<string, string>>("/tracker-icons")
   }
 
+  async uploadApplicationUpdate(binary: File): Promise<{ restarting: boolean }> {
+    const formData = new FormData()
+    formData.append("binary", binary)
+
+    const response = await ssoSafeFetch(`${API_BASE}/update/upload`, {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const { message } = await this.extractErrorData(response)
+      this.handleAuthError(response.status, "/update/upload", message)
+      throw new Error(message)
+    }
+
+    return response.json()
+  }
+
   // External Programs endpoints
   async listExternalPrograms(): Promise<ExternalProgram[]> {
     return this.request<ExternalProgram[]>("/external-programs")

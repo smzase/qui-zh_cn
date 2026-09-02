@@ -1016,6 +1016,24 @@
       "configDir": "Konfigurační adresář",
       "dataDir": "Adresář dat"
     },
+    "manualUpdate": {
+      "title": "Ruční aktualizace",
+      "description": "Nahrajte samostatný spustitelný soubor qui pro Linux nebo archiv vydání, který nahradí běžící binární soubor.",
+      "install": "Nainstalovat a restartovat",
+      "installing": "Instaluje se...",
+      "selectedFile": "Vybráno: {{name}} ({{size}})",
+      "warning": "Webové rozhraní se při restartu qui krátce odpojí a poté obnoví.",
+      "confirm": {
+        "title": "Nainstalovat aktualizaci?",
+        "description": "{{name}} nahradí běžící binární soubor qui. Webové rozhraní se krátce odpojí.",
+        "cancel": "Zrušit",
+        "confirm": "Nainstalovat a restartovat"
+      },
+      "toasts": {
+        "success": "Aktualizace nainstalována. qui se restartuje...",
+        "failed": "Aktualizaci se nepodařilo nainstalovat"
+      }
+    },
     "copyTitle": "Kopírovat {{label}}",
     "toasts": {
       "copied": "{{label}} zkopírováno do schránky",

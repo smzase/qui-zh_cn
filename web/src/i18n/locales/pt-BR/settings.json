@@ -1016,6 +1016,24 @@
       "configDir": "Diretório de Configurações",
       "dataDir": "Diretório de Dados"
     },
+    "manualUpdate": {
+      "title": "Atualização manual",
+      "description": "Envie um executável qui Linux independente ou um arquivo de lançamento para substituir o binário em execução.",
+      "install": "Instalar e reiniciar",
+      "installing": "Instalando...",
+      "selectedFile": "Selecionado: {{name}} ({{size}})",
+      "warning": "A interface web será desconectada brevemente e atualizada após qui reiniciar.",
+      "confirm": {
+        "title": "Instalar atualização?",
+        "description": "{{name}} substituirá o binário qui em execução. A interface web será desconectada brevemente.",
+        "cancel": "Cancelar",
+        "confirm": "Instalar e reiniciar"
+      },
+      "toasts": {
+        "success": "Atualização instalada. Reiniciando qui...",
+        "failed": "Falha ao instalar a atualização"
+      }
+    },
     "copyTitle": "Copiar {{label}}",
     "toasts": {
       "copied": "{{label}} copiado para a área de transferência",

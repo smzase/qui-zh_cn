@@ -1016,6 +1016,24 @@
       "configDir": "Répertoire de configuration",
       "dataDir": "Répertoire de données"
     },
+    "manualUpdate": {
+      "title": "Mise à jour manuelle",
+      "description": "Téléversez un exécutable qui Linux autonome ou une archive de version pour remplacer le binaire en cours d’exécution.",
+      "install": "Installer et redémarrer",
+      "installing": "Installation...",
+      "selectedFile": "Sélectionné : {{name}} ({{size}})",
+      "warning": "L’interface web se déconnectera brièvement puis se rechargera après le redémarrage de qui.",
+      "confirm": {
+        "title": "Installer la mise à jour ?",
+        "description": "{{name}} remplacera le binaire qui en cours d’exécution. L’interface web se déconnectera brièvement.",
+        "cancel": "Annuler",
+        "confirm": "Installer et redémarrer"
+      },
+      "toasts": {
+        "success": "Mise à jour installée. Redémarrage de qui...",
+        "failed": "Échec de l’installation de la mise à jour"
+      }
+    },
     "copyTitle": "Copier {{label}}",
     "toasts": {
       "copied": "{{label}} copié dans le presse-papiers",

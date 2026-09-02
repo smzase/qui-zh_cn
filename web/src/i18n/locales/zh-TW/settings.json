@@ -1013,6 +1013,24 @@
       "configDir": "配置目錄",
       "dataDir": "資料目錄"
     },
+    "manualUpdate": {
+      "title": "手動更新",
+      "description": "上傳獨立 Linux 版 qui 執行檔或發行封存檔，以取代目前執行中的程式。",
+      "install": "安裝並重新啟動",
+      "installing": "正在安裝...",
+      "selectedFile": "已選取：{{name}}（{{size}}）",
+      "warning": "qui 重新啟動時，WebUI 會短暫中斷並自動重新整理。",
+      "confirm": {
+        "title": "安裝更新？",
+        "description": "{{name}} 將取代目前執行中的 qui。WebUI 會短暫中斷。",
+        "cancel": "取消",
+        "confirm": "安裝並重新啟動"
+      },
+      "toasts": {
+        "success": "更新已安裝，正在重新啟動 qui...",
+        "failed": "無法安裝更新"
+      }
+    },
     "copyTitle": "複製 {{label}}",
     "toasts": {
       "copied": "{{label}} 已複製到剪貼簿",
