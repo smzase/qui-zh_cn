@@ -144,6 +144,31 @@ export interface CrossSeedApplyResponse {
   results: CrossSeedApplyResult[]
 }
 
+export interface ManualCrossSeedProposal {
+  hash: string
+  name: string
+  size: number
+  category: string
+  effectiveSavePath: string
+  overlapBytes: number
+  overlapFraction: number
+}
+
+export interface ManualCrossSeedProposalsResponse {
+  sourceName: string
+  sourceSize: number
+  sourceFileCount: number
+  defaultTags: string[]
+  /** Set when settings pin every cross-seed to one category; the apply discards any pick. */
+  pinnedCategory: string
+  proposals: ManualCrossSeedProposal[]
+}
+
+export interface ManualCrossSeedApplyResponse {
+  success: boolean
+  results: CrossSeedInstanceResult[]
+}
+
 export interface CrossSeedBlocklistEntry {
   instanceId: number
   infoHash: string
@@ -210,6 +235,7 @@ export interface CrossSeedAutomationSettings {
   webhookSourceExcludeTags: string[]
   findIndividualEpisodes: boolean
   autoResumeMaxDownloadMb: number
+  pooledPartialCompletionEnabled: boolean
   useCategoryFromIndexer: boolean
   useCrossCategoryAffix: boolean
   categoryAffixMode: "prefix" | "suffix"
@@ -277,6 +303,7 @@ export interface CrossSeedAutomationSettingsPatch {
   webhookSourceExcludeTags?: string[]
   findIndividualEpisodes?: boolean
   autoResumeMaxDownloadMb?: number
+  pooledPartialCompletionEnabled?: boolean
   useCategoryFromIndexer?: boolean
   useCrossCategoryAffix?: boolean
   categoryAffixMode?: "prefix" | "suffix"

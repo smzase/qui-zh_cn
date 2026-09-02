@@ -56,6 +56,7 @@
     "searchCrossSeeds": "Search Cross-Seeds",
     "filterCrossSeeds": "Filter Cross-Seeds",
     "filterCrossSeedsSingleOnly": "Filter Cross-Seeds (single selection only)",
+    "manualCrossSeed": "Add Cross-Seed Manually",
     "setTags": "Set Tags",
     "setLocation": "Set Location",
     "setShareLimits": "Set Share Limits",
@@ -1139,7 +1140,7 @@
       "unknownClient": "Unknown client"
     },
     "actions": {
-      "copyIpPort": "Copy IP:port",
+      "copyIpPort": "Copy address",
       "banPeerPermanently": "Ban peer permanently",
       "selectAll": "All",
       "selectNone": "None"
@@ -1213,7 +1214,7 @@
     "editTrackerUrl": "Edit Tracker URL"
   },
   "peersTable": {
-    "address": "IP:Port",
+    "address": "IP/Address",
     "client": "Client",
     "flags": "Flags",
     "progress": "Progress",
@@ -1222,11 +1223,11 @@
     "downloaded": "Downloaded",
     "uploaded": "Uploaded",
     "relevance": "Relevance",
-    "copyIpAddress": "Copy IP Address",
+    "copyIpAddress": "Copy address",
     "banPeer": "Ban Peer",
     "noPeersConnected": "No peers connected",
     "toast": {
-      "ipCopied": "IP address copied to clipboard"
+      "ipCopied": "Address copied to clipboard"
     }
   },
   "routes": {
@@ -1605,5 +1606,35 @@
     "failedToUpdatePriorities": "Failed to update file priorities",
     "failedToRenameFile": "Failed to rename file",
     "failedToRenameFolder": "Failed to rename folder"
+  },
+  "manualCrossSeed": {
+    "title": "Manual cross-seed match",
+    "description": "Pick the existing torrent that holds this data. qui adds the upload at its location, rechecks it, and seeds it.",
+    "fileLabel": "Torrent file",
+    "sourceSummary_one": "{{size}} · {{count}} file",
+    "sourceSummary_other": "{{size}} · {{count}} files",
+    "loadingProposals": "Ranking targets by file overlap...",
+    "proposalsFailed": "Failed to load target proposals",
+    "targetLabel": "Target torrent",
+    "noProposals": "No overlapping torrents found. Pick a target manually.",
+    "overlap": "{{percent}}% file overlap",
+    "pickManually": "Pick another torrent",
+    "pickerPlaceholder": "Search torrents...",
+    "pickerNoResults": "No torrents match",
+    "zeroOverlapWarning": "The selected torrent shares no file sizes with the upload. The recheck decides the outcome; a failed recheck leaves the torrent paused.",
+    "category": "Category",
+    "noCategory": "(no category)",
+    "pinnedCategory": "Cross-seed settings pin every match to “{{category}}”, so this cannot be changed here.",
+    "tags": "Tags",
+    "newTagPlaceholder": "Add a tag and press Enter",
+    "savePath": "Save path (effective destination)",
+    "cancel": "Cancel",
+    "apply": "Add cross-seed",
+    "applying": "Adding...",
+    "applySuccess": "Cross-seed added",
+    "applyFailed": "Cross-seed failed: {{message}}",
+    "addOptionTitle": "Add as cross-seed",
+    "addOptionDescription": "Match this torrent against an existing torrent instead of downloading it.",
+    "addOptionButton": "Match manually"
   }
 }

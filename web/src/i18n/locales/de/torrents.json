@@ -56,6 +56,7 @@
     "searchCrossSeeds": "Cross-Seeds suchen",
     "filterCrossSeeds": "Cross-Seeds filtern",
     "filterCrossSeedsSingleOnly": "Cross-Seeds filtern (nur Einzelauswahl)",
+    "manualCrossSeed": "Cross-Seed manuell hinzufügen",
     "setTags": "Tags setzen",
     "setLocation": "Speicherort setzen",
     "setShareLimits": "Share-Limits setzen",
@@ -1139,7 +1140,7 @@
       "unknownClient": "Unbekannter Client"
     },
     "actions": {
-      "copyIpPort": "IP:Port kopieren",
+      "copyIpPort": "Adresse kopieren",
       "banPeerPermanently": "Peer dauerhaft sperren",
       "selectAll": "Alle",
       "selectNone": "Keine"
@@ -1213,7 +1214,7 @@
     "editTrackerUrl": "Tracker-URL bearbeiten"
   },
   "peersTable": {
-    "address": "IP:Port",
+    "address": "IP/Adresse",
     "client": "Client",
     "flags": "Flags",
     "progress": "Fortschritt",
@@ -1222,11 +1223,11 @@
     "downloaded": "Heruntergeladen",
     "uploaded": "Hochgeladen",
     "relevance": "Relevanz",
-    "copyIpAddress": "IP-Adresse kopieren",
+    "copyIpAddress": "Adresse kopieren",
     "banPeer": "Peer sperren",
     "noPeersConnected": "Keine Peers verbunden",
     "toast": {
-      "ipCopied": "IP-Adresse in die Zwischenablage kopiert"
+      "ipCopied": "Adresse in die Zwischenablage kopiert"
     }
   },
   "routes": {
@@ -1605,5 +1606,35 @@
     "failedToUpdatePriorities": "Dateiprioritäten konnten nicht aktualisiert werden",
     "failedToRenameFile": "Datei konnte nicht umbenannt werden",
     "failedToRenameFolder": "Ordner konnte nicht umbenannt werden"
+  },
+  "manualCrossSeed": {
+    "title": "Manuelle Cross-Seed-Zuordnung",
+    "description": "Wähle den vorhandenen Torrent, der diese Daten enthält. qui fügt den Upload an dessen Speicherort hinzu, prüft ihn erneut und seedet ihn.",
+    "fileLabel": "Torrent-Datei",
+    "sourceSummary_one": "{{size}} · {{count}} Datei",
+    "sourceSummary_other": "{{size}} · {{count}} Dateien",
+    "loadingProposals": "Ziele werden nach Dateiüberlappung sortiert...",
+    "proposalsFailed": "Zielvorschläge konnten nicht geladen werden",
+    "targetLabel": "Ziel-Torrent",
+    "noProposals": "Keine überlappenden Torrents gefunden. Wähle ein Ziel manuell.",
+    "overlap": "{{percent}} % Dateiüberlappung",
+    "pickManually": "Anderen Torrent wählen",
+    "pickerPlaceholder": "Torrents durchsuchen...",
+    "pickerNoResults": "Keine passenden Torrents",
+    "zeroOverlapWarning": "Der gewählte Torrent teilt keine Dateigrößen mit dem Upload. Die erneute Prüfung entscheidet; schlägt sie fehl, bleibt der Torrent pausiert.",
+    "category": "Kategorie",
+    "noCategory": "(keine Kategorie)",
+    "pinnedCategory": "Die Cross-Seed-Einstellungen legen für jeden Treffer die Kategorie „{{category}}“ fest. Sie kann hier nicht geändert werden.",
+    "tags": "Tags",
+    "newTagPlaceholder": "Tag eingeben und Enter drücken",
+    "savePath": "Speicherpfad (effektives Ziel)",
+    "cancel": "Abbrechen",
+    "apply": "Cross-Seed hinzufügen",
+    "applying": "Wird hinzugefügt...",
+    "applySuccess": "Cross-Seed hinzugefügt",
+    "applyFailed": "Cross-Seed fehlgeschlagen: {{message}}",
+    "addOptionTitle": "Als Cross-Seed hinzufügen",
+    "addOptionDescription": "Diesen Torrent einem vorhandenen Torrent zuordnen, statt ihn herunterzuladen.",
+    "addOptionButton": "Manuell zuordnen"
   }
 }

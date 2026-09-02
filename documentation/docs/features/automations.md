@@ -126,15 +126,28 @@ When qui evaluates a rule, these fields use qui's current system time. Use them 
 
 | Field | Description |
 | --- | --- |
-| Tracker | Primary tracker (URL, domain, or customization display name) |
-| Trackers (All) | All tracker URLs/domains/display names for this torrent |
+| Tracker | Any tracker of the torrent (URL, domain, or customization display name) |
 | Private | Boolean: the torrent uses a private tracker |
 | Unregistered | Boolean: the tracker reports unregistered (requires qBittorrent 5.1+) |
 | Tracker status | Per-tracker announce status. See [Tracker status values](#tracker-status-values) (requires qBittorrent 5.1+). |
 | Tracker message | Per-tracker status message. Use `nil` for an empty message (requires qBittorrent 5.1+). |
 | Comment | Torrent comment field |
 
-If you configured [Tracker Customizations](./tracker-customizations.md) (Dashboard → **Tracker Breakdown**), the **Tracker** condition can also match the display name in addition to the raw URL or domain.
+**Tracker** matches every tracker the torrent announces to, including trackers that do not work. qui ignores the DHT, PeX, and LSD pseudo-trackers.
+
+If you configured [Tracker Customizations](./tracker-customizations.md) (Dashboard → **Tracker Breakdown**), the condition can also match the display name in addition to the raw URL or domain. A merged tracker group matches by its group name.
+
+On qBittorrent versions before 5.1, qui cannot read the full tracker list. **Tracker** then sees only the tracker that qBittorrent reports as working. When qui finds no tracker at all, positive operators such as **is** and **contains** match nothing, and negative operators such as **is not** match every torrent.
+
+:::note
+Any tracker condition (**Tracker**, **Trackers (All)**, **Tracker status**, or **Tracker message**) makes qui read the tracker list of every torrent. qui sends one request for each instance and keeps the result for 5 minutes. Rules without a tracker condition, and rules that are turned off, send no extra request.
+
+On a large library, or on an instance whose qBittorrent Web UI is already slow, that request adds a delay to the automation run.
+:::
+
+:::note
+Older rules can use a second field named **Trackers (All)**. It now behaves the same as **Tracker**, so qui no longer offers it for new rules. Your existing rules keep working. To stop seeing it, change the condition to **Tracker**.
+:::
 
 #### Mode fields
 
@@ -261,7 +274,7 @@ qui supports full RE2 (Go regex) syntax. Patterns are case-insensitive by defaul
 
 Field notes:
 
-- **Tracker**: qui checks the pattern against multiple candidates (raw URL, extracted domain, and the optional customization display name). If a regex is negative, it passes only when **none** of the candidates match.
+- **Tracker**: qui checks the pattern against multiple candidates for each tracker (raw URL, extracted domain, and the optional customization display name). If a regex is negative, it passes only when **none** of the candidates match.
 - **Tags**: If you do not use regex, qui applies string operators per tag. If you turn regex on, qui matches the pattern against the full raw tags string.
 
 The UI validates patterns and shows an error for invalid regex.
@@ -1136,6 +1149,20 @@ Remove completed torrents and all their cross-seeded copies when they are old en
 - Action: Remove with files (include cross-seeds)
 
 When a torrent matches, qui also deletes every other torrent that points to the same downloaded files. Use this rule when you no longer need any copy of the content.
+
+### Find duplicate releases of the same title
+
+List releases that share a parsed title but come from different release groups, such as `Show.S01.1080p.WEB-DL-GROUP1` and `Show.S01.1080p.WEB-DL-GROUP2`:
+
+- Tracker: `*`
+- Condition: `Is Grouped is true` with `groupId` set to `release_item` (see [Grouping](#grouping))
+- Action: Tag "dupe" (mode: add)
+
+The **Live impact preview** lists the matches while you edit, so the rule can stay disabled if you only want to look.
+
+:::note
+Cross-seeded copies of a release are also members of these groups, because the `release_item` key ignores the release group and the tracker.
+:::
 
 ### Organize by tracker
 

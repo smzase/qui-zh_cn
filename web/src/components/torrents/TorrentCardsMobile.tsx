@@ -71,6 +71,7 @@ import {
   EyeOff,
   FastForward,
   FileEdit,
+  FileUp,
   Filter,
   Folder,
   FolderOpen,
@@ -455,6 +456,7 @@ interface TorrentCardsMobileProps {
   canCrossSeedSearch?: boolean
   onCrossSeedSearch?: (torrent: Torrent) => void
   isCrossSeedSearching?: boolean
+  onManualCrossSeed?: (torrent: Torrent) => void
 }
 
 function formatEta(seconds: number): string {
@@ -1074,6 +1076,7 @@ export function TorrentCardsMobile({
   canCrossSeedSearch,
   onCrossSeedSearch,
   isCrossSeedSearching,
+  onManualCrossSeed,
 }: TorrentCardsMobileProps) {
   const { t } = useTranslation("torrents")
   const isAllInstancesView = isAllInstancesScope(instanceId)
@@ -2352,13 +2355,13 @@ export function TorrentCardsMobile({
 
       {/* More actions sheet */}
       <Sheet open={showActionsSheet} onOpenChange={setShowActionsSheet}>
-        <SheetContent side="bottom" className="h-auto pb-8">
+        <SheetContent side="bottom" className="max-h-[85dvh] pb-8">
           <SheetHeader>
             <SheetTitle>
               {isAllSelected? t("mobileCards.actionsForAll", { count: effectiveSelectionCount }): t("mobileCards.actionsForCount", { count: effectiveSelectionCount })}
             </SheetTitle>
           </SheetHeader>
-          <div className="grid gap-2 py-4 px-4">
+          <div className="grid gap-2 py-4 px-4 min-h-0 overflow-y-auto">
             {supportsQbittorrentOnlyActions && (() => {
               const { allEnabled: allForceStarted, mixed: forceStartMixed } = getToggleSelectionState(getSelectedTorrents.map(t => t.force_start), stateUnknownForSelection)
 
@@ -2473,11 +2476,28 @@ export function TorrentCardsMobile({
                   onCrossSeedSearch(singleSelectedTorrent)
                   setShowActionsSheet(false)
                 }}
-                disabled={!singleSelectedTorrent || isCrossSeedSearching}
+                disabled={effectiveSelectionCount !== 1 || !singleSelectedTorrent || isCrossSeedSearching}
                 className="justify-start"
               >
                 <Search className="mr-2 h-4 w-4" />
                 {t("contextMenu.searchCrossSeeds")}
+              </Button>
+            )}
+            {onManualCrossSeed && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!singleSelectedTorrent) {
+                    return
+                  }
+                  onManualCrossSeed(singleSelectedTorrent)
+                  setShowActionsSheet(false)
+                }}
+                disabled={effectiveSelectionCount !== 1 || !singleSelectedTorrent || singleSelectedTorrent.progress < 1}
+                className="justify-start"
+              >
+                <FileUp className="mr-2 h-4 w-4" />
+                {t("contextMenu.manualCrossSeed")}
               </Button>
             )}
             <Button

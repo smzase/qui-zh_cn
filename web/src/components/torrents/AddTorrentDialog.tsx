@@ -44,6 +44,7 @@ import { usePersistedBulkAddTorrentInstances } from "@/hooks/usePersistedBulkAdd
 import { usePersistedStartPaused } from "@/hooks/usePersistedStartPaused"
 import { api } from "@/lib/api"
 import { getCachedInstanceMetadata, setCachedInstanceMetadata } from "@/lib/instance-metadata-cache"
+import { canOfferManualCrossSeed } from "@/lib/manual-cross-seed"
 import { cn } from "@/lib/utils"
 import type { AddTorrentResponse, Category, InstanceResponse, Torrent } from "@/types"
 import { useForm } from "@tanstack/react-form"
@@ -54,6 +55,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
+
+import { ManualCrossSeedDialog } from "./ManualCrossSeedDialog"
 
 // Extract info hash from magnet link
 function extractHashFromMagnet(magnetUrl: string): string | null {
@@ -267,6 +270,7 @@ export function AddTorrentDialog({
   const [tagSearch, setTagSearch] = useState("")
   const [bulkSelectedInstanceIds, setBulkSelectedInstanceIds] = useState<number[]>([])
   const [duplicateSummary, setDuplicateSummary] = useState<DuplicateSummary>(() => createEmptyDuplicateSummary())
+  const [manualCrossSeedFile, setManualCrossSeedFile] = useState<File | null>(null)
   const [duplicateCheckStatus, setDuplicateCheckStatus] = useState<"idle" | "pending" | "visible">("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bulkSelectionInitializedRef = useRef(false)
@@ -1133,6 +1137,17 @@ export function AddTorrentDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
+      <ManualCrossSeedDialog
+        instanceId={instanceId}
+        open={manualCrossSeedFile !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setManualCrossSeedFile(null)
+          }
+        }}
+        initialFile={manualCrossSeedFile}
+        onApplied={() => setOpen(false)}
+      />
       {controlledOpen === undefined && (
         <DialogTrigger asChild>
           <Button variant={isBulkMode ? "outline" : "default"} size={isBulkMode ? "sm" : "default"} className={isBulkMode ? "w-full sm:w-auto" : undefined}>
@@ -1443,6 +1458,32 @@ export function AddTorrentDialog({
                       </div>
                     )}
                   </form.Field>
+                )}
+
+                {activeTab === "file" && (
+                  <form.Subscribe selector={(state) => [state.values.torrentFiles, state.values.urls] as const}>
+                    {([files, urls]) => {
+                      if (!files || !canOfferManualCrossSeed({ fileCount: files.length, urlText: urls ?? "" })) {
+                        return null
+                      }
+                      return (
+                        <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{t("manualCrossSeed.addOptionTitle")}</p>
+                            <p className="text-xs text-muted-foreground">{t("manualCrossSeed.addOptionDescription")}</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setManualCrossSeedFile(files[0])}
+                          >
+                            {t("manualCrossSeed.addOptionButton")}
+                          </Button>
+                        </div>
+                      )
+                    }}
+                  </form.Subscribe>
                 )}
 
                 {/* Basic Toggles */}

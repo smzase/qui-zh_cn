@@ -4,6 +4,7 @@
 package jackett
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -464,6 +465,16 @@ func (s *Service) searchIndexersWithScheduler(ctx context.Context, indexers []*m
 	})
 
 	return err
+}
+
+// WithMinRequestInterval overrides the pacing between requests to one native
+// Torznab indexer. Tests use it to skip the 60 s default.
+func WithMinRequestInterval(d time.Duration) ServiceOption {
+	return func(s *Service) {
+		if d > 0 {
+			s.rateLimiter.setMinInterval(d)
+		}
+	}
 }
 
 // WithTorrentCache wires a torrent payload cache into the service.
@@ -4597,6 +4608,15 @@ func (s *Service) GetActivityStatus(ctx context.Context) (*ActivityStatus, error
 					})
 				}
 			}
+			slices.SortFunc(status.CooldownIndexers, func(a, b IndexerCooldownStatus) int {
+				if c := a.CooldownEnd.Compare(b.CooldownEnd); c != 0 {
+					return c
+				}
+				if c := cmp.Compare(a.IndexerName, b.IndexerName); c != 0 {
+					return c
+				}
+				return cmp.Compare(a.IndexerID, b.IndexerID)
+			})
 		}
 	}
 

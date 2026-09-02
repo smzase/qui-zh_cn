@@ -35,14 +35,17 @@ type spyARRLookupService struct {
 	result       *arr.ExternalIDsResult
 	seasonResult *arr.SeasonEpisodeTotalResult
 	err          error
-	called       bool
+	calls        int
 	seasonCalls  int
+	deadline     time.Time
+	hasDeadline  bool
 }
 
-func (s *spyARRLookupService) LookupExternalIDs(_ context.Context, title string, contentType arr.ContentType) (*arr.ExternalIDsResult, error) {
-	s.called = true
+func (s *spyARRLookupService) LookupExternalIDs(ctx context.Context, title string, contentType arr.ContentType) (*arr.ExternalIDsResult, error) {
+	s.calls++
 	s.title = title
 	s.contentType = contentType
+	s.deadline, s.hasDeadline = ctx.Deadline()
 	return s.result, s.err
 }
 
@@ -131,7 +134,7 @@ func newFailingJackettService(err error) *jackett.Service {
 }
 
 func newJackettServiceWithIndexers(indexers []*models.TorznabIndexer) *jackett.Service {
-	return jackett.NewService(&failingEnabledIndexerStore{indexers: indexers})
+	return jackett.NewService(&failingEnabledIndexerStore{indexers: indexers}, jackett.WithMinRequestInterval(time.Millisecond))
 }
 
 func TestIsNilARRLookupServiceHandlesTypedNilARRService(t *testing.T) {
@@ -159,7 +162,7 @@ func TestLookupARRExternalIDsNoInstancesIsNotDegraded(t *testing.T) {
 
 	got, degraded := svc.lookupARRExternalIDs(context.Background(), "Inception.2010", "movie")
 
-	require.True(t, spy.called)
+	require.Equal(t, 1, spy.calls)
 	require.Nil(t, got)
 	require.Empty(t, degraded)
 }
@@ -280,7 +283,7 @@ func TestLookupARRExternalIDsMapsContentType(t *testing.T) {
 
 			got, degraded := svc.lookupARRExternalIDs(context.Background(), "Inception.2010", tt.contentType)
 
-			require.Equal(t, tt.wantCalled, spy.called)
+			require.Equal(t, tt.wantCalled, spy.calls > 0)
 			require.Equal(t, tt.wantDegraded, degraded)
 			if !tt.wantCalled {
 				require.Nil(t, got)
