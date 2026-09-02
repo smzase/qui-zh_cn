@@ -2251,22 +2251,65 @@ class ApiClient {
     return this.request<Record<string, string>>("/tracker-icons")
   }
 
-  async uploadApplicationUpdate(binary: File): Promise<{ restarting: boolean }> {
+  async uploadApplicationUpdate(
+    binary: File,
+    onProgress?: (progress: { loaded: number; total: number; speed: number }) => void
+  ): Promise<{ restarting: boolean }> {
     const formData = new FormData()
     formData.append("binary", binary)
 
-    const response = await ssoSafeFetch(`${API_BASE}/update/upload`, {
-      method: "POST",
-      body: formData,
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest()
+      let lastLoaded = 0
+      let lastTimestamp = performance.now()
+
+      request.upload.addEventListener("progress", (event) => {
+        if (!onProgress) return
+        const now = performance.now()
+        const elapsedSeconds = Math.max((now - lastTimestamp) / 1000, 0.001)
+        const speed = Math.max((event.loaded - lastLoaded) / elapsedSeconds, 0)
+        lastLoaded = event.loaded
+        lastTimestamp = now
+        onProgress({ loaded: event.loaded, total: event.total || binary.size, speed })
+      })
+
+      request.addEventListener("load", () => {
+        const endpoint = "/update/upload"
+        const data = (() => {
+          if (!request.responseText) return null
+          try { return JSON.parse(request.responseText) as { restarting: boolean; message?: string; error?: string } } catch { return null }
+        })()
+        const contentType = request.getResponseHeader("content-type") || ""
+        const responseText = request.responseText.trim().toLowerCase()
+        const isHTMLResponse = request.status < 500 && (contentType.includes("text/html") || (!contentType && (responseText.startsWith("<!doctype html") || responseText.startsWith("<html"))))
+        if (isHTMLResponse) {
+          void attemptSSORecoveryNavigation().then((recovered) => {
+            if (!recovered) {
+              reject(new Error("Received an HTML response instead of JSON from the API. Try refreshing the page or re-opening the URL in a new tab."))
+            }
+          })
+          return
+        }
+        if (request.status < 200 || request.status >= 300) {
+          const message = (data?.message || data?.error) || request.statusText || ("HTTP error! status: " + request.status)
+          this.handleAuthError(request.status, endpoint, message)
+          reject(new APIError(message, request.status, data))
+          return
+        }
+        clearSSORecoveryGuard()
+        resolve((data ?? { restarting: true }) as { restarting: boolean })
+      })
+      request.addEventListener("error", () => {
+        void attemptSSORecoveryNavigation().then((recovered) => {
+          if (!recovered) reject(new Error("Network error while uploading update"))
+        })
+      })
+      request.addEventListener("abort", () => reject(new Error("Update upload was cancelled")))
+      request.open("POST", API_BASE + "/update/upload")
+      request.withCredentials = true
+      request.setRequestHeader("X-Requested-With", "XMLHttpRequest")
+      request.send(formData)
     })
-
-    if (!response.ok) {
-      const { message } = await this.extractErrorData(response)
-      this.handleAuthError(response.status, "/update/upload", message)
-      throw new Error(message)
-    }
-
-    return response.json()
   }
 
   // External Programs endpoints

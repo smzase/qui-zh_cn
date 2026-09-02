@@ -163,14 +163,12 @@ export function ThemeSelector() {
     isError: customThemesError,
     refetch: refetchCustomThemes,
   } = useCustomThemes()
-  // Subscribe so the picker re-renders when the async theme registry lands.
-  const builtins = useBuiltinThemes()
+  useBuiltinThemes()
 
   // The server is the authority: a premium theme without a license arrives as
   // a locked stub with no CSS, so the locked flag is the gate.
   const isThemeUnlocked = (themeId: string) => !getThemeById(themeId)?.locked
 
-  const premiumThemes = themes.filter(theme => theme.isPremium)
   const themeCatalog = buildThemeCatalog(themes, customThemes)
 
   const showThemeLockedToast = () => {
@@ -240,21 +238,6 @@ export function ThemeSelector() {
             <WifiOff className="h-4 w-4 flex-shrink-0" />
             <p className="text-sm">
               {t("themes.selector.verificationUnavailable")}
-            </p>
-          </div>
-        )}
-
-        {builtins.isSuccess && premiumThemes.length === 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-3">
-            <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/20 dark:text-orange-400">
-              <AlertTriangle className="mr-1 h-3 w-3" />
-              {t("themes.selector.notLoaded")}
-            </Badge>
-            <p className="text-xs text-muted-foreground">
-              {t("themes.selector.notLoadedDescription")}{" "}
-              <code className="rounded bg-muted px-1 py-0.5">THEMES_REPO_TOKEN</code>{" "}
-              {t("themes.selector.notLoadedAnd")}{" "}
-              <code className="rounded bg-muted px-1 py-0.5">make themes-fetch</code>.
             </p>
           </div>
         )}

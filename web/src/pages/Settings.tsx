@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 import {
   Select,
   SelectContent,
@@ -964,14 +965,16 @@ function ManualUpdatePanel() {
   const { t } = useTranslation("settings")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; speed: number } | null>(null)
   const uploadMutation = useMutation({
-    mutationFn: (binary: File) => api.uploadApplicationUpdate(binary),
+    mutationFn: (binary: File) => api.uploadApplicationUpdate(binary, setUploadProgress),
     onSuccess: () => {
       setConfirmOpen(false)
       toast.success(t("application.manualUpdate.toasts.success"))
       window.setTimeout(() => window.location.reload(), 3000)
     },
     onError: (error) => {
+      setUploadProgress(null)
       toast.error(getApiErrorMessage(error, t("application.manualUpdate.toasts.failed")))
     },
   })
@@ -1026,6 +1029,7 @@ function ManualUpdatePanel() {
                 disabled={!selectedFile || uploadMutation.isPending}
                 onClick={() => {
                   if (selectedFile) {
+                    setUploadProgress({ loaded: 0, total: selectedFile.size, speed: 0 })
                     uploadMutation.mutate(selectedFile)
                   }
                 }}
@@ -1033,6 +1037,18 @@ function ManualUpdatePanel() {
                 {uploadMutation.isPending ? t("application.manualUpdate.installing") : t("application.manualUpdate.confirm.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
+            {uploadMutation.isPending && uploadProgress && (
+              <div className="space-y-2 px-1 pb-1" aria-live="polite">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{Math.round((uploadProgress.loaded / Math.max(uploadProgress.total, 1)) * 100)}%</span>
+                  <span>{formatBytes(uploadProgress.speed)}/s</span>
+                </div>
+                <Progress value={(uploadProgress.loaded / Math.max(uploadProgress.total, 1)) * 100} />
+                <p className="text-xs text-muted-foreground">
+                  {formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}
+                </p>
+              </div>
+            )}
           </AlertDialogContent>
         </AlertDialog>
       </CardContent>

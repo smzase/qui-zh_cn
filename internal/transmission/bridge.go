@@ -492,10 +492,17 @@ func (b *Bridge) buildServerState(sess *session, stats *sessionStats, freeSpace 
 		"total_peer_connections": 0,
 		"up_info_data":           stats.UploadedBytes,
 		"up_info_speed":          upSpeed,
-		"up_rate_limit":          limitBytes(sess.SpeedLimitUpEnabled, sess.SpeedLimitUp),
+		"up_rate_limit":          transmissionUploadRateLimit(sess),
 		"use_alt_speed_limits":   sess.AltSpeedEnabled,
 		"use_subcategories":      false,
 	}
+}
+
+func transmissionUploadRateLimit(sess *session) int64 {
+	if sess.AltSpeedEnabled {
+		return limitBytes(true, sess.AltSpeedUp)
+	}
+	return limitBytes(sess.SpeedLimitUpEnabled, sess.SpeedLimitUp)
 }
 
 func (b *Bridge) handleTorrentPeers(ctx context.Context, req *http.Request) (*http.Response, error) {
@@ -1362,7 +1369,7 @@ func (b *Bridge) handleTransferInfo(ctx context.Context, req *http.Request) (*ht
 		"dl_rate_limit":     limitBytes(sess.SpeedLimitDownEnabled, sess.SpeedLimitDown),
 		"up_info_data":      stats.UploadedBytes,
 		"up_info_speed":     0,
-		"up_rate_limit":     limitBytes(sess.SpeedLimitUpEnabled, sess.SpeedLimitUp),
+		"up_rate_limit":     transmissionUploadRateLimit(sess),
 	})
 }
 
