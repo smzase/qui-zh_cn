@@ -350,6 +350,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 		return nil, err
 	}
 	instancesHandler := handlers.NewInstancesHandler(s.instanceStore, s.instanceReannounce, s.reannounceCache, s.clientPool, s.syncManager, s.reannounceService)
+	managedUsersHandler := handlers.NewManagedUsersHandler(s.authService)
 	torrentsHandler := handlers.NewTorrentsHandler(s.syncManager, s.jackettService, s.instanceStore)
 	preferencesHandler := handlers.NewPreferencesHandler(s.syncManager)
 	clientAPIKeysHandler := handlers.NewClientAPIKeysHandler(s.clientAPIKeyStore, s.instanceStore, s.config.Config.BaseURL)
@@ -429,7 +430,13 @@ func (s *Server) Handler() (*chi.Mux, error) {
 		authMiddleware := middleware.IsAuthenticated(s.authService, s.sessionManager, s.config.Config)
 
 		// Cross-seed routes (query param auth for select endpoints)
-		crossSeedHandler.Routes(r, authMiddleware, apiKeyQueryMiddleware)
+		crossSeedHandler.Routes(
+			r,
+			authMiddleware,
+			apiKeyQueryMiddleware,
+			middleware.PopulateUserContext(s.authService, s.config.Config),
+			instancesHandler.RequireInstanceAccess,
+		)
 
 		// Dir scan webhook (query param auth for external triggers like *arr custom scripts)
 		if dirScanHandler != nil {
@@ -440,12 +447,17 @@ func (s *Server) Handler() (*chi.Mux, error) {
 
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware)
+			r.Use(middleware.PopulateUserContext(s.authService, s.config.Config))
 
 			r.Get("/tracker-icons", trackerIconHandler.GetTrackerIcons)
 
 			// Auth routes
 			r.Post("/auth/logout", authHandler.Logout)
 			r.Get("/auth/me", authHandler.GetCurrentUser)
+			r.Get("/users", managedUsersHandler.List)
+			r.Get("/users/share-targets", managedUsersHandler.ListShareTargets)
+			r.Post("/users", managedUsersHandler.Create)
+			r.Put("/users/{id}/role", managedUsersHandler.UpdateRole)
 			r.Put("/auth/change-password", authHandler.ChangePassword)
 
 			// License API routes disabled — all themes are free in this fork.
@@ -553,11 +565,15 @@ func (s *Server) Handler() (*chi.Mux, error) {
 				r.Put("/order", instancesHandler.UpdateInstanceOrder)
 
 				r.Route("/{instanceID}", func(r chi.Router) {
-					r.Put("/status", instancesHandler.UpdateInstanceStatus)
-					r.Put("/", instancesHandler.UpdateInstance)
-					r.Delete("/", instancesHandler.DeleteInstance)
+					r.Use(instancesHandler.RequireInstanceAccess)
+					r.With(instancesHandler.RequireInstanceOwner).Put("/status", instancesHandler.UpdateInstanceStatus)
+					r.With(instancesHandler.RequireInstanceOwner).Put("/", instancesHandler.UpdateInstance)
+					r.With(instancesHandler.RequireInstanceOwner).Delete("/", instancesHandler.DeleteInstance)
 					r.Post("/test", instancesHandler.TestConnection)
 					r.Get("/mediainfo", torrentsHandler.GetContentPathMediaInfo)
+					r.Get("/shares", instancesHandler.ListInstanceShares)
+					r.Post("/shares", instancesHandler.ShareInstance)
+					r.Delete("/shares/{userID}", instancesHandler.UnshareInstance)
 
 					// Torrent operations
 					r.Route("/torrents", func(r chi.Router) {

@@ -52,6 +52,19 @@
       "deleteFailedDescription": "无法删除实例"
     }
   },
+  "sharing": {
+    "badge": "共享",
+    "manage": "管理共享",
+    "leave": "退出共享",
+    "title": "共享实例",
+    "description": "选择可以访问此实例的用户。",
+    "selectUser": "选择用户",
+    "share": "共享",
+    "remove": "移除",
+    "sharedWith": "已共享给",
+    "empty": "此实例尚未共享给任何用户。",
+    "left": "已退出共享实例。"
+  },
   "errorDisplay": {
     "passwordRequired": "需要密码",
     "decryptionDescription": "无法解密已保存的密码。这通常是因为会话密钥已更改。",

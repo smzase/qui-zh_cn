@@ -551,55 +551,74 @@ func NewCrossSeedHandler(
 }
 
 // Routes registers the cross-seed routes with explicit middleware ordering.
-func (h *CrossSeedHandler) Routes(r chi.Router, authMiddleware func(http.Handler) http.Handler, apiKeyQueryMiddleware func(http.Handler) http.Handler) {
+func (h *CrossSeedHandler) Routes(
+	r chi.Router,
+	authMiddleware func(http.Handler) http.Handler,
+	apiKeyQueryMiddleware func(http.Handler) http.Handler,
+	userContextMiddleware func(http.Handler) http.Handler,
+	instanceAccessMiddleware func(http.Handler) http.Handler,
+) {
+	withInstanceAccess := func(next http.Handler) http.Handler {
+		return authMiddleware(userContextMiddleware(instanceAccessMiddleware(next)))
+	}
+	withUserContext := func(next http.Handler) http.Handler {
+		return authMiddleware(userContextMiddleware(next))
+	}
+	withAdminContext := func(next http.Handler) http.Handler {
+		return authMiddleware(userContextMiddleware(adminOnly(next)))
+	}
+	withAPIKeyUserContext := func(next http.Handler) http.Handler {
+		return apiKeyQueryMiddleware(authMiddleware(userContextMiddleware(next)))
+	}
+
 	// Register instance-scoped route at top level
-	r.With(authMiddleware).Get("/instances/{instanceID}/cross-seed/status", h.GetCrossSeedStatus)
+	r.With(withInstanceAccess).Get("/instances/{instanceID}/cross-seed/status", h.GetCrossSeedStatus)
 
 	r.Route("/cross-seed", func(r chi.Router) {
-		r.With(apiKeyQueryMiddleware, authMiddleware).Post("/apply", h.AutobrrApply)
+		r.With(withAPIKeyUserContext).Post("/apply", h.AutobrrApply)
 		r.Route("/webhook", func(r chi.Router) {
-			r.With(apiKeyQueryMiddleware, authMiddleware).Post("/check", h.WebhookCheck)
+			r.With(withAPIKeyUserContext).Post("/check", h.WebhookCheck)
 		})
 
-		r.With(authMiddleware).Route("/torrents", func(r chi.Router) {
+		r.With(withInstanceAccess).Route("/torrents", func(r chi.Router) {
 			r.Get("/{instanceID}/{hash}/analyze", h.AnalyzeTorrentForSearch)
 			r.Get("/{instanceID}/{hash}/async-status", h.GetAsyncFilteringStatus)
 			r.Get("/{instanceID}/{hash}/local-matches", h.GetLocalMatches)
 			r.Post("/{instanceID}/{hash}/search", h.SearchTorrentMatches)
 			r.Post("/{instanceID}/{hash}/apply", h.ApplyTorrentSearchResults)
 		})
-		r.With(authMiddleware).Get("/settings", h.GetAutomationSettings)
-		r.With(authMiddleware).Patch("/settings", h.PatchAutomationSettings)
-		r.With(authMiddleware).Put("/settings", h.UpdateAutomationSettings)
-		r.With(authMiddleware).Get("/status", h.GetAutomationStatus)
-		r.With(authMiddleware).Get("/runs", h.ListAutomationRuns)
-		r.With(authMiddleware).Post("/run", h.TriggerAutomationRun)
-		r.With(authMiddleware).Post("/run/cancel", h.CancelAutomationRun)
-		r.With(authMiddleware).Route("/blocklist", func(r chi.Router) {
+		r.With(withUserContext).Get("/settings", h.GetAutomationSettings)
+		r.With(withAdminContext).Patch("/settings", h.PatchAutomationSettings)
+		r.With(withAdminContext).Put("/settings", h.UpdateAutomationSettings)
+		r.With(withUserContext).Get("/status", h.GetAutomationStatus)
+		r.With(withUserContext).Get("/runs", h.ListAutomationRuns)
+		r.With(withAdminContext).Post("/run", h.TriggerAutomationRun)
+		r.With(withAdminContext).Post("/run/cancel", h.CancelAutomationRun)
+		r.With(withUserContext).Route("/blocklist", func(r chi.Router) {
 			r.Get("/", h.ListBlocklist)
-			r.Post("/", h.AddBlocklistEntry)
-			r.Delete("/{instanceID}/{infohash}", h.DeleteBlocklistEntry)
+			r.With(withAdminContext).Post("/", h.AddBlocklistEntry)
+			r.With(instanceAccessMiddleware).Delete("/{instanceID}/{infohash}", h.DeleteBlocklistEntry)
 		})
-		r.With(authMiddleware).Route("/search", func(r chi.Router) {
+		r.With(withUserContext).Route("/search", func(r chi.Router) {
 			r.Get("/settings", h.GetSearchSettings)
-			r.Patch("/settings", h.PatchSearchSettings)
+			r.With(withAdminContext).Patch("/settings", h.PatchSearchSettings)
 			r.Get("/status", h.GetSearchRunStatus)
-			r.Post("/run", h.StartSearchRun)
-			r.Post("/run/cancel", h.CancelSearchRun)
+			r.With(withAdminContext).Post("/run", h.StartSearchRun)
+			r.With(withAdminContext).Post("/run/cancel", h.CancelSearchRun)
 			r.Get("/runs", h.ListSearchRunHistory)
 		})
-		r.With(authMiddleware).Route("/manual", func(r chi.Router) {
+		r.With(withUserContext).Route("/manual", func(r chi.Router) {
 			r.Post("/proposals", h.ManualMatchProposals)
 			r.Post("/apply", h.ManualMatchApply)
 		})
-		r.With(authMiddleware).Route("/completion", func(r chi.Router) {
-			r.Get("/{instanceID}", h.GetInstanceCompletionSettings)
-			r.Put("/{instanceID}", h.UpdateInstanceCompletionSettings)
+		r.With(withUserContext).Route("/completion", func(r chi.Router) {
+			r.With(instanceAccessMiddleware).Get("/{instanceID}", h.GetInstanceCompletionSettings)
+			r.With(instanceAccessMiddleware).Put("/{instanceID}", h.UpdateInstanceCompletionSettings)
 		})
 		r.Route("/season-pack", func(r chi.Router) {
-			r.With(apiKeyQueryMiddleware, authMiddleware).Post("/check", h.SeasonPackCheck)
-			r.With(apiKeyQueryMiddleware, authMiddleware).Post("/apply", h.SeasonPackApply)
-			r.With(authMiddleware).Get("/runs", h.ListSeasonPackRuns)
+			r.With(withAPIKeyUserContext).Post("/check", h.SeasonPackCheck)
+			r.With(withAPIKeyUserContext).Post("/apply", h.SeasonPackApply)
+			r.With(withUserContext).Get("/runs", h.ListSeasonPackRuns)
 		})
 	})
 }
@@ -816,6 +835,12 @@ func (h *CrossSeedHandler) AutobrrApply(w http.ResponseWriter, r *http.Request) 
 		RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+	instanceIDs, err := h.scopeCrossSeedInstanceIDs(r, req.InstanceIDs)
+	if err != nil {
+		respondCrossSeedInstanceScopeError(w, err)
+		return
+	}
+	req.InstanceIDs = instanceIDs
 
 	// Parse torrent for logging (cheap operation, also done in service)
 	var torrentName, torrentHash string
@@ -1654,6 +1679,10 @@ func (h *CrossSeedHandler) ListSearchRunHistory(w http.ResponseWriter, r *http.R
 		RespondError(w, http.StatusBadRequest, "instanceId must be a positive integer")
 		return
 	}
+	if _, err := h.scopeCrossSeedInstanceIDs(r, []int{instanceID}); err != nil {
+		respondCrossSeedInstanceScopeError(w, err)
+		return
+	}
 
 	limit := 25
 	if v := r.URL.Query().Get("limit"); v != "" {
@@ -1728,6 +1757,12 @@ func (h *CrossSeedHandler) WebhookCheck(w http.ResponseWriter, r *http.Request) 
 		RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+	instanceIDs, err := h.scopeCrossSeedInstanceIDs(r, req.InstanceIDs)
+	if err != nil {
+		respondCrossSeedInstanceScopeError(w, err)
+		return
+	}
+	req.InstanceIDs = instanceIDs
 
 	response, err := h.service.CheckWebhook(r.Context(), &req)
 	if err != nil {
@@ -1766,6 +1801,12 @@ func (h *CrossSeedHandler) SeasonPackCheck(w http.ResponseWriter, r *http.Reques
 		RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+	instanceIDs, err := h.scopeCrossSeedInstanceIDs(r, req.InstanceIDs)
+	if err != nil {
+		respondCrossSeedInstanceScopeError(w, err)
+		return
+	}
+	req.InstanceIDs = instanceIDs
 
 	resp, err := h.service.CheckSeasonPackWebhook(r.Context(), &req)
 	if err != nil {
@@ -1788,6 +1829,12 @@ func (h *CrossSeedHandler) SeasonPackApply(w http.ResponseWriter, r *http.Reques
 		RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+	instanceIDs, err := h.scopeCrossSeedInstanceIDs(r, req.InstanceIDs)
+	if err != nil {
+		respondCrossSeedInstanceScopeError(w, err)
+		return
+	}
+	req.InstanceIDs = instanceIDs
 
 	resp, err := h.service.ApplySeasonPackWebhook(context.WithoutCancel(r.Context()), &req)
 	if err != nil {

@@ -4,6 +4,7 @@
   "tabs": {
     "application": "应用",
     "instances": "实例",
+    "users": "用户",
     "indexers": "索引器",
     "searchCache": "搜索缓存",
     "integrations": "集成",
@@ -15,6 +16,19 @@
     "premiumThemes": "高级主题",
     "security": "安全",
     "logs": "日志"
+  },
+  "users": {
+    "title": "用户",
+    "description": "管理用户和权限",
+    "username": "用户名",
+    "password": "密码",
+    "create": "创建",
+    "created": "用户已创建",
+    "createFailed": "创建用户失败",
+    "roleUpdated": "角色已更新",
+    "admin": "管理员",
+    "adminOnly": "仅管理员可以管理用户",
+    "user": "用户"
   },
   "language": {
     "cardTitle": "语言",

@@ -13,6 +13,7 @@ import { ClientApiKeysManager } from "@/components/settings/ClientApiKeysManager
 import { DateTimePreferencesForm } from "@/components/settings/DateTimePreferencesForm"
 import { supportedLanguages, languageNames, changeLanguage, type AppLanguage } from "@/i18n"
 import { ExternalProgramsManager } from "@/components/settings/ExternalProgramsManager"
+import { UsersManager } from "@/components/settings/UsersManager"
 import { LogSettingsPanel } from "@/components/settings/LogSettingsPanel"
 import { NotificationsManager } from "@/components/settings/NotificationsManager"
 import { ThemeSelector } from "@/components/themes/ThemeSelector"
@@ -50,6 +51,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
+import { useAuth } from "@/hooks/useAuth"
 import { useInstances } from "@/hooks/useInstances"
 import { usePersistedTitleBarSpeeds } from "@/hooks/usePersistedTitleBarSpeeds"
 import { APIError, api } from "@/lib/api"
@@ -61,7 +63,7 @@ import type { SettingsSearch } from "@/routes/_authenticated/settings"
 import type { ApplicationInfo, Instance, TorznabSearchCacheStats, User } from "@/types"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Bell, Globe, Copy, Database, ExternalLink, FileText, Info, Key, Layers, Link2, Loader2, Palette, Plus, RefreshCw, Server, Share2, Shield, Terminal, Trash2, Upload } from "lucide-react"
+import { Bell, Globe, Copy, Database, ExternalLink, FileText, Info, Key, Layers, Link2, Loader2, Palette, Plus, RefreshCw, Server, Share2, Shield, Terminal, Trash2, Upload, Users } from "lucide-react"
 import type { FormEvent, ReactNode } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -517,7 +519,9 @@ const INSTANCE_FORM_ID = "instance-form"
 
 function InstancesManager({ search, onSearchChange }: InstancesManagerProps) {
   const { t } = useTranslation("settings")
+  const { user } = useAuth()
   const { instances, isLoading, reorderInstances, isReordering, isCreating } = useInstances()
+  const canReorder = user?.role === "admin"
   const [titleBarSpeedsEnabled, setTitleBarSpeedsEnabled] = usePersistedTitleBarSpeeds(false)
   const isDialogOpen = search.tab === "instances" && search.modal === "add-instance"
   const [editingInstanceId, setEditingInstanceId] = useState<number | null>(null)
@@ -589,8 +593,8 @@ function InstancesManager({ search, onSearchChange }: InstancesManagerProps) {
                     key={instance.id}
                     instance={instance}
                     onEdit={() => handleEditInstance(instance)}
-                    onMoveUp={index > 0 ? () => handleReorder(instance.id, -1) : undefined}
-                    onMoveDown={index < instances.length - 1 ? () => handleReorder(instance.id, 1) : undefined}
+                    onMoveUp={canReorder && index > 0 ? () => handleReorder(instance.id, -1) : undefined}
+                    onMoveDown={canReorder && index < instances.length - 1 ? () => handleReorder(instance.id, 1) : undefined}
                     disableMoveUp={isReordering}
                     disableMoveDown={isReordering}
                   />
@@ -1319,7 +1323,8 @@ function SettingsScrollPanel({ children, contentClassName }: SettingsScrollPanel
 
 export function Settings({ search, onSearchChange }: SettingsProps) {
   const { t } = useTranslation("settings")
-  const activeTab: SettingsTab = search.tab ?? "application"
+  const { user } = useAuth()
+  const activeTab: SettingsTab = search.tab === "users" && user?.role !== "admin" ? "application" : search.tab ?? "application"
   const scrollPanelContentClassName = "space-y-4"
   const appInfoQuery = useQuery({
     queryKey: ["application-info"],
@@ -1328,6 +1333,10 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
   })
 
   const handleTabChange = (tab: SettingsTab) => {
+    if (tab === "users" && user?.role !== "admin") {
+      onSearchChange({ tab: "application" })
+      return
+    }
     onSearchChange({ tab })
   }
 
@@ -1362,6 +1371,14 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
                 {t("tabs.instances")}
               </div>
             </SelectItem>
+            {user?.role === "admin" && (
+              <SelectItem value="users">
+                <div className="flex items-center">
+                  <Users className="w-4 h-4 mr-2" />
+                  {t("tabs.users")}
+                </div>
+              </SelectItem>
+            )}
             <SelectItem value="indexers">
               <div className="flex items-center">
                 <Database className="w-4 h-4 mr-2" />
@@ -1453,6 +1470,16 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
             >
               <Server className="w-4 h-4 mr-2" />
               {t("tabs.instances")}
+            </button>
+            <button
+              hidden={user?.role !== "admin"}
+              onClick={() => handleTabChange("users")}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "users" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
+              }`}
+            >
+              <Users className="w-4 h-4 mr-2" />
+              {t("tabs.users")}
             </button>
             <button
               onClick={() => handleTabChange("indexers")}
@@ -1561,6 +1588,12 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
           {activeTab === "application" && (
             <SettingsScrollPanel contentClassName={scrollPanelContentClassName}>
               <ApplicationInfoPanel />
+            </SettingsScrollPanel>
+          )}
+
+          {user?.role === "admin" && activeTab === "users" && (
+            <SettingsScrollPanel contentClassName={scrollPanelContentClassName}>
+              <Card><CardHeader><CardTitle>{t("users.title")}</CardTitle><CardDescription>{t("users.description")}</CardDescription></CardHeader><CardContent><UsersManager /></CardContent></Card>
             </SettingsScrollPanel>
           )}
 

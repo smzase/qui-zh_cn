@@ -23,7 +23,7 @@ func NewDashboardSettingsHandler(store *models.DashboardSettingsStore) *Dashboar
 }
 
 func (h *DashboardSettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.store.GetByUserID(r.Context(), 1)
+	settings, err := h.store.GetByUserID(r.Context(), currentUserID(r))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get dashboard settings")
 		RespondError(w, http.StatusInternalServerError, "Failed to load dashboard settings")
@@ -41,7 +41,7 @@ func (h *DashboardSettingsHandler) Update(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	settings, err := h.store.Update(r.Context(), 1, &input)
+	settings, err := h.store.Update(r.Context(), currentUserID(r), &input)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to update dashboard settings")
 		RespondError(w, http.StatusInternalServerError, "Failed to update dashboard settings")

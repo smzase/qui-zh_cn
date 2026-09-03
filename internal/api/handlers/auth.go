@@ -50,7 +50,7 @@ func NewAuthHandler(
 
 	// Initialize OIDC handler if enabled
 	if config.OIDCEnabled {
-		oidcHandler, err := NewOIDCHandler(config, sessionManager)
+		oidcHandler, err := NewOIDCHandler(config, sessionManager, authService)
 		if err != nil {
 			return nil, fmt.Errorf("init OIDC handler: %w", err)
 		}
@@ -153,6 +153,7 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		"user": map[string]any{
 			"id":       user.ID,
 			"username": user.Username,
+			"role":     user.Role,
 		},
 	})
 }
@@ -289,6 +290,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		"user": map[string]any{
 			"id":       user.ID,
 			"username": user.Username,
+			"role":     user.Role,
 		},
 	})
 }
@@ -313,6 +315,8 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 func syntheticAdminResponse() map[string]any {
 	return map[string]any{
+		"id":          1,
+		"role":        models.UserRoleAdmin,
 		"username":    "admin",
 		"auth_method": "none",
 	}
@@ -347,6 +351,10 @@ func (h *AuthHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		"username": username,
 	}
 
+	if user, err := h.authService.FindUser(r.Context(), username); err == nil {
+		response["role"] = user.Role
+	}
+
 	// Only include ID if it exists (for built-in auth users)
 	if userID != 0 {
 		response["id"] = userID
@@ -374,14 +382,23 @@ func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := h.sessionManager.GetString(r.Context(), "username")
+	userID := h.sessionManager.GetInt(r.Context(), "user_id")
 	authMethod := h.sessionManager.GetString(r.Context(), "auth_method")
 	profilePicture := h.sessionManager.GetString(r.Context(), "profile_picture")
 
-	RespondJSON(w, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"username":        username,
 		"auth_method":     authMethod,
 		"profile_picture": profilePicture,
-	})
+	}
+	if userID > 0 {
+		response["id"] = userID
+		if user, err := h.authService.GetUser(r.Context(), userID); err == nil {
+			response["role"] = user.Role
+		}
+	}
+
+	RespondJSON(w, http.StatusOK, response)
 }
 
 // CheckSetupRequired checks if initial setup is required
@@ -417,8 +434,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Change password
-	if err := h.authService.ChangePassword(r.Context(), req.CurrentPassword, req.NewPassword); err != nil {
+	if err := h.authService.ChangePasswordForUser(r.Context(), currentUserID(r), req.CurrentPassword, req.NewPassword); err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			RespondError(w, http.StatusUnauthorized, "Invalid current password")
 			return
@@ -458,7 +474,7 @@ func (h *AuthHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create API key
-	rawKey, apiKey, err := h.authService.CreateAPIKey(r.Context(), req.Name)
+	rawKey, apiKey, err := h.authService.CreateAPIKeyForUser(r.Context(), currentUserID(r), req.Name)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create API key")
 		RespondError(w, http.StatusInternalServerError, "Failed to create API key")
@@ -480,7 +496,7 @@ func (h *AuthHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keys, err := h.authService.ListAPIKeys(r.Context())
+	keys, err := h.authService.ListAPIKeysForUser(r.Context(), currentUserID(r), isAdmin(r))
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list API keys")
 		RespondError(w, http.StatusInternalServerError, "Failed to list API keys")
@@ -509,7 +525,7 @@ func (h *AuthHandler) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.authService.DeleteAPIKey(r.Context(), id); err != nil {
+	if err := h.authService.DeleteAPIKeyForUser(r.Context(), id, currentUserID(r), isAdmin(r)); err != nil {
 		if errors.Is(err, models.ErrAPIKeyNotFound) {
 			RespondError(w, http.StatusNotFound, "API key not found")
 			return

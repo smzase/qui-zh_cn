@@ -52,6 +52,19 @@
       "deleteFailedDescription": "無法刪除實例"
     }
   },
+  "sharing": {
+    "badge": "共享",
+    "manage": "管理共享",
+    "leave": "退出共享",
+    "title": "共享實例",
+    "description": "選擇可以存取此實例的使用者。",
+    "selectUser": "選擇使用者",
+    "share": "共享",
+    "remove": "移除",
+    "sharedWith": "已共享給",
+    "empty": "此實例尚未共享給任何使用者。",
+    "left": "已退出共享實例。"
+  },
   "errorDisplay": {
     "passwordRequired": "需要密碼",
     "decryptionDescription": "無法解密已儲存的密碼。這通常是因為工作階段金鑰已更改。",

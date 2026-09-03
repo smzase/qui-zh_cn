@@ -613,6 +613,38 @@ class ApiClient {
     })
   }
 
+  async listUsers(): Promise<import("@/types").ManagedUser[]> {
+    return this.request("/users")
+  }
+
+  async listShareTargetUsers(): Promise<import("@/types").ManagedUser[]> {
+    return this.request("/users/share-targets")
+  }
+
+  async createUser(username: string, password: string): Promise<import("@/types").ManagedUser> {
+    return this.request("/users", { method: "POST", body: JSON.stringify({ username, password }) })
+  }
+
+  async updateUserRole(id: number, role: "admin" | "user"): Promise<void> {
+    await this.request(`/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) })
+  }
+
+  async listInstanceShares(instanceId: number): Promise<number[]> {
+    return this.request<number[]>(`/instances/${instanceId}/shares`)
+  }
+
+  async shareInstance(instanceId: number, userId: number): Promise<void> {
+    await this.request(`/instances/${instanceId}/shares`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    })
+  }
+
+  async unshareInstance(instanceId: number, userId: number): Promise<void> {
+    await this.request(`/instances/${instanceId}/shares/${userId}`, { method: "DELETE" })
+  }
+
+
   async logout(): Promise<void> {
     return this.request("/auth/logout", { method: "POST" })
   }

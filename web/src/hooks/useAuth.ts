@@ -23,7 +23,9 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: ({ username, password, rememberMe = false }: { username: string; password: string; rememberMe?: boolean }) =>
       api.login(username, password, rememberMe),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      const currentUser = await api.checkAuth()
+      data.user = currentUser ?? data.user
       queryClient.setQueryData(["auth", "user"], data.user)
       // Refetch the theme catalog now that the session can unlock the full
       // premium CSS: the pre-login fetch only carried the selected theme.
@@ -35,10 +37,23 @@ export function useAuth() {
   const setupMutation = useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       api.setup(username, password),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      const currentUser = await api.checkAuth()
+      data.user = currentUser ?? data.user
       queryClient.setQueryData(["auth", "user"], data.user)
       queryClient.invalidateQueries({ queryKey: ["builtin-themes"] })
       navigateAfterAuth(navigate)
+    },
+  })
+
+  const switchUserMutation = useMutation({
+    mutationFn: ({ username, password }: { username: string; password: string }) => api.login(username, password),
+    onSuccess: async (data) => {
+      const currentUser = await api.checkAuth()
+      data.user = currentUser ?? data.user
+      queryClient.clear()
+      queryClient.setQueryData(["auth", "user"], data.user)
+      navigate({ to: "/dashboard" })
     },
   })
 
@@ -68,6 +83,7 @@ export function useAuth() {
     login: loginMutation.mutate,
     setup: setupMutation.mutate,
     logout: logoutMutation.mutate,
+    switchUser: switchUserMutation.mutate,
     isLoggingIn: loginMutation.isPending,
     isSettingUp: setupMutation.isPending,
     loginError: loginMutation.error,

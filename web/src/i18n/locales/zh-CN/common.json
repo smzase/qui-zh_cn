@@ -201,6 +201,7 @@
     "perkSuffix": "身份组，以及我们永远的感谢。",
     "yearly": "{{price}} / 年",
     "monthly": "{{price}} / 月",
-    "notLicense": "高级主题是单独的一次性购买。"
+    "notLicense": "高级主题是单独的一次性购买。",
+    "userSwitchPassword": "请输入要切换用户的密码"
   }
 }

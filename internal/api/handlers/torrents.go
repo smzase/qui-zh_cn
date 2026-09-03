@@ -61,6 +61,42 @@ type TorrentsHandler struct {
 	archiveExporter   torrentArchiveExporter
 }
 
+var errInstanceAccessDenied = errors.New("instance access denied")
+
+func (h *TorrentsHandler) scopeInstanceIDs(r *http.Request, requested []int) ([]int, error) {
+	if h.instanceStore == nil {
+		return requested, nil
+	}
+	visible, err := h.instanceStore.ListForUser(r.Context(), currentUserID(r), isAdmin(r))
+	if err != nil {
+		return nil, err
+	}
+	allowed := make(map[int]struct{}, len(visible))
+	for _, instance := range visible {
+		allowed[instance.ID] = struct{}{}
+	}
+	if len(requested) == 0 {
+		if isAdmin(r) {
+			return nil, nil
+		}
+		scoped := make([]int, 0, len(allowed))
+		for id := range allowed {
+			scoped = append(scoped, id)
+		}
+		sort.Ints(scoped)
+		if len(scoped) == 0 {
+			return nil, errInstanceAccessDenied
+		}
+		return scoped, nil
+	}
+	for _, id := range requested {
+		if _, ok := allowed[id]; !ok {
+			return nil, errInstanceAccessDenied
+		}
+	}
+	return requested, nil
+}
+
 // truncateExpr truncates long filter expressions for cleaner logging
 func truncateExpr(expr string, maxLen int) string {
 	if len(expr) <= maxLen {
@@ -307,6 +343,38 @@ func (h *TorrentsHandler) GetTorrentField(w http.ResponseWriter, r *http.Request
 		return
 	}
 	req.InstanceIDs = normalizedInstanceIDs
+
+	if instanceID == allInstancesID {
+		scopedInstanceIDs, scopeErr := h.scopeInstanceIDs(r, req.InstanceIDs)
+		if scopeErr != nil {
+			if errors.Is(scopeErr, errInstanceAccessDenied) {
+				RespondError(w, http.StatusNotFound, "Instance not found")
+			} else {
+				RespondError(w, http.StatusInternalServerError, "Failed to authorize instances")
+			}
+			return
+		}
+		req.InstanceIDs = scopedInstanceIDs
+		targetIDs := make([]int, 0, len(req.Targets)+len(req.ExcludeTargets))
+		for _, target := range req.Targets {
+			if target.InstanceID > 0 {
+				targetIDs = append(targetIDs, target.InstanceID)
+			}
+		}
+		for _, target := range req.ExcludeTargets {
+			if target.InstanceID > 0 {
+				targetIDs = append(targetIDs, target.InstanceID)
+			}
+		}
+		if _, scopeErr = h.scopeInstanceIDs(r, targetIDs); scopeErr != nil {
+			if errors.Is(scopeErr, errInstanceAccessDenied) {
+				RespondError(w, http.StatusNotFound, "Instance not found")
+			} else {
+				RespondError(w, http.StatusInternalServerError, "Failed to authorize instances")
+			}
+			return
+		}
+	}
 
 	if len(req.ExcludeHashes) > 512 {
 		RespondError(w, http.StatusBadRequest, "Too many exclude hashes provided (maximum 512)")
@@ -1367,6 +1435,38 @@ func (h *TorrentsHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.InstanceIDs = normalizedInstanceIDs
+
+	if instanceID == allInstancesID {
+		scopedInstanceIDs, scopeErr := h.scopeInstanceIDs(r, req.InstanceIDs)
+		if scopeErr != nil {
+			if errors.Is(scopeErr, errInstanceAccessDenied) {
+				RespondError(w, http.StatusNotFound, "Instance not found")
+			} else {
+				RespondError(w, http.StatusInternalServerError, "Failed to authorize instances")
+			}
+			return
+		}
+		req.InstanceIDs = scopedInstanceIDs
+		targetIDs := make([]int, 0, len(req.Targets)+len(req.ExcludeTargets))
+		for _, target := range req.Targets {
+			if target.InstanceID > 0 {
+				targetIDs = append(targetIDs, target.InstanceID)
+			}
+		}
+		for _, target := range req.ExcludeTargets {
+			if target.InstanceID > 0 {
+				targetIDs = append(targetIDs, target.InstanceID)
+			}
+		}
+		if _, scopeErr = h.scopeInstanceIDs(r, targetIDs); scopeErr != nil {
+			if errors.Is(scopeErr, errInstanceAccessDenied) {
+				RespondError(w, http.StatusNotFound, "Instance not found")
+			} else {
+				RespondError(w, http.StatusInternalServerError, "Failed to authorize instances")
+			}
+			return
+		}
+	}
 
 	// Validate input - either specific hashes/targets or selectAll mode
 	if !req.SelectAll && len(req.Hashes) == 0 && len(req.Targets) == 0 {
@@ -2835,11 +2935,34 @@ func (h *TorrentsHandler) ListCrossInstanceTorrents(w http.ResponseWriter, r *ht
 	if q := r.URL.Query().Get("search"); q != "" {
 		search = q
 	}
-
 	instanceIDs, instanceIDsErr := parseInstanceIDsParam(r.URL.Query().Get("instanceIds"))
 	if instanceIDsErr != nil {
 		RespondError(w, http.StatusBadRequest, instanceIDsErr.Error())
 		return
+	}
+
+	if currentUserID(r) > 0 {
+		visible, listErr := h.instanceStore.ListForUser(r.Context(), currentUserID(r), isAdmin(r))
+		if listErr != nil {
+			RespondError(w, http.StatusInternalServerError, "Failed to authorize instances")
+			return
+		}
+		allowed := make(map[int]struct{}, len(visible))
+		for _, instance := range visible {
+			allowed[instance.ID] = struct{}{}
+		}
+		if len(instanceIDs) == 0 {
+			for id := range allowed {
+				instanceIDs = append(instanceIDs, id)
+			}
+		} else {
+			for _, id := range instanceIDs {
+				if _, ok := allowed[id]; !ok {
+					RespondError(w, http.StatusNotFound, "Instance not found")
+					return
+				}
+			}
+		}
 	}
 
 	// Parse filters

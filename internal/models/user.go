@@ -14,10 +14,18 @@ import (
 var ErrUserNotFound = errors.New("user not found")
 var ErrUserAlreadyExists = errors.New("user already exists")
 
+type UserRole string
+
+const (
+	UserRoleAdmin UserRole = "admin"
+	UserRoleUser  UserRole = "user"
+)
+
 type User struct {
-	ID           int    `json:"id"`
-	Username     string `json:"username"`
-	PasswordHash string `json:"-"`
+	ID           int      `json:"id"`
+	Username     string   `json:"username"`
+	PasswordHash string   `json:"-"`
+	Role         UserRole `json:"role"`
 }
 
 type UserStore struct {
@@ -36,9 +44,9 @@ func (s *UserStore) Create(ctx context.Context, username, passwordHash string) (
 	defer func() { _ = tx.Rollback() }()
 
 	query := `
-		INSERT INTO "user" (id, username, password_hash)
-		VALUES (1, ?, ?)
-		RETURNING id, username, password_hash
+		INSERT INTO users (username, password_hash)
+		VALUES (?, ?)
+		RETURNING id, username, password_hash, role
 	`
 
 	user := &User{}
@@ -46,6 +54,7 @@ func (s *UserStore) Create(ctx context.Context, username, passwordHash string) (
 		&user.ID,
 		&user.Username,
 		&user.PasswordHash,
+		&user.Role,
 	)
 
 	if err != nil {
@@ -65,9 +74,9 @@ func (s *UserStore) Create(ctx context.Context, username, passwordHash string) (
 
 func (s *UserStore) Get(ctx context.Context) (*User, error) {
 	query := `
-		SELECT id, username, password_hash
-		FROM "user"
-		WHERE id = 1
+		SELECT id, username, password_hash, role
+		FROM users
+		WHERE id = (SELECT MIN(id) FROM users)
 	`
 
 	user := &User{}
@@ -75,6 +84,7 @@ func (s *UserStore) Get(ctx context.Context) (*User, error) {
 		&user.ID,
 		&user.Username,
 		&user.PasswordHash,
+		&user.Role,
 	)
 
 	if err == sql.ErrNoRows {
@@ -89,8 +99,8 @@ func (s *UserStore) Get(ctx context.Context) (*User, error) {
 
 func (s *UserStore) GetByUsername(ctx context.Context, username string) (*User, error) {
 	query := `
-		SELECT id, username, password_hash
-		FROM "user"
+		SELECT id, username, password_hash, role
+		FROM users
 		WHERE username = ?
 	`
 
@@ -99,6 +109,7 @@ func (s *UserStore) GetByUsername(ctx context.Context, username string) (*User, 
 		&user.ID,
 		&user.Username,
 		&user.PasswordHash,
+		&user.Role,
 	)
 
 	if err == sql.ErrNoRows {
@@ -119,9 +130,9 @@ func (s *UserStore) UpdatePassword(ctx context.Context, passwordHash string) err
 	defer func() { _ = tx.Rollback() }()
 
 	query := `
-		UPDATE "user"
+		UPDATE users
 		SET password_hash = ?
-		WHERE id = 1
+		WHERE id = (SELECT MIN(id) FROM users)
 	`
 
 	result, err := tx.ExecContext(ctx, query, passwordHash)
@@ -147,7 +158,7 @@ func (s *UserStore) UpdatePassword(ctx context.Context, passwordHash string) err
 
 func (s *UserStore) Exists(ctx context.Context) (bool, error) {
 	var count int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM "user"`).Scan(&count)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&count)
 	if err != nil {
 		return false, err
 	}

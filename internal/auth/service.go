@@ -12,6 +12,7 @@ import (
 
 	"github.com/autobrr/qui/internal/dbinterface"
 	"github.com/autobrr/qui/internal/models"
+
 )
 
 const (
@@ -58,7 +59,7 @@ func (s *Service) SetupUser(ctx context.Context, username, password string) (*mo
 	}
 
 	// Create user
-	user, err := s.userStore.Create(ctx, username, hashedPassword)
+	user, err := s.userStore.CreateWithRole(ctx, username, hashedPassword, models.UserRoleAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -79,7 +80,7 @@ func (s *Service) Login(ctx context.Context, username, password string) (*models
 	}
 
 	// Get user by username
-	user, err := s.userStore.GetByUsername(ctx, username)
+	user, err := s.userStore.GetByUsernameWithRole(ctx, username)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
 			return nil, ErrInvalidCredentials
@@ -143,6 +144,10 @@ func (s *Service) CreateAPIKey(ctx context.Context, name string) (string, *model
 	return s.apiKeyStore.Create(ctx, name)
 }
 
+func (s *Service) CreateAPIKeyForUser(ctx context.Context, userID int, name string) (string, *models.APIKey, error) {
+	return s.apiKeyStore.CreateForUser(ctx, userID, name)
+}
+
 // ValidateAPIKey checks if an API key is valid
 func (s *Service) ValidateAPIKey(ctx context.Context, key string) (*models.APIKey, error) {
 	return s.apiKeyStore.ValidateAPIKey(ctx, key)
@@ -153,12 +158,104 @@ func (s *Service) ListAPIKeys(ctx context.Context) ([]*models.APIKey, error) {
 	return s.apiKeyStore.List(ctx)
 }
 
+func (s *Service) ListAPIKeysForUser(ctx context.Context, userID int, admin bool) ([]*models.APIKey, error) {
+	return s.apiKeyStore.ListForUser(ctx, userID, admin)
+}
+
 // DeleteAPIKey removes an API key
 func (s *Service) DeleteAPIKey(ctx context.Context, id int) error {
 	return s.apiKeyStore.Delete(ctx, id)
 }
 
+func (s *Service) DeleteAPIKeyForUser(ctx context.Context, id, userID int, admin bool) error {
+	return s.apiKeyStore.DeleteForUser(ctx, id, userID, admin)
+}
+
 // IsSetupComplete checks if initial setup has been completed
 func (s *Service) IsSetupComplete(ctx context.Context) (bool, error) {
 	return s.userStore.Exists(ctx)
+}
+
+func (s *Service) ListUsers(ctx context.Context) ([]*models.User, error) {
+	return s.userStore.ListAccounts(ctx)
+}
+func (s *Service) CreateManagedUser(ctx context.Context, username, password string) (*models.User, error) {
+	if len(password) < 8 {
+		return nil, errors.New("password must be at least 8 characters long")
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	return s.userStore.CreateWithRole(ctx, username, hash, models.UserRoleUser)
+}
+
+// EnsureOIDCUser creates a local account for an OIDC identity when one does
+// not already exist. The generated password is never exposed to the client.
+func (s *Service) EnsureOIDCUser(ctx context.Context, username string) (*models.User, error) {
+	user, err := s.userStore.GetByUsernameWithRole(ctx, username)
+	if err == nil {
+		return user, nil
+	}
+	if !errors.Is(err, models.ErrUserNotFound) {
+		return nil, err
+	}
+
+	role := models.UserRoleUser
+	exists, err := s.userStore.Exists(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		role = models.UserRoleAdmin
+	}
+
+	randomPassword, err := models.GenerateAPIKey()
+	if err != nil {
+		return nil, err
+	}
+	passwordHash, err := HashPassword(randomPassword)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.userStore.CreateWithRole(ctx, username, passwordHash, role)
+}
+func (s *Service) UpdateUserRole(ctx context.Context, id int, role models.UserRole) error {
+	return s.userStore.UpdateRole(ctx, id, role)
+}
+
+func (s *Service) UpdateUserPassword(ctx context.Context, id int, passwordHash string) error {
+	return s.userStore.UpdatePasswordForUser(ctx, id, passwordHash)
+}
+
+func (s *Service) ChangePasswordForUser(ctx context.Context, userID int, oldPassword, newPassword string) error {
+	user, err := s.userStore.GetWithRole(ctx, userID)
+	if err != nil {
+		return err
+	}
+	valid, err := VerifyPassword(oldPassword, user.PasswordHash)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return ErrInvalidCredentials
+	}
+	if len(newPassword) < 8 {
+		return errors.New("password must be at least 8 characters long")
+	}
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return s.userStore.UpdatePasswordForUser(ctx, userID, hash)
+}
+func (s *Service) DeleteManagedUser(ctx context.Context, id int) error {
+	return s.userStore.DeleteAccount(ctx, id)
+}
+func (s *Service) GetUser(ctx context.Context, id int) (*models.User, error) {
+	return s.userStore.GetWithRole(ctx, id)
+}
+func (s *Service) FindUser(ctx context.Context, username string) (*models.User, error) {
+	return s.userStore.GetByUsernameWithRole(ctx, username)
 }

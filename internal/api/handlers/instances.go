@@ -251,6 +251,8 @@ func (h *InstancesHandler) buildInstanceResponsesParallel(ctx context.Context, i
 			// Handle context cancellation gracefully
 			responses[i] = InstanceResponse{
 				ID:                       instances[i].ID,
+				OwnerID:                  instances[i].OwnerID,
+				Shared:                   instanceSharedForRequest(ctx, instances[i].OwnerID),
 				ClientType:               instances[i].ClientType.Normalize(),
 				Name:                     instances[i].Name,
 				Host:                     instances[i].Host,
@@ -265,6 +267,7 @@ func (h *InstancesHandler) buildInstanceResponsesParallel(ctx context.Context, i
 				UseReflinks:              instances[i].UseReflinks,
 				Connected:                false,
 				HasDecryptionError:       false,
+				FallbackToRegularMode:    instances[i].FallbackToRegularMode,
 				SortOrder:                instances[i].SortOrder,
 				IsActive:                 instances[i].IsActive,
 				ReannounceSettings:       payloadFromModel(models.DefaultInstanceReannounceSettings(instances[i].ID)),
@@ -301,6 +304,8 @@ func (h *InstancesHandler) buildInstanceResponse(ctx context.Context, instance *
 
 	response := InstanceResponse{
 		ID:                       instance.ID,
+		OwnerID:                  instance.OwnerID,
+		Shared:                   instanceSharedForRequest(ctx, instance.OwnerID),
 		ClientType:               instance.ClientType.Normalize(),
 		Name:                     instance.Name,
 		Host:                     instance.Host,
@@ -337,13 +342,15 @@ func (h *InstancesHandler) buildInstanceResponse(ctx context.Context, instance *
 }
 
 // buildQuickInstanceResponse creates a response without testing connection
-func (h *InstancesHandler) buildQuickInstanceResponse(instance *models.Instance) InstanceResponse {
+func (h *InstancesHandler) buildQuickInstanceResponse(ctx context.Context, instance *models.Instance) InstanceResponse {
 	connectionStatus := ""
 	if !instance.IsActive {
 		connectionStatus = "disabled"
 	}
 	return InstanceResponse{
 		ID:                       instance.ID,
+		OwnerID:                  instance.OwnerID,
+		Shared:                   instanceSharedForRequest(ctx, instance.OwnerID),
 		Name:                     instance.Name,
 		Host:                     instance.Host,
 		ClientType:               instance.ClientType.Normalize(),
@@ -468,6 +475,8 @@ type UpdateInstanceStatusRequest struct {
 // InstanceResponse represents an instance in API responses
 type InstanceResponse struct {
 	ID                       int                               `json:"id"`
+	OwnerID                  int                               `json:"ownerId"`
+	Shared                   bool                              `json:"shared"`
 	ClientType               models.ClientType                 `json:"clientType"`
 	Name                     string                            `json:"name"`
 	Host                     string                            `json:"host"`
@@ -571,7 +580,7 @@ type DeleteInstanceResponse struct {
 
 // ListInstances returns all instances
 func (h *InstancesHandler) ListInstances(w http.ResponseWriter, r *http.Request) {
-	instances, err := h.instanceStore.List(r.Context())
+	instances, err := h.instanceStore.ListForUser(r.Context(), currentUserID(r), isAdmin(r))
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list instances")
 		RespondError(w, http.StatusInternalServerError, "Failed to list instances")
@@ -585,6 +594,10 @@ func (h *InstancesHandler) ListInstances(w http.ResponseWriter, r *http.Request)
 
 // UpdateInstanceOrder updates the display order for all instances
 func (h *InstancesHandler) UpdateInstanceOrder(w http.ResponseWriter, r *http.Request) {
+	if !isAdmin(r) {
+		RespondError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+		return
+	}
 	var req struct {
 		InstanceIDs []int `json:"instanceIds"`
 	}
@@ -668,6 +681,9 @@ func (h *InstancesHandler) CreateInstance(w http.ResponseWriter, r *http.Request
 
 	// Create instance
 	instance, err := h.instanceStore.Create(r.Context(), clientType, req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, req.TLSSkipVerify, req.HasLocalFilesystemAccess, req.APIKey)
+	if err == nil && currentUserID(r) > 0 {
+		err = h.instanceStore.SetOwner(r.Context(), instance.ID, currentUserID(r))
+	}
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create instance")
 		RespondError(w, http.StatusInternalServerError, "Failed to create instance")
@@ -681,7 +697,8 @@ func (h *InstancesHandler) CreateInstance(w http.ResponseWriter, r *http.Request
 	}
 
 	// Return quickly without testing connection
-	response := h.buildQuickInstanceResponse(instance)
+	instance.OwnerID = currentUserID(r)
+	response := h.buildQuickInstanceResponse(r.Context(), instance)
 	response.ReannounceSettings = payloadFromModel(settings)
 
 	// Test connection asynchronously
@@ -816,6 +833,7 @@ func (h *InstancesHandler) UpdateInstance(w http.ResponseWriter, r *http.Request
 		RespondError(w, http.StatusInternalServerError, "Failed to update instance")
 		return
 	}
+	instance.OwnerID = existingInstance.OwnerID
 
 	// Remove old client from pool to force reconnection
 	h.clientPool.RemoveClient(instanceID)
@@ -833,7 +851,7 @@ func (h *InstancesHandler) UpdateInstance(w http.ResponseWriter, r *http.Request
 	}
 
 	// Return quickly without testing connection
-	response := h.buildQuickInstanceResponse(instance)
+	response := h.buildQuickInstanceResponse(r.Context(), instance)
 	response.ReannounceSettings = payloadFromModel(settings)
 
 	// Test connection asynchronously
@@ -904,7 +922,7 @@ func (h *InstancesHandler) UpdateInstanceStatus(w http.ResponseWriter, r *http.R
 		go h.testConnectionAsync(instanceID) //nolint:gosec // G118: connectivity test must outlive the request that triggered it
 	}
 
-	response := h.buildQuickInstanceResponse(instance)
+	response := h.buildQuickInstanceResponse(r.Context(), instance)
 	response.ReannounceSettings = h.getReannounceSettingsPayload(r.Context(), instanceID)
 	RespondJSON(w, http.StatusOK, response)
 }

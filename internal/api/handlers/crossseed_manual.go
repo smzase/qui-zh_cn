@@ -59,6 +59,10 @@ func (h *CrossSeedHandler) ManualMatchProposals(w http.ResponseWriter, r *http.R
 		RespondError(w, http.StatusBadRequest, "torrent_data is required")
 		return
 	}
+	if _, err := h.scopeCrossSeedInstanceIDs(r, []int{req.InstanceID}); err != nil {
+		respondCrossSeedInstanceScopeError(w, err)
+		return
+	}
 
 	resp, err := h.service.ManualMatchProposalsFromBase64(r.Context(), req.InstanceID, req.TorrentData, req.TargetHash)
 	if err != nil {
@@ -97,6 +101,10 @@ func (h *CrossSeedHandler) ManualMatchApply(w http.ResponseWriter, r *http.Reque
 	}
 	if strings.TrimSpace(req.TargetHash) == "" {
 		RespondError(w, http.StatusBadRequest, "target_hash is required")
+		return
+	}
+	if _, err := h.scopeCrossSeedInstanceIDs(r, []int{req.InstanceID}); err != nil {
+		respondCrossSeedInstanceScopeError(w, err)
 		return
 	}
 

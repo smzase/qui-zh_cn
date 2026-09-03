@@ -62,7 +62,7 @@ func (h *ClientAPIKeysHandler) CreateClientAPIKey(w http.ResponseWriter, r *http
 		return
 	}
 
-	if req.InstanceID == 0 {
+	if req.InstanceID <= 0 {
 		http.Error(w, "Instance ID is required", http.StatusBadRequest)
 		return
 	}
@@ -77,6 +77,10 @@ func (h *ClientAPIKeysHandler) CreateClientAPIKey(w http.ResponseWriter, r *http
 		}
 		log.Error().Err(err).Int("instanceId", req.InstanceID).Msg("Failed to get instance")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if !isAdmin(r) && instance.OwnerID != currentUserID(r) {
+		http.Error(w, "Instance owner permission required", http.StatusForbidden)
 		return
 	}
 
@@ -117,6 +121,12 @@ func (h *ClientAPIKeysHandler) ListClientAPIKeys(w http.ResponseWriter, r *http.
 	// Enrich with instance information
 	var enrichedKeys []*ClientAPIKeyWithInstance
 	for _, key := range clientAPIKeys {
+		if !isAdmin(r) {
+			ownerID, ownerErr := h.instanceStore.OwnerID(ctx, key.InstanceID)
+			if ownerErr != nil || ownerID != currentUserID(r) {
+				continue
+			}
+		}
 		instance, err := h.instanceStore.Get(ctx, key.InstanceID)
 		if err != nil {
 			// Log error but continue - instance might have been deleted
@@ -148,12 +158,32 @@ func (h *ClientAPIKeysHandler) DeleteClientAPIKey(w http.ResponseWriter, r *http
 	}
 
 	id, err := strconv.Atoi(idStr)
-	if err != nil {
+	if err != nil || id <= 0 {
 		http.Error(w, "Invalid API key ID", http.StatusBadRequest)
 		return
 	}
 
 	ctx := r.Context()
+	key, err := h.clientAPIKeyStore.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, models.ErrClientAPIKeyNotFound) {
+			http.Error(w, "API key not found", http.StatusNotFound)
+			return
+		}
+		log.Error().Err(err).Int("keyId", id).Msg("Failed to get client API key")
+		http.Error(w, "Failed to get API key", http.StatusInternalServerError)
+		return
+	}
+	instance, instanceErr := h.instanceStore.Get(ctx, key.InstanceID)
+	if instanceErr != nil {
+		if !isAdmin(r) {
+			http.Error(w, "API key not found", http.StatusNotFound)
+			return
+		}
+	} else if !isAdmin(r) && instance.OwnerID != currentUserID(r) {
+		http.Error(w, "Instance owner permission required", http.StatusForbidden)
+		return
+	}
 	if err := h.clientAPIKeyStore.Delete(ctx, id); err != nil {
 		if errors.Is(err, models.ErrClientAPIKeyNotFound) {
 			http.Error(w, "API key not found", http.StatusNotFound)

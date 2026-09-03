@@ -52,6 +52,24 @@ func (h *TorrentsHandler) ExportTorrentArchive(w http.ResponseWriter, r *http.Re
 		}
 	}
 
+	instanceIDs := make([]int, 0, len(request.Targets))
+	seenInstanceIDs := make(map[int]struct{}, len(request.Targets))
+	for _, target := range request.Targets {
+		if _, seen := seenInstanceIDs[target.InstanceID]; seen {
+			continue
+		}
+		seenInstanceIDs[target.InstanceID] = struct{}{}
+		instanceIDs = append(instanceIDs, target.InstanceID)
+	}
+	if _, err := h.scopeInstanceIDs(r, instanceIDs); err != nil {
+		if errors.Is(err, errInstanceAccessDenied) {
+			RespondError(w, http.StatusNotFound, "Instance not found")
+		} else {
+			RespondError(w, http.StatusInternalServerError, "Failed to authorize instances")
+		}
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="qui-torrents.zip"`)
 	w.Header().Set("Cache-Control", "no-store")

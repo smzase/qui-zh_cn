@@ -23,6 +23,8 @@ func IsAuthenticated(authService *auth.Service, sessionManager *scs.SessionManag
 			// When authentication is disabled, set a synthetic user and pass through
 			if cfg != nil && cfg.IsAuthDisabled() {
 				ctx := context.WithValue(r.Context(), ctxkeys.Username, "admin")
+				ctx = context.WithValue(ctx, ctxkeys.UserID, 1)
+				ctx = context.WithValue(ctx, ctxkeys.UserRole, "admin")
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -31,13 +33,15 @@ func IsAuthenticated(authService *auth.Service, sessionManager *scs.SessionManag
 			apiKey := r.Header.Get("X-API-Key")
 			if apiKey != "" {
 				// Validate API key
-				if _, err := authService.ValidateAPIKey(r.Context(), apiKey); err != nil {
+				validatedKey, err := authService.ValidateAPIKey(r.Context(), apiKey)
+				if err != nil {
 					log.Warn().Err(err).Msg("Invalid API key")
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 					return
 				}
 
-				next.ServeHTTP(w, r)
+				ctx := context.WithValue(r.Context(), ctxkeys.UserID, validatedKey.UserID)
+				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
 

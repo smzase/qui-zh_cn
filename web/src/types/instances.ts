@@ -140,6 +140,8 @@ export interface InstanceError {
 }
 
 export interface InstanceResponse extends Instance {
+  ownerId: number
+  shared: boolean
   connected: boolean
   hasDecryptionError: boolean
   recentErrors?: InstanceError[]

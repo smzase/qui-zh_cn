@@ -68,7 +68,7 @@ func newTestOIDCHandler(t *testing.T, issuer string) *OIDCHandler {
 	// Test-only placeholder used to satisfy OIDC config validation.
 	cfg.OIDCClientSecret = "placeholder"
 
-	handler, err := NewOIDCHandler(cfg, scs.New())
+	handler, err := NewOIDCHandler(cfg, scs.New(), nil)
 	require.NoError(t, err)
 
 	return handler

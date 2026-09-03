@@ -18,21 +18,31 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { useInstances } from "@/hooks/useInstances"
+import { useAuth } from "@/hooks/useAuth"
+import { api } from "@/lib/api"
 import { useIncognitoMode } from "@/lib/incognito"
 import { cn, formatErrorMessage } from "@/lib/utils"
-import type { InstanceResponse } from "@/types"
+import type { InstanceResponse, ManagedUser } from "@/types"
 import {
   ArrowDown,
   ArrowUp,
@@ -49,6 +59,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 interface InstanceCardProps {
@@ -69,6 +80,8 @@ export function InstanceCard({
   disableMoveDown = false,
 }: InstanceCardProps) {
   const { t } = useTranslation("instances")
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
   const {
     deleteInstance,
     testConnection,
@@ -81,7 +94,52 @@ export function InstanceCard({
   const [testResult, setTestResult] = useState<{ success: boolean; message: string | undefined } | null>(null)
   const [incognitoMode, setIncognitoMode] = useIncognitoMode()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showSharingDialog, setShowSharingDialog] = useState(false)
+  const [shareUserId, setShareUserId] = useState("")
   const displayUrl = instance.host
+  const canManageInstance = user?.role === "admin" || user?.id === instance.ownerId
+
+  const usersQuery = useQuery({
+	queryKey: ["share-target-users"],
+	queryFn: api.listShareTargetUsers,
+    enabled: canManageInstance && showSharingDialog,
+  })
+  const sharesQuery = useQuery({
+    queryKey: ["instance-shares", instance.id],
+    queryFn: () => api.listInstanceShares(instance.id),
+    enabled: canManageInstance && showSharingDialog,
+  })
+  const shareMutation = useMutation({
+    mutationFn: (userId: number) => api.shareInstance(instance.id, userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["instance-shares", instance.id] })
+      setShareUserId("")
+      toast.success(t("sharing.share"))
+    },
+    onError: (error) => toast.error(error instanceof Error ? formatErrorMessage(error.message) : t("sharing.share")),
+  })
+  const unshareMutation = useMutation({
+    mutationFn: (userId: number) => api.unshareInstance(instance.id, userId),
+    onSuccess: (_data, userId) => {
+      void queryClient.invalidateQueries({ queryKey: ["instance-shares", instance.id] })
+      if (userId === user?.id) {
+        void queryClient.invalidateQueries({ queryKey: ["instances"] })
+        toast.success(t("sharing.left"))
+      }
+    },
+    onError: (error) => toast.error(error instanceof Error ? formatErrorMessage(error.message) : t("sharing.remove")),
+  })
+
+  const handleLeaveShare = () => {
+    if (user?.id && instance.shared) {
+      unshareMutation.mutate(user.id)
+    }
+  }
+
+  const sharedUsers = sharesQuery.data ?? []
+  const availableUsers = (usersQuery.data ?? []).filter(
+    (account: ManagedUser) => account.id !== instance.ownerId && !sharedUsers.includes(account.id),
+  )
 
   const statusBadge = !instance.isActive? { label: t("card.status.disabled"), variant: "secondary" as const }: instance.connected? { label: t("card.status.connected"), variant: "default" as const }: { label: t("card.status.disconnected"), variant: "destructive" as const }
 
@@ -157,7 +215,8 @@ export function InstanceCard({
       <div>
         <CardHeader className="flex flex-row items-center justify-between pr-2 space-y-0">
           <div className="flex-1 min-w-0 overflow-hidden">
-            <CardTitle className="text-base font-medium truncate" title={instance.name}>
+            <CardTitle className="flex min-w-0 items-center gap-2 text-base font-medium truncate" title={instance.name}>
+              {instance.shared && <Badge variant="outline" className="shrink-0">{t("sharing.badge")}</Badge>}
               {instance.name}
             </CardTitle>
           </div>
@@ -165,28 +224,30 @@ export function InstanceCard({
             <Badge variant={statusBadge.variant}>
               {statusBadge.label}
             </Badge>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={instance.isActive ? "ghost" : "outline"}
-                  size="icon"
-                  className={cn("h-8 w-8 p-0")}
-                  disabled={isUpdatingStatus && updatingStatusId === instance.id}
-                  aria-pressed={instance.isActive}
-                  aria-label={instance.isActive ? t("card.tooltips.disableInstance") : t("card.tooltips.enableInstance")}
-                  onClick={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    handleToggleStatus()
-                  }}
-                >
-                  <Power className={cn("h-4 w-4", isUpdatingStatus && updatingStatusId === instance.id && "animate-pulse", !instance.isActive && "text-destructive")} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {instance.isActive ? t("card.tooltips.disableInstance") : t("card.tooltips.enableInstance")}
-              </TooltipContent>
-            </Tooltip>
+            {canManageInstance && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={instance.isActive ? "ghost" : "outline"}
+                    size="icon"
+                    className={cn("h-8 w-8 p-0")}
+                    disabled={isUpdatingStatus && updatingStatusId === instance.id}
+                    aria-pressed={instance.isActive}
+                    aria-label={instance.isActive ? t("card.tooltips.disableInstance") : t("card.tooltips.enableInstance")}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      handleToggleStatus()
+                    }}
+                  >
+                    <Power className={cn("h-4 w-4", isUpdatingStatus && updatingStatusId === instance.id && "animate-pulse", !instance.isActive && "text-destructive")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {instance.isActive ? t("card.tooltips.disableInstance") : t("card.tooltips.enableInstance")}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {(onMoveUp || onMoveDown) && (
               <div className="flex items-center gap-1">
                 {onMoveUp && (
@@ -244,23 +305,31 @@ export function InstanceCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onEdit}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  {t("card.actions.edit")}
-                </DropdownMenuItem>
+                {canManageInstance && (
+                  <DropdownMenuItem onClick={onEdit}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    {t("card.actions.edit")}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleTest} disabled={isTesting || !instance.isActive}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   {t("card.actions.testConnection")}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setShowDeleteDialog(true)}
-                  disabled={isDeleting}
-                  className="text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {t("card.actions.delete")}
-                </DropdownMenuItem>
+                {canManageInstance && <DropdownMenuItem onClick={() => setShowSharingDialog(true)}>{t("sharing.manage")}</DropdownMenuItem>}
+                {instance.shared && user?.id && <DropdownMenuItem onClick={handleLeaveShare}>{t("sharing.leave")}</DropdownMenuItem>}
+                {canManageInstance && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setShowDeleteDialog(true)}
+                      disabled={isDeleting}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {t("card.actions.delete")}
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -320,7 +389,7 @@ export function InstanceCard({
           </div>
         </div>
 
-        <InstanceErrorDisplay instance={instance} onEdit={onEdit} showEditButton={true} compact />
+        <InstanceErrorDisplay instance={instance} onEdit={onEdit} showEditButton={canManageInstance} compact />
 
         {testResult && (
           <div className={cn(
@@ -363,6 +432,61 @@ export function InstanceCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showSharingDialog} onOpenChange={setShowSharingDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("sharing.title")}</DialogTitle>
+            <DialogDescription>{t("sharing.description")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select
+              value={shareUserId}
+              onValueChange={(value) => {
+                setShareUserId(value)
+                shareMutation.mutate(Number(value))
+              }}
+              disabled={shareMutation.isPending || usersQuery.isLoading}
+            >
+              <SelectTrigger aria-label={t("sharing.selectUser")}>
+                <SelectValue placeholder={t("sharing.selectUser")} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableUsers.map((account) => (
+                  <SelectItem key={account.id} value={String(account.id)}>
+                    {account.username}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{t("sharing.sharedWith")}</p>
+              {sharedUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("sharing.empty")}</p>
+              ) : (
+                <div className="divide-y rounded-md border">
+                  {sharedUsers.map((userId) => {
+                    const account = usersQuery.data?.find((candidate) => candidate.id === userId)
+                    return (
+                      <div key={userId} className="flex items-center justify-between gap-3 p-2 text-sm">
+                        <span>{account?.username ?? userId}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => unshareMutation.mutate(userId)}
+                          disabled={unshareMutation.isPending}
+                        >
+                          {t("sharing.remove")}
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

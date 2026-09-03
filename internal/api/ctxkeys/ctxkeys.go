@@ -8,4 +8,6 @@ type Key int
 
 const (
 	Username Key = iota
+	UserID
+	UserRole
 )

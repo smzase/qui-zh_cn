@@ -208,6 +208,7 @@
     "perkSuffix": "role in Discord and our eternal gratitude.",
     "yearly": "{{price}} / year",
     "monthly": "{{price}} / month",
-    "notLicense": "Premium themes are a separate one-time purchase."
+    "notLicense": "Premium themes are a separate one-time purchase.",
+    "userSwitchPassword": "Enter the password to switch user"
   }
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/tmaxmax/go-sse"
 
+	"github.com/autobrr/qui/internal/api/ctxkeys"
 	"github.com/autobrr/qui/internal/models"
 	"github.com/autobrr/qui/internal/qbittorrent"
 	"github.com/autobrr/qui/internal/services/activity"
@@ -752,9 +753,19 @@ func (m *StreamManager) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for instanceID := range instanceIDs {
-		exists, err := m.instanceExists(r.Context(), instanceID)
+		userID, hasUserID := r.Context().Value(ctxkeys.UserID).(int)
+		role, hasRole := r.Context().Value(ctxkeys.UserRole).(string)
+		var exists bool
+		var err error
+		if hasUserID || hasRole {
+			exists, err = m.instanceDB.CanAccess(r.Context(), instanceID, userID, role == "admin")
+		} else {
+			// Direct manager tests and internal callers may not carry HTTP auth
+			// context. The API route always populates it before reaching Serve.
+			exists, err = m.instanceExists(r.Context(), instanceID)
+		}
 		if err != nil {
-			log.Error().Err(err).Int("instanceID", instanceID).Msg("failed to check instance existence")
+			log.Error().Err(err).Int("instanceID", instanceID).Msg("failed to check instance access")
 			http.Error(w, "failed to validate instance", http.StatusInternalServerError)
 			return
 		}

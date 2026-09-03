@@ -9,9 +9,16 @@ export interface User {
   createdAt?: string
   updatedAt?: string
   auth_method?: string
+  role?: "admin" | "user"
 }
 
 export interface AuthResponse {
   user: User
   message?: string
+}
+
+export interface ManagedUser {
+  id: number
+  username: string
+  role: "admin" | "user"
 }

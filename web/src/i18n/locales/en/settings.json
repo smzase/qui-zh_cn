@@ -4,6 +4,7 @@
   "tabs": {
     "application": "Application",
     "instances": "Instances",
+    "users": "Users",
     "indexers": "Indexers",
     "searchCache": "Search Cache",
     "integrations": "Integrations",
@@ -15,6 +16,19 @@
     "premiumThemes": "Premium Themes",
     "security": "Security",
     "logs": "Logs"
+  },
+  "users": {
+    "title": "Users",
+    "description": "Manage users and permissions",
+    "username": "Username",
+    "password": "Password",
+    "create": "Create",
+    "created": "User created",
+    "createFailed": "Failed to create user",
+    "roleUpdated": "Role updated",
+    "admin": "Administrator",
+    "adminOnly": "Only administrators can manage users",
+    "user": "User"
   },
   "language": {
     "cardTitle": "Language",

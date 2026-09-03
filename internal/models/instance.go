@@ -59,6 +59,7 @@ func (t ClientType) String() string {
 
 type Instance struct {
 	ID                       int        `json:"id"`
+	OwnerID                  int        `json:"ownerId"`
 	ClientType               ClientType `json:"clientType"`
 	Name                     string     `json:"name"`
 	Host                     string     `json:"host"`
@@ -85,6 +86,7 @@ func (i Instance) MarshalJSON() ([]byte, error) {
 	// Create the JSON structure with redacted password fields
 	return json.Marshal(&struct {
 		ID                       int        `json:"id"`
+		OwnerID                  int        `json:"ownerId"`
 		ClientType               ClientType `json:"clientType"`
 		Name                     string     `json:"name"`
 		Host                     string     `json:"host"`
@@ -107,6 +109,7 @@ func (i Instance) MarshalJSON() ([]byte, error) {
 		SortOrder                int        `json:"sortOrder"`
 	}{
 		ID:            i.ID,
+		OwnerID:       i.OwnerID,
 		ClientType:    i.ClientType.Normalize(),
 		Name:          i.Name,
 		Host:          i.Host,
@@ -136,6 +139,7 @@ func (i *Instance) UnmarshalJSON(data []byte) error {
 	// Temporary struct for unmarshaling
 	var temp struct {
 		ID                       int        `json:"id"`
+		OwnerID                  int        `json:"ownerId"`
 		ClientType               ClientType `json:"clientType"`
 		Name                     string     `json:"name"`
 		Host                     string     `json:"host"`
@@ -164,6 +168,7 @@ func (i *Instance) UnmarshalJSON(data []byte) error {
 
 	// Copy non-secret fields
 	i.ID = temp.ID
+	i.OwnerID = temp.OwnerID
 	i.ClientType = temp.ClientType.Normalize()
 	i.Name = temp.Name
 	i.Host = temp.Host
@@ -554,6 +559,9 @@ func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 		UseReflinks:              SQLiteIntToBool(useReflinks),
 		FallbackToRegularMode:    SQLiteIntToBool(fallbackToRegularMode),
 	}
+	if ownerID, ownerErr := s.ownerID(ctx, instance.ID); ownerErr == nil {
+		instance.OwnerID = ownerID
+	}
 
 	if basicUsername.Valid {
 		instance.BasicUsername = &basicUsername.String
@@ -639,6 +647,9 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 			HardlinkDirPreset:        hardlinkDirPreset,
 			UseReflinks:              SQLiteIntToBool(useReflinks),
 			FallbackToRegularMode:    SQLiteIntToBool(fallbackToRegularMode),
+		}
+		if ownerID, ownerErr := s.ownerID(ctx, instance.ID); ownerErr == nil {
+			instance.OwnerID = ownerID
 		}
 
 		if basicUsername.Valid {
@@ -923,6 +934,10 @@ func (s *InstanceStore) Delete(ctx context.Context, id int) error {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM instance_shares WHERE instance_id = ?`, id); err != nil {
+		return err
+	}
 
 	query := `DELETE FROM instances WHERE id = ?`
 

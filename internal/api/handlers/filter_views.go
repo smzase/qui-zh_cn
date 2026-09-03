@@ -19,10 +19,16 @@ import (
 
 const maxFilterViewNameLength = 100
 
-// filterViewUserID is the owner of every filter view. qui is single-user
-// self-hosted and there is no user id in the request context; this mirrors
-// DashboardSettingsHandler.
-const filterViewUserID = 1
+// filterViewUserID returns the authenticated account that owns the filter
+// view. Keep the legacy fallback for callers that invoke this handler without
+// the authentication middleware (for example, the existing single-user
+// handler tests).
+func filterViewUserID(r *http.Request) int {
+	if userID := currentUserID(r); userID > 0 {
+		return userID
+	}
+	return 1
+}
 
 type FilterViewHandler struct {
 	store *models.FilterViewStore
@@ -67,7 +73,7 @@ func decodeFilterViewPayload(w http.ResponseWriter, r *http.Request) (string, js
 }
 
 func (h *FilterViewHandler) List(w http.ResponseWriter, r *http.Request) {
-	views, err := h.store.List(r.Context(), filterViewUserID)
+	views, err := h.store.List(r.Context(), filterViewUserID(r))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to list filter views")
 		RespondError(w, http.StatusInternalServerError, "Failed to load filter views")
@@ -83,7 +89,7 @@ func (h *FilterViewHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view, err := h.store.Create(r.Context(), filterViewUserID, name, filters)
+	view, err := h.store.Create(r.Context(), filterViewUserID(r), name, filters)
 	if err != nil {
 		if errors.Is(err, models.ErrDuplicateFilterViewName) {
 			RespondError(w, http.StatusConflict, "A view with this name already exists")
@@ -108,7 +114,7 @@ func (h *FilterViewHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	view, err := h.store.Update(r.Context(), filterViewUserID, id, name, filters)
+	view, err := h.store.Update(r.Context(), filterViewUserID(r), id, name, filters)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrDuplicateFilterViewName):
@@ -131,7 +137,7 @@ func (h *FilterViewHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.store.Delete(r.Context(), filterViewUserID, id); err != nil {
+	if err := h.store.Delete(r.Context(), filterViewUserID(r), id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			RespondError(w, http.StatusNotFound, "Filter view not found")
 			return

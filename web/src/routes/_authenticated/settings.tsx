@@ -11,6 +11,7 @@ const settingsSearchSchema = z.object({
   tab: z.enum([
     "application",
     "instances",
+    "users",
     "indexers",
     "search-cache",
     "integrations",

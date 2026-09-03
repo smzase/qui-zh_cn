@@ -21,6 +21,7 @@ var ErrInvalidAPIKey = errors.New("invalid api key")
 
 type APIKey struct {
 	ID         int        `json:"id"`
+	UserID     int        `json:"-"`
 	KeyHash    string     `json:"-"`
 	Name       string     `json:"name"`
 	CreatedAt  time.Time  `json:"createdAt"`
@@ -51,6 +52,10 @@ func HashAPIKey(key string) string {
 }
 
 func (s *APIKeyStore) Create(ctx context.Context, name string) (string, *APIKey, error) {
+	return s.CreateForUser(ctx, 1, name)
+}
+
+func (s *APIKeyStore) CreateForUser(ctx context.Context, userID int, name string) (string, *APIKey, error) {
 	// Generate new API key
 	rawKey, err := GenerateAPIKey()
 	if err != nil {
@@ -77,12 +82,13 @@ func (s *APIKeyStore) Create(ctx context.Context, name string) (string, *APIKey,
 	apiKey := &APIKey{}
 	var createdAt, lastUsedAt sql.NullTime
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO api_keys (key_hash, name_id) 
-		VALUES (?, ?)
-		RETURNING id, key_hash, created_at, last_used_at
-	`, keyHash, ids[0]).Scan(
+		INSERT INTO api_keys (key_hash, name_id, user_id)
+		VALUES (?, ?, ?)
+		RETURNING id, key_hash, user_id, created_at, last_used_at
+	`, keyHash, ids[0], userID).Scan(
 		&apiKey.ID,
 		&apiKey.KeyHash,
+		&apiKey.UserID,
 		&createdAt,
 		&lastUsedAt,
 	)
@@ -107,19 +113,22 @@ func (s *APIKeyStore) Create(ctx context.Context, name string) (string, *APIKey,
 
 func (s *APIKeyStore) GetByHash(ctx context.Context, keyHash string) (*APIKey, error) {
 	query := `
-		SELECT id, key_hash, name, created_at, last_used_at 
-		FROM api_keys_view 
-		WHERE key_hash = ?
+		SELECT ak.id, ak.key_hash, ak.user_id, sp.value, ak.created_at, ak.last_used_at
+		FROM api_keys ak
+		INNER JOIN string_pool sp ON ak.name_id = sp.id
+		WHERE ak.key_hash = ?
 	`
 
 	var id int
 	var keyHashResult, name string
+	var userID int
 	var createdAt sql.NullTime
 	var lastUsedAt sql.NullTime
 
 	err := s.db.QueryRowContext(ctx, query, keyHash).Scan(
 		&id,
 		&keyHashResult,
+		&userID,
 		&name,
 		&createdAt,
 		&lastUsedAt,
@@ -135,6 +144,7 @@ func (s *APIKeyStore) GetByHash(ctx context.Context, keyHash string) (*APIKey, e
 
 	apiKey := &APIKey{
 		ID:        id,
+		UserID:    userID,
 		KeyHash:   keyHashResult,
 		Name:      name,
 		CreatedAt: createdAt.Time,
@@ -148,13 +158,30 @@ func (s *APIKeyStore) GetByHash(ctx context.Context, keyHash string) (*APIKey, e
 }
 
 func (s *APIKeyStore) List(ctx context.Context) ([]*APIKey, error) {
-	query := `
-		SELECT id, key_hash, name, created_at, last_used_at 
-		FROM api_keys_view 
+	return s.list(ctx, `
+		SELECT ak.id, ak.key_hash, ak.user_id, sp.value, ak.created_at, ak.last_used_at
+		FROM api_keys ak
+		INNER JOIN string_pool sp ON ak.name_id = sp.id
 		ORDER BY created_at DESC
-	`
+	`)
+}
 
-	rows, err := s.db.QueryContext(ctx, query)
+func (s *APIKeyStore) ListForUser(ctx context.Context, userID int, admin bool) ([]*APIKey, error) {
+	if admin {
+		return s.List(ctx)
+	}
+
+	return s.list(ctx, `
+		SELECT ak.id, ak.key_hash, ak.user_id, sp.value, ak.created_at, ak.last_used_at
+		FROM api_keys ak
+		INNER JOIN string_pool sp ON ak.name_id = sp.id
+		WHERE ak.user_id = ?
+		ORDER BY created_at DESC
+	`, userID)
+}
+
+func (s *APIKeyStore) list(ctx context.Context, query string, args ...any) ([]*APIKey, error) {
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -164,12 +191,14 @@ func (s *APIKeyStore) List(ctx context.Context) ([]*APIKey, error) {
 	for rows.Next() {
 		var id int
 		var keyHash, name string
+		var userID int
 		var createdAt sql.NullTime
 		var lastUsedAt sql.NullTime
 
 		err := rows.Scan(
 			&id,
 			&keyHash,
+			&userID,
 			&name,
 			&createdAt,
 			&lastUsedAt,
@@ -180,6 +209,7 @@ func (s *APIKeyStore) List(ctx context.Context) ([]*APIKey, error) {
 
 		apiKey := &APIKey{
 			ID:        id,
+			UserID:    userID,
 			KeyHash:   keyHash,
 			Name:      name,
 			CreatedAt: createdAt.Time,
@@ -234,6 +264,14 @@ func (s *APIKeyStore) UpdateLastUsed(ctx context.Context, id int) error {
 }
 
 func (s *APIKeyStore) Delete(ctx context.Context, id int) error {
+	return s.delete(ctx, id, 0, true)
+}
+
+func (s *APIKeyStore) DeleteForUser(ctx context.Context, id, userID int, admin bool) error {
+	return s.delete(ctx, id, userID, admin)
+}
+
+func (s *APIKeyStore) delete(ctx context.Context, id, userID int, admin bool) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -241,8 +279,13 @@ func (s *APIKeyStore) Delete(ctx context.Context, id int) error {
 	defer func() { _ = tx.Rollback() }()
 
 	query := `DELETE FROM api_keys WHERE id = ?`
+	args := []any{id}
+	if !admin {
+		query += ` AND user_id = ?`
+		args = append(args, userID)
+	}
 
-	result, err := tx.ExecContext(ctx, query, id)
+	result, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}

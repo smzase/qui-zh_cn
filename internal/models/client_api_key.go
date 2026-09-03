@@ -125,6 +125,32 @@ func (s *ClientAPIKeyStore) GetAll(ctx context.Context) ([]*ClientAPIKey, error)
 	return keys, nil
 }
 
+func (s *ClientAPIKeyStore) GetByID(ctx context.Context, id int) (*ClientAPIKey, error) {
+	query := `
+		SELECT id, key_hash, client_name, instance_id, created_at, last_used_at
+		FROM client_api_keys_view
+		WHERE id = ?
+	`
+
+	key := &ClientAPIKey{}
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&key.ID,
+		&key.KeyHash,
+		&key.ClientName,
+		&key.InstanceID,
+		&key.CreatedAt,
+		&key.LastUsedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrClientAPIKeyNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
 func (s *ClientAPIKeyStore) GetByKeyHash(ctx context.Context, keyHash string) (*ClientAPIKey, error) {
 	query := `
 		SELECT id, key_hash, client_name, instance_id, created_at, last_used_at

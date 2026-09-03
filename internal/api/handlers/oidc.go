@@ -24,6 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 
+	"github.com/autobrr/qui/internal/auth"
 	"github.com/autobrr/qui/internal/domain"
 )
 
@@ -47,6 +48,7 @@ type OIDCHandler struct {
 	verifier       *oidc.IDTokenVerifier
 	oauthConfig    *oauth2.Config
 	sessionManager *scs.SessionManager
+	authService    *auth.Service
 }
 
 // OIDCClaims represents the claims returned from the OIDC provider
@@ -68,7 +70,7 @@ type OIDCConfigResponse struct {
 	IssuerURL           string `json:"issuerUrl"`
 }
 
-func NewOIDCHandler(cfg *domain.Config, sessionManager *scs.SessionManager) (*OIDCHandler, error) {
+func NewOIDCHandler(cfg *domain.Config, sessionManager *scs.SessionManager, authService *auth.Service) (*OIDCHandler, error) {
 	log.Debug().
 		Bool("oidc_enabled", cfg.OIDCEnabled).
 		Str("oidc_issuer", cfg.OIDCIssuer).
@@ -139,6 +141,7 @@ func NewOIDCHandler(cfg *domain.Config, sessionManager *scs.SessionManager) (*OI
 		provider:       provider,
 		verifier:       provider.Verifier(oidcConfig),
 		sessionManager: sessionManager,
+		authService:    authService,
 		oauthConfig: &oauth2.Config{
 			ClientID:     cfg.OIDCClientID,
 			ClientSecret: cfg.OIDCClientSecret,
@@ -333,6 +336,7 @@ func (h *OIDCHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Determine username from claims
 	username := claims.PreferredUsername
+	var userID int
 	if username == "" {
 		if claims.Nickname != "" {
 			username = claims.Nickname
@@ -347,6 +351,15 @@ func (h *OIDCHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if h.authService != nil {
+		user, err := h.authService.EnsureOIDCUser(r.Context(), username)
+		if err != nil {
+			log.Error().Err(err).Str("username", username).Msg("failed to provision OIDC user")
+			RespondError(w, http.StatusInternalServerError, "could not provision OIDC user")
+			return
+		}
+		userID = user.ID
+	}
 	log.Trace().
 		Str("email", claims.Email).
 		Str("preferred_username", claims.PreferredUsername).
@@ -377,6 +390,9 @@ func (h *OIDCHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set session values using sessionManager
+	if userID > 0 {
+		h.sessionManager.Put(r.Context(), "user_id", userID)
+	}
 	h.sessionManager.Put(r.Context(), "authenticated", true)
 	h.sessionManager.Put(r.Context(), "username", username)
 	h.sessionManager.Put(r.Context(), "created", time.Now().Unix())
