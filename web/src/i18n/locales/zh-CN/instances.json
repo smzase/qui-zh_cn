@@ -53,6 +53,14 @@
     }
   },
   "sharing": {
+    "batchTitle": "共享实例",
+    "batchDescription": "选择实例和可访问它们的用户。",
+    "instanceOwner": "实例所有者",
+    "selectInstances": "选择实例",
+    "selectUsers": "选择用户",
+    "shared": "实例已共享",
+    "shareFailed": "共享实例失败",
+    "cancel": "取消",
     "badge": "共享",
     "manage": "管理共享",
     "leave": "退出共享",

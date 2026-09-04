@@ -23,6 +23,7 @@ import { getApiBaseUrl } from "@/lib/base-url"
 
 const CHANGE_EVENT = "qui-client-setting-changed"
 const FLUSH_DELAY_MS = 800
+const ACTIVE_USER_KEY = "qui-client-settings-active-user"
 
 export const TORRENT_VIEW_MODE_KEYS = {
   legacy: "qui-torrent-view-mode",
@@ -153,6 +154,63 @@ function enqueuePush(key: string, raw: string): void {
   pending.set(key, raw)
   persistPending()
   scheduleFlush()
+}
+
+/**
+ * Switch the local cache to an authenticated account. Client settings use
+ * stable localStorage keys for instant boot, so a different account must clear
+ * the previous account's synced values before its server snapshot is applied.
+ * The initial administrator keeps the legacy cache after an upgrade. Other
+ * accounts start clean, matching the server migration that assigns existing
+ * settings to user ID 1.
+ */
+export function activateClientSettingsUser(userID: number): boolean {
+  const nextUserID = String(userID)
+  let previousUserID: string | null
+
+  try {
+    previousUserID = localStorage.getItem(ACTIVE_USER_KEY)
+  } catch {
+    return false
+  }
+
+  if (previousUserID === nextUserID) return false
+
+  try {
+    localStorage.setItem(ACTIVE_USER_KEY, nextUserID)
+  } catch {
+    return false
+  }
+
+  if (previousUserID === null && userID === 1) return false
+
+  pending.clear()
+  persistPending()
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  syncReady = false
+  flushRequestedInFlight = false
+
+  const keys: string[] = []
+  try {
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index)
+      // The UI language is a browser-level preference, not account data: the
+      // switcher hops between one person's accounts, so it must survive the
+      // switch instead of resetting to the default until the snapshot loads.
+      if (key && key !== "qui.language" && isSyncedKey(key)) keys.push(key)
+    }
+    for (const key of keys) {
+      localStorage.removeItem(key)
+      window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { key } }))
+    }
+  } catch (error) {
+    console.error("Failed to clear client settings for account switch:", error)
+  }
+
+  return true
 }
 
 function scheduleFlush(): void {

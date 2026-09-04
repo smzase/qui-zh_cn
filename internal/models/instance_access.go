@@ -96,13 +96,39 @@ func (s *InstanceStore) Share(ctx context.Context, instanceID, targetUserID, cre
 	return err
 }
 
+func (s *InstanceStore) ShareMany(ctx context.Context, instanceIDs, targetUserIDs []int, createdBy int) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, userID := range targetUserIDs {
+		var exists int
+		if err := tx.QueryRowContext(ctx, "SELECT 1 FROM users WHERE id = ?", userID).Scan(&exists); errors.Is(err, sql.ErrNoRows) {
+			return ErrInstanceShareTargetNotFound
+		} else if err != nil {
+			return err
+		}
+	}
+	for _, instanceID := range instanceIDs {
+		for _, userID := range targetUserIDs {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO instance_shares (instance_id, user_id, created_by) VALUES (?, ?, ?) ON CONFLICT (instance_id, user_id) DO NOTHING", instanceID, userID, createdBy); err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (s *InstanceStore) Unshare(ctx context.Context, instanceID, targetUserID int) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM instance_shares WHERE instance_id = ? AND user_id = ?", instanceID, targetUserID)
 	return err
 }
 
 func (s *InstanceStore) ListShares(ctx context.Context, instanceID int) ([]int, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT user_id FROM instance_shares WHERE instance_id = ? ORDER BY user_id")
+	rows, err := s.db.QueryContext(ctx, "SELECT user_id FROM instance_shares WHERE instance_id = ? ORDER BY user_id", instanceID)
 	if err != nil {
 		return nil, err
 	}

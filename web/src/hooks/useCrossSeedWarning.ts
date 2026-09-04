@@ -68,7 +68,7 @@ export function useCrossSeedWarning({
   // Fetch instance info (always enabled so it's ready when user clicks search)
   const { data: instances } = useQuery({
     queryKey: ["instances"],
-    queryFn: api.getInstances,
+    queryFn: () => api.getInstances(),
     staleTime: 60000,
   })
 

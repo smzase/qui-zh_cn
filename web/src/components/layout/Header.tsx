@@ -5,6 +5,7 @@
 
 import { InstancePreferencesDialog } from "@/components/instances/preferences/InstancePreferencesDialog"
 import { UnifiedScopeDropdownSection } from "@/components/layout/UnifiedScopeDropdownSection"
+import { UserSwitcher } from "@/components/layout/UserSwitcher"
 import { SpreadsheetRibbonTabs } from "@/components/spreadsheet/SpreadsheetRibbonTabs"
 import { AddTorrentDialog } from "@/components/torrents/AddTorrentDialog"
 import { TorrentCreationTasks } from "@/components/torrents/TorrentCreationTasks"
@@ -64,7 +65,7 @@ import { useQueries, useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { navigateWithSearch } from "@/lib/router-search"
 import { changeLanguage, languageNames, supportedLanguages } from "@/i18n"
-import { Archive, Check, ChevronsUpDown, Cog, Download, Eye, EyeOff, FileEdit, FileText, FunnelPlus, FunnelX, GitBranch, Globe, HardDrive, Home, Info, ListTodo, Loader2, LogOut, Menu, Plus, Rss, Search, SearchCode, Server, Settings, Users, X, Zap } from "lucide-react"
+import { Archive, Check, ChevronsUpDown, Cog, Download, Eye, EyeOff, FileEdit, FileText, FunnelPlus, FunnelX, GitBranch, Globe, HardDrive, Home, Info, ListTodo, Loader2, LogOut, Menu, Plus, Rss, Search, SearchCode, Server, Settings, X, Zap } from "lucide-react"
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import { useTranslation } from "react-i18next"
@@ -131,7 +132,7 @@ export function Header({
   sidebarCollapsed = false,
 }: HeaderProps) {
   const { t, i18n } = useTranslation("common")
-  const { user, logout, switchUser } = useAuth()
+  const { logout } = useAuth()
   const navigate = useNavigate()
   const routeSearch = useSearch({ strict: false }) as { q?: string; modal?: string;[key: string]: unknown }
   const { state: layoutRouteState } = useLayoutRoute()
@@ -160,11 +161,6 @@ export function Header({
   const [searchValue, setSearchValue] = useState<string>(routeSearch?.q || "")
   const debouncedSearch = useDebounce(searchValue, 500)
   const { instances } = useInstances()
-  const usersQuery = useQuery({ queryKey: ["share-target-users"], queryFn: api.listShareTargetUsers, enabled: Boolean(user) })
-  const handleSwitchUser = useCallback((username: string) => {
-    const password = window.prompt(t("userSwitchPassword"), "")
-    if (password) switchUser({ username, password })
-  }, [switchUser, t])
   const activeInstances = useMemo(
     () => (instances ?? []).filter(instance => instance.isActive),
     [instances]
@@ -799,18 +795,9 @@ export function Header({
       )}
 
 
-      <div className={cn("grid grid-cols-[auto_auto] items-center gap-1 transition-all duration-300 ease-out sm:order-4 lg:order-none", smInnerHeight)}>
+      <div className={cn("grid grid-cols-[auto_auto_auto] items-center gap-1 transition-all duration-300 ease-out sm:order-4 lg:order-none", smInnerHeight)}>
         <ThemeToggle />
-        {user && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label={user.username}><Users className="h-4 w-4" /></Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user.username}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {(usersQuery.data ?? []).map((account) => <DropdownMenuItem key={account.id} onClick={() => handleSwitchUser(account.username)}>{account.username}</DropdownMenuItem>)}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <UserSwitcher />
         <div className={cn(
           "transition-all duration-300 ease-out overflow-hidden",
           sidebarCollapsed ? "w-10 opacity-100" : "w-0 opacity-0"

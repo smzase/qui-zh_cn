@@ -16,7 +16,7 @@ import (
 func TestClientSettingsStore_GetAllEmpty(t *testing.T) {
 	store := models.NewClientSettingsStore(testdb.NewMigratedSQLite(t, "client-settings"))
 
-	settings, err := store.GetAll(context.Background())
+	settings, err := store.GetAll(context.Background(), 1)
 	require.NoError(t, err)
 	require.Empty(t, settings)
 }
@@ -25,13 +25,13 @@ func TestClientSettingsStore_SetManyAndOverwrite(t *testing.T) {
 	store := models.NewClientSettingsStore(testdb.NewMigratedSQLite(t, "client-settings"))
 	ctx := context.Background()
 
-	require.NoError(t, store.SetMany(ctx, map[string]string{
+	require.NoError(t, store.SetMany(ctx, 1, map[string]string{
 		"qui-speed-units":       `"bits"`,
 		"qui-column-sorting:1":  `[{"id":"name","desc":false}]`,
 		"qui-torrent-view-mode": "compact",
 	}))
 
-	settings, err := store.GetAll(ctx)
+	settings, err := store.GetAll(ctx, 1)
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
 		"qui-speed-units":       `"bits"`,
@@ -40,15 +40,27 @@ func TestClientSettingsStore_SetManyAndOverwrite(t *testing.T) {
 	}, settings)
 
 	// Partial update overwrites one key and leaves the others untouched.
-	require.NoError(t, store.SetMany(ctx, map[string]string{
+	require.NoError(t, store.SetMany(ctx, 1, map[string]string{
 		"qui-speed-units": `"bytes"`,
 	}))
 
-	settings, err = store.GetAll(ctx)
+	settings, err = store.GetAll(ctx, 1)
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
 		"qui-speed-units":       `"bytes"`,
 		"qui-column-sorting:1":  `[{"id":"name","desc":false}]`,
 		"qui-torrent-view-mode": "compact",
 	}, settings)
+
+	require.NoError(t, store.SetMany(ctx, 2, map[string]string{
+		"qui-speed-units": `"bits"`,
+	}))
+
+	settings, err = store.GetAll(ctx, 1)
+	require.NoError(t, err)
+	require.Equal(t, `"bytes"`, settings["qui-speed-units"])
+
+	otherUserSettings, err := store.GetAll(ctx, 2)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"qui-speed-units": `"bits"`}, otherUserSettings)
 }

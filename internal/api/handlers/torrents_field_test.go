@@ -20,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
+	"github.com/autobrr/qui/internal/api/ctxkeys"
 	"github.com/autobrr/qui/internal/models"
 	quiqbt "github.com/autobrr/qui/internal/qbittorrent"
 	"github.com/autobrr/qui/internal/testutil/testdb"
@@ -249,6 +250,8 @@ func TestGetTorrentFieldCrossInstanceReadSkipsFreshData(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = context.WithValue(ctx, ctxkeys.UserID, 1)
+	ctx = context.WithValue(ctx, ctxkeys.UserRole, string(models.UserRoleAdmin))
 	req := newTorrentFieldRequestWithContext(ctx, t, allInstancesID, map[string]any{
 		"field": "magnet_uri",
 	})
@@ -399,7 +402,9 @@ func newStaleCachedClient(t *testing.T, host string, torrents []qbt.Torrent) *qu
 
 func newTorrentFieldRequest(t *testing.T, instanceID int, payload map[string]any) *http.Request {
 	t.Helper()
-	return newTorrentFieldRequestWithContext(context.Background(), t, instanceID, payload)
+	ctx := context.WithValue(context.Background(), ctxkeys.UserID, 1)
+	ctx = context.WithValue(ctx, ctxkeys.UserRole, string(models.UserRoleAdmin))
+	return newTorrentFieldRequestWithContext(ctx, t, instanceID, payload)
 }
 
 func newTorrentFieldRequestWithContext(ctx context.Context, t *testing.T, instanceID int, payload map[string]any) *http.Request {

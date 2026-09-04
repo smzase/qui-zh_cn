@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   _resetClientSettingsForTests,
+  activateClientSettingsUser,
   applyServerSettings,
   parseJsonBoolean,
   seedAndMarkReady,
@@ -274,6 +275,44 @@ describe("applyServerSettings", () => {
 
     expect(changed).toEqual([])
     expect(localStorage.getItem("qui-test-bool")).toBe("true")
+  })
+})
+
+describe("activateClientSettingsUser", () => {
+  it("only lets the initial administrator claim the legacy cache", () => {
+    localStorage.setItem("qui-sidebar-collapsed", "true")
+
+    const changed = activateClientSettingsUser(2)
+
+    expect(changed).toBe(true)
+    expect(localStorage.getItem("qui-sidebar-collapsed")).toBeNull()
+  })
+
+  it("clears synced local settings and pending writes when the account changes", () => {
+    localStorage.setItem("qui-sidebar-collapsed", "true")
+    activateClientSettingsUser(1)
+    seedAndMarkReady({})
+    writeRaw("qui-sidebar-navigation", "{\"order\":[\"dashboard\"],\"hidden\":[]}")
+
+    const changed = activateClientSettingsUser(2)
+
+    expect(changed).toBe(true)
+    expect(localStorage.getItem("qui-sidebar-collapsed")).toBeNull()
+    expect(localStorage.getItem("qui-sidebar-navigation")).toBeNull()
+    expect(localStorage.getItem("qui-client-settings-outbox")).toBeNull()
+  })
+
+  it("keeps the UI language across account switches", () => {
+    localStorage.setItem("qui.language", "zh-CN")
+    localStorage.setItem("qui-sidebar-collapsed", "true")
+    activateClientSettingsUser(1)
+    seedAndMarkReady({})
+
+    const changed = activateClientSettingsUser(2)
+
+    expect(changed).toBe(true)
+    expect(localStorage.getItem("qui.language")).toBe("zh-CN")
+    expect(localStorage.getItem("qui-sidebar-collapsed")).toBeNull()
   })
 })
 

@@ -21,6 +21,8 @@ export interface ExternalProgram {
   updated_at: string
 }
 
+export type ExecutableExternalProgram = Pick<ExternalProgram, "id" | "name" | "enabled">
+
 // ExternalProgramCreate and ExternalProgramUpdate share an identical payload
 // shape; keep them as a single source of truth to avoid drift.
 export interface ExternalProgramPayload {

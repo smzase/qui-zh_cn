@@ -4,7 +4,8 @@
  */
 
 import { navigateAfterAuth } from "@/lib/add-intent"
-import { api } from "@/lib/api"
+import { APIError, api } from "@/lib/api"
+import { removeSavedSwitchUser, saveSwitchUser, type SavedSwitchUser } from "@/lib/saved-switch-users"
 import type { User } from "@/types"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -23,10 +24,11 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: ({ username, password, rememberMe = false }: { username: string; password: string; rememberMe?: boolean }) =>
       api.login(username, password, rememberMe),
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
       const currentUser = await api.checkAuth()
-      data.user = currentUser ?? data.user
-      queryClient.setQueryData(["auth", "user"], data.user)
+      const authenticatedUser = currentUser ?? data.user
+      saveSwitchUser(authenticatedUser, variables.password)
+      queryClient.setQueryData(["auth", "user"], authenticatedUser)
       // Refetch the theme catalog now that the session can unlock the full
       // premium CSS: the pre-login fetch only carried the selected theme.
       queryClient.invalidateQueries({ queryKey: ["builtin-themes"] })
@@ -37,22 +39,45 @@ export function useAuth() {
   const setupMutation = useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       api.setup(username, password),
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
       const currentUser = await api.checkAuth()
-      data.user = currentUser ?? data.user
-      queryClient.setQueryData(["auth", "user"], data.user)
+      const authenticatedUser = currentUser ?? data.user
+      saveSwitchUser(authenticatedUser, variables.password)
+      queryClient.setQueryData(["auth", "user"], authenticatedUser)
       queryClient.invalidateQueries({ queryKey: ["builtin-themes"] })
       navigateAfterAuth(navigate)
     },
   })
 
   const switchUserMutation = useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) => api.login(username, password),
-    onSuccess: async (data) => {
+    mutationFn: ({ username, password }: { username: string; password: string }) =>
+      api.addSwitchUser(username, password, true),
+    onSuccess: async (data, variables) => {
       const currentUser = await api.checkAuth()
-      data.user = currentUser ?? data.user
+      const authenticatedUser = currentUser ?? data
+      saveSwitchUser(authenticatedUser, variables.password)
       queryClient.clear()
-      queryClient.setQueryData(["auth", "user"], data.user)
+      queryClient.setQueryData(["auth", "user"], authenticatedUser)
+      navigate({ to: "/dashboard" })
+    },
+  })
+
+  const switchSavedUserMutation = useMutation({
+    mutationFn: (savedUser: SavedSwitchUser) =>
+      api.addSwitchUser(savedUser.username, savedUser.password, true),
+    onError: (error, savedUser) => {
+      // A changed password invalidates the local record. The switcher will
+      // prompt for the credentials again on the next selection.
+      if (error instanceof APIError && error.status === 401) {
+        removeSavedSwitchUser(savedUser.id)
+      }
+    },
+    onSuccess: async (data, savedUser) => {
+      const currentUser = await api.checkAuth()
+      const authenticatedUser = currentUser ?? data
+      saveSwitchUser(authenticatedUser, savedUser.password)
+      queryClient.clear()
+      queryClient.setQueryData(["auth", "user"], authenticatedUser)
       navigate({ to: "/dashboard" })
     },
   })
@@ -84,8 +109,11 @@ export function useAuth() {
     setup: setupMutation.mutate,
     logout: logoutMutation.mutate,
     switchUser: switchUserMutation.mutate,
+    switchUserAsync: switchUserMutation.mutateAsync,
+    switchSavedUserAsync: switchSavedUserMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     isSettingUp: setupMutation.isPending,
+    isSwitchingUser: switchUserMutation.isPending || switchSavedUserMutation.isPending,
     loginError: loginMutation.error,
     setupError: setupMutation.error,
     setIsAuthenticated,

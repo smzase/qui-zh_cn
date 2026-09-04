@@ -74,6 +74,8 @@ export function ExternalProgramsManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["externalPrograms"] })
+      queryClient.invalidateQueries({ queryKey: ["executable-external-programs"] })
+      queryClient.invalidateQueries({ queryKey: ["externalPrograms", "enabled"] })
       setShowCreateDialog(false)
       toast.success(t("externalPrograms.toasts.created"))
     },
@@ -88,6 +90,8 @@ export function ExternalProgramsManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["externalPrograms"] })
+      queryClient.invalidateQueries({ queryKey: ["executable-external-programs"] })
+      queryClient.invalidateQueries({ queryKey: ["externalPrograms", "enabled"] })
       setEditProgram(null)
       toast.success(t("externalPrograms.toasts.updated"))
     },
@@ -102,6 +106,8 @@ export function ExternalProgramsManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["externalPrograms"] })
+      queryClient.invalidateQueries({ queryKey: ["executable-external-programs"] })
+      queryClient.invalidateQueries({ queryKey: ["externalPrograms", "enabled"] })
       // Also invalidate automations since we may have modified them
       queryClient.invalidateQueries({ queryKey: ["automations"] })
       setDeleteProgram(null)

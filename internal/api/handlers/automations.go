@@ -19,6 +19,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/qui/internal/api/ctxkeys"
+	"github.com/autobrr/qui/internal/auth"
 	"github.com/autobrr/qui/internal/models"
 	"github.com/autobrr/qui/internal/services/automations"
 )
@@ -29,15 +31,24 @@ type AutomationHandler struct {
 	instanceStore        *models.InstanceStore
 	externalProgramStore *models.ExternalProgramStore
 	service              *automations.Service
+	authService          *auth.Service
 }
 
-func NewAutomationHandler(store *models.AutomationStore, activityStore *models.AutomationActivityStore, instanceStore *models.InstanceStore, externalProgramStore *models.ExternalProgramStore, service *automations.Service) *AutomationHandler {
+func NewAutomationHandler(
+	store *models.AutomationStore,
+	activityStore *models.AutomationActivityStore,
+	instanceStore *models.InstanceStore,
+	externalProgramStore *models.ExternalProgramStore,
+	service *automations.Service,
+	authService *auth.Service,
+) *AutomationHandler {
 	return &AutomationHandler{
 		store:                store,
 		activityStore:        activityStore,
 		instanceStore:        instanceStore,
 		externalProgramStore: externalProgramStore,
 		service:              service,
+		authService:          authService,
 	}
 }
 
@@ -359,6 +370,19 @@ func (h *AutomationHandler) validatePayload(ctx context.Context, instanceID int,
 			}
 			return http.StatusInternalServerError, "Failed to validate target instance", err
 		}
+		role, _ := ctx.Value(ctxkeys.UserRole).(string)
+		allowed, err := h.instanceStore.CanAccess(
+			ctx,
+			payload.Conditions.ExportToInstance.TargetInstanceID,
+			currentUserIDFromContext(ctx),
+			role == string(models.UserRoleAdmin),
+		)
+		if err != nil {
+			return http.StatusInternalServerError, "Failed to authorize target instance", err
+		}
+		if !allowed {
+			return http.StatusForbidden, "Target instance access denied", errors.New("target instance access denied")
+		}
 	}
 
 	// Validate delete is standalone - it cannot be combined with any other action
@@ -478,11 +502,27 @@ func (h *AutomationHandler) validatePayload(ctx context.Context, instanceID int,
 
 	// Verify the referenced external program exists
 	if payload.Conditions.ExternalProgram != nil && payload.Conditions.ExternalProgram.Enabled && payload.Conditions.ExternalProgram.ProgramID > 0 {
+		if h.authService == nil {
+			return http.StatusServiceUnavailable, "External program authorization is not available", errors.New("auth service is nil")
+		}
+		role, _ := ctx.Value(ctxkeys.UserRole).(string)
+		allowed, err := h.authService.HasPermission(
+			ctx,
+			currentUserIDFromContext(ctx),
+			models.UserRole(role),
+			models.PermissionExecuteExternalPrograms,
+		)
+		if err != nil {
+			return http.StatusInternalServerError, "Failed to authorize external program", err
+		}
+		if !allowed {
+			return http.StatusForbidden, "External program permission required", errors.New("external program permission required")
+		}
 		if h.externalProgramStore == nil {
 			log.Warn().Msg("automations: external program store is nil, skipping program existence check")
 			return http.StatusServiceUnavailable, "External program service not available", errors.New("external program store is nil")
 		}
-		_, err := h.externalProgramStore.GetByID(ctx, payload.Conditions.ExternalProgram.ProgramID)
+		_, err = h.externalProgramStore.GetByID(ctx, payload.Conditions.ExternalProgram.ProgramID)
 		if err != nil {
 			if errors.Is(err, models.ErrExternalProgramNotFound) {
 				return http.StatusBadRequest, "Referenced external program does not exist", err

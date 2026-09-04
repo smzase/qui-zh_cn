@@ -1,4 +1,13 @@
 {
+  "userMenu": {
+    "title": "Switch user",
+    "description": "Enter the account credentials.",
+    "addUser": "Add user",
+    "username": "Username",
+    "password": "Password",
+    "switch": "Switch user",
+    "switchFailed": "Failed to switch user"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "search": "Search",
@@ -208,7 +217,7 @@
     "perkSuffix": "role in Discord and our eternal gratitude.",
     "yearly": "{{price}} / year",
     "monthly": "{{price}} / month",
-    "notLicense": "Premium themes are a separate one-time purchase.",
-    "userSwitchPassword": "Enter the password to switch user"
-  }
+    "notLicense": "Premium themes are a separate one-time purchase."
+  },
+  "userSwitchPassword": "Enter the password to switch user"
 }

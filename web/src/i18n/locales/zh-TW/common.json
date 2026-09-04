@@ -1,4 +1,13 @@
 {
+  "userMenu": {
+    "title": "切換使用者",
+    "description": "輸入帳號憑據。",
+    "addUser": "新增使用者",
+    "username": "使用者名稱",
+    "password": "密碼",
+    "switch": "切換使用者",
+    "switchFailed": "切換使用者失敗"
+  },
   "nav": {
     "dashboard": "儀表板",
     "search": "搜尋",
@@ -202,5 +211,6 @@
     "yearly": "{{price}} / 年",
     "monthly": "{{price}} / 月",
     "notLicense": "進階主題是單獨的一次性購買。"
-  }
+  },
+  "userSwitchPassword": "請輸入要切換使用者的密碼"
 }

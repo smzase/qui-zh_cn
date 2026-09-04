@@ -56,6 +56,8 @@ function makeInstance(overrides: Partial<InstanceResponse> = {}): InstanceRespon
     fallbackToRegularMode: true,
     sortOrder: 0,
     isActive: true,
+    ownerId: 1,
+    shared: false,
     reannounceSettings: {
       enabled: false,
       initialWaitSeconds: 5,

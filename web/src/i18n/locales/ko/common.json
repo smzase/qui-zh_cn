@@ -1,4 +1,13 @@
 {
+  "userMenu": {
+    "title": "사용자 전환",
+    "description": "계정 자격 증명을 입력하세요.",
+    "addUser": "사용자 추가",
+    "username": "사용자 이름",
+    "password": "비밀번호",
+    "switch": "사용자 전환",
+    "switchFailed": "사용자 전환에 실패했습니다"
+  },
   "nav": {
     "dashboard": "대시보드",
     "search": "검색",
@@ -202,5 +211,6 @@
     "yearly": "{{price}} / 년",
     "monthly": "{{price}} / 월",
     "notLicense": "프리미엄 테마는 별도의 일회성 구매입니다."
-  }
+  },
+  "userSwitchPassword": "사용자를 전환하려면 비밀번호를 입력하세요"
 }

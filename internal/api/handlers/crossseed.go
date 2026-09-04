@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -557,6 +558,7 @@ func (h *CrossSeedHandler) Routes(
 	apiKeyQueryMiddleware func(http.Handler) http.Handler,
 	userContextMiddleware func(http.Handler) http.Handler,
 	instanceAccessMiddleware func(http.Handler) http.Handler,
+	globalSettingsMiddleware func(http.Handler) http.Handler,
 ) {
 	withInstanceAccess := func(next http.Handler) http.Handler {
 		return authMiddleware(userContextMiddleware(instanceAccessMiddleware(next)))
@@ -564,8 +566,8 @@ func (h *CrossSeedHandler) Routes(
 	withUserContext := func(next http.Handler) http.Handler {
 		return authMiddleware(userContextMiddleware(next))
 	}
-	withAdminContext := func(next http.Handler) http.Handler {
-		return authMiddleware(userContextMiddleware(adminOnly(next)))
+	withGlobalSettingsContext := func(next http.Handler) http.Handler {
+		return authMiddleware(userContextMiddleware(globalSettingsMiddleware(next)))
 	}
 	withAPIKeyUserContext := func(next http.Handler) http.Handler {
 		return apiKeyQueryMiddleware(authMiddleware(userContextMiddleware(next)))
@@ -588,23 +590,23 @@ func (h *CrossSeedHandler) Routes(
 			r.Post("/{instanceID}/{hash}/apply", h.ApplyTorrentSearchResults)
 		})
 		r.With(withUserContext).Get("/settings", h.GetAutomationSettings)
-		r.With(withAdminContext).Patch("/settings", h.PatchAutomationSettings)
-		r.With(withAdminContext).Put("/settings", h.UpdateAutomationSettings)
+		r.With(withGlobalSettingsContext).Patch("/settings", h.PatchAutomationSettings)
+		r.With(withGlobalSettingsContext).Put("/settings", h.UpdateAutomationSettings)
 		r.With(withUserContext).Get("/status", h.GetAutomationStatus)
 		r.With(withUserContext).Get("/runs", h.ListAutomationRuns)
-		r.With(withAdminContext).Post("/run", h.TriggerAutomationRun)
-		r.With(withAdminContext).Post("/run/cancel", h.CancelAutomationRun)
+		r.With(withGlobalSettingsContext).Post("/run", h.TriggerAutomationRun)
+		r.With(withGlobalSettingsContext).Post("/run/cancel", h.CancelAutomationRun)
 		r.With(withUserContext).Route("/blocklist", func(r chi.Router) {
 			r.Get("/", h.ListBlocklist)
-			r.With(withAdminContext).Post("/", h.AddBlocklistEntry)
+			r.With(withGlobalSettingsContext).Post("/", h.AddBlocklistEntry)
 			r.With(instanceAccessMiddleware).Delete("/{instanceID}/{infohash}", h.DeleteBlocklistEntry)
 		})
 		r.With(withUserContext).Route("/search", func(r chi.Router) {
 			r.Get("/settings", h.GetSearchSettings)
-			r.With(withAdminContext).Patch("/settings", h.PatchSearchSettings)
+			r.With(withGlobalSettingsContext).Patch("/settings", h.PatchSearchSettings)
 			r.Get("/status", h.GetSearchRunStatus)
-			r.With(withAdminContext).Post("/run", h.StartSearchRun)
-			r.With(withAdminContext).Post("/run/cancel", h.CancelSearchRun)
+			r.With(withGlobalSettingsContext).Post("/run", h.StartSearchRun)
+			r.With(withGlobalSettingsContext).Post("/run/cancel", h.CancelSearchRun)
 			r.Get("/runs", h.ListSearchRunHistory)
 		})
 		r.With(withUserContext).Route("/manual", func(r chi.Router) {
@@ -749,6 +751,21 @@ func (h *CrossSeedHandler) GetLocalMatches(w http.ResponseWriter, r *http.Reques
 			Msg("Failed to find local cross-seed matches")
 		RespondError(w, status, err.Error())
 		return
+	}
+	if !isAdmin(r) {
+		visibleMatches := make([]crossseed.LocalMatch, 0, len(response.Matches))
+		for _, match := range response.Matches {
+			allowed, err := h.instanceStore.CanAccess(r.Context(), match.InstanceID, currentUserID(r), false)
+			if err != nil {
+				log.Error().Err(err).Int("instanceID", match.InstanceID).Msg("Failed to authorize local cross-seed match")
+				RespondError(w, http.StatusInternalServerError, "Failed to authorize cross-seed matches")
+				return
+			}
+			if allowed {
+				visibleMatches = append(visibleMatches, match)
+			}
+		}
+		response.Matches = visibleMatches
 	}
 
 	RespondJSON(w, http.StatusOK, response)
@@ -1388,25 +1405,47 @@ func (h *CrossSeedHandler) CancelAutomationRun(w http.ResponseWriter, r *http.Re
 // @Security ApiKeyAuth
 // @Router /api/cross-seed/blocklist [get]
 func (h *CrossSeedHandler) ListBlocklist(w http.ResponseWriter, r *http.Request) {
-	instanceID := 0
+	requestedInstanceIDs := make([]int, 0, 1)
 	if raw := strings.TrimSpace(r.URL.Query().Get("instanceId")); raw != "" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed <= 0 {
 			RespondError(w, http.StatusBadRequest, "instanceId must be a positive integer")
 			return
 		}
-		instanceID = parsed
+		requestedInstanceIDs = append(requestedInstanceIDs, parsed)
 	}
 
-	entries, err := h.service.ListBlocklist(r.Context(), instanceID)
+	instanceIDs, err := h.scopeCrossSeedInstanceIDs(r, requestedInstanceIDs)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to list cross-seed blocklist")
-		RespondError(w, http.StatusInternalServerError, "Failed to load blocklist")
+		respondCrossSeedInstanceScopeError(w, err)
 		return
 	}
-	if entries == nil {
-		entries = []*models.CrossSeedBlocklistEntry{}
+
+	if isAdmin(r) && len(instanceIDs) == 0 {
+		entries, err := h.service.ListBlocklist(r.Context(), 0)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to list cross-seed blocklist")
+			RespondError(w, http.StatusInternalServerError, "Failed to load blocklist")
+			return
+		}
+		if entries == nil {
+			entries = []*models.CrossSeedBlocklistEntry{}
+		}
+		RespondJSON(w, http.StatusOK, entries)
+		return
 	}
+
+	entries := make([]*models.CrossSeedBlocklistEntry, 0)
+	for _, instanceID := range instanceIDs {
+		instanceEntries, err := h.service.ListBlocklist(r.Context(), instanceID)
+		if err != nil {
+			log.Error().Err(err).Int("instance_id", instanceID).Msg("Failed to list cross-seed blocklist")
+			RespondError(w, http.StatusInternalServerError, "Failed to load blocklist")
+			return
+		}
+		entries = append(entries, instanceEntries...)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].CreatedAt.After(entries[j].CreatedAt) })
 
 	RespondJSON(w, http.StatusOK, entries)
 }

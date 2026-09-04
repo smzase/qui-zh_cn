@@ -12,7 +12,6 @@ import (
 
 	"github.com/autobrr/qui/internal/dbinterface"
 	"github.com/autobrr/qui/internal/models"
-
 )
 
 const (
@@ -179,15 +178,49 @@ func (s *Service) IsSetupComplete(ctx context.Context) (bool, error) {
 func (s *Service) ListUsers(ctx context.Context) ([]*models.User, error) {
 	return s.userStore.ListAccounts(ctx)
 }
-func (s *Service) CreateManagedUser(ctx context.Context, username, password string) (*models.User, error) {
+
+func (s *Service) HasPermission(ctx context.Context, userID int, role models.UserRole, permission models.UserPermission) (bool, error) {
+	if role == models.UserRoleAdmin {
+		return true, nil
+	}
+	return s.userStore.HasPermission(ctx, userID, permission)
+}
+
+func (s *Service) UpdateUserPermissions(ctx context.Context, id int, permissions []models.UserPermission) error {
+	return s.userStore.SetPermissions(ctx, id, permissions)
+}
+
+func (s *Service) CreateManagedUser(ctx context.Context, username, password string, role models.UserRole, permissions []models.UserPermission) (*models.User, error) {
 	if len(password) < 8 {
 		return nil, errors.New("password must be at least 8 characters long")
+	}
+	if role == "" {
+		role = models.UserRoleUser
+	}
+	if role != models.UserRoleAdmin && role != models.UserRoleUser {
+		return nil, errors.New("invalid user role")
+	}
+	for _, permission := range permissions {
+		if !models.IsValidUserPermission(permission) {
+			return nil, errors.New("invalid user permission")
+		}
 	}
 	hash, err := HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
-	return s.userStore.CreateWithRole(ctx, username, hash, models.UserRoleUser)
+	user, err := s.userStore.CreateWithRole(ctx, username, hash, role)
+	if err != nil {
+		return nil, err
+	}
+	if role == models.UserRoleAdmin {
+		return user, nil
+	}
+	if err := s.userStore.SetPermissions(ctx, user.ID, permissions); err != nil {
+		return nil, err
+	}
+	user.Permissions = permissions
+	return user, nil
 }
 
 // EnsureOIDCUser creates a local account for an OIDC identity when one does

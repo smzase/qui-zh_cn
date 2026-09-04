@@ -42,7 +42,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { api } from "@/lib/api"
 import { useIncognitoMode } from "@/lib/incognito"
 import { cn, formatErrorMessage } from "@/lib/utils"
-import type { InstanceResponse, ManagedUser } from "@/types"
+import type { InstanceResponse, ShareTargetUser } from "@/types"
 import {
   ArrowDown,
   ArrowUp,
@@ -51,9 +51,11 @@ import {
   Eye,
   EyeOff,
   HardDrive,
+  LogOut,
   MoreVertical,
   Power,
   RefreshCw,
+  Share2,
   Trash2,
   XCircle
 } from "lucide-react"
@@ -100,8 +102,8 @@ export function InstanceCard({
   const canManageInstance = user?.role === "admin" || user?.id === instance.ownerId
 
   const usersQuery = useQuery({
-	queryKey: ["share-target-users"],
-	queryFn: api.listShareTargetUsers,
+    queryKey: ["share-target-users"],
+    queryFn: () => api.listShareTargetUsers(),
     enabled: canManageInstance && showSharingDialog,
   })
   const sharesQuery = useQuery({
@@ -138,7 +140,7 @@ export function InstanceCard({
 
   const sharedUsers = sharesQuery.data ?? []
   const availableUsers = (usersQuery.data ?? []).filter(
-    (account: ManagedUser) => account.id !== instance.ownerId && !sharedUsers.includes(account.id),
+    (account: ShareTargetUser) => account.id !== instance.ownerId && !sharedUsers.includes(account.id)
   )
 
   const statusBadge = !instance.isActive? { label: t("card.status.disabled"), variant: "secondary" as const }: instance.connected? { label: t("card.status.connected"), variant: "default" as const }: { label: t("card.status.disconnected"), variant: "destructive" as const }
@@ -315,8 +317,18 @@ export function InstanceCard({
                   <RefreshCw className="mr-2 h-4 w-4" />
                   {t("card.actions.testConnection")}
                 </DropdownMenuItem>
-                {canManageInstance && <DropdownMenuItem onClick={() => setShowSharingDialog(true)}>{t("sharing.manage")}</DropdownMenuItem>}
-                {instance.shared && user?.id && <DropdownMenuItem onClick={handleLeaveShare}>{t("sharing.leave")}</DropdownMenuItem>}
+                {canManageInstance && (
+                  <DropdownMenuItem onClick={() => setShowSharingDialog(true)}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {t("sharing.manage")}
+                  </DropdownMenuItem>
+                )}
+                {instance.shared && user?.id && (
+                  <DropdownMenuItem onClick={handleLeaveShare}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    {t("sharing.leave")}
+                  </DropdownMenuItem>
+                )}
                 {canManageInstance && (
                   <>
                     <DropdownMenuSeparator />

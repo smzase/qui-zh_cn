@@ -3,24 +3,9 @@ package handlers
 import (
 	"errors"
 	"net/http"
-
-	"github.com/autobrr/qui/internal/api/ctxkeys"
-	"github.com/autobrr/qui/internal/models"
 )
 
 var errCrossSeedInstanceForbidden = errors.New("cross-seed instance access denied")
-
-// adminOnly protects cross-seed operations that mutate global scheduler state.
-// Instance-scoped operations use RequireInstanceAccess instead.
-func adminOnly(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if role, _ := r.Context().Value(ctxkeys.UserRole).(string); role == string(models.UserRoleAdmin) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		RespondError(w, http.StatusForbidden, "Administrator permission required")
-	})
-}
 
 // scopeCrossSeedInstanceIDs converts an omitted instance list into the
 // current user's visible instances and rejects explicit IDs they cannot use.

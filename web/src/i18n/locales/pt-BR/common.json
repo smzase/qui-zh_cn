@@ -1,4 +1,13 @@
 {
+  "userMenu": {
+    "title": "Trocar usuário",
+    "description": "Informe as credenciais da conta.",
+    "addUser": "Adicionar usuário",
+    "username": "Nome de usuário",
+    "password": "Senha",
+    "switch": "Trocar usuário",
+    "switchFailed": "Falha ao trocar de usuário"
+  },
   "nav": {
     "dashboard": "Painel",
     "search": "Busca",
@@ -209,5 +218,6 @@
     "yearly": "{{price}} / ano",
     "monthly": "{{price}} / mês",
     "notLicense": "Os temas premium são uma compra única à parte."
-  }
+  },
+  "userSwitchPassword": "Digite a senha para trocar de usuário"
 }

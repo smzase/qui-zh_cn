@@ -15,6 +15,11 @@ type shareRequest struct {
 	UserID int `json:"userId"`
 }
 
+type batchShareRequest struct {
+	InstanceIDs []int `json:"instanceIds"`
+	UserIDs     []int `json:"userIds"`
+}
+
 func (h *InstancesHandler) ListInstanceShares(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "instanceID"))
 	if err != nil {
@@ -86,6 +91,74 @@ func (h *InstancesHandler) ShareInstance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	RespondJSON(w, http.StatusOK, map[string]string{"message": "Instance shared"})
+}
+
+func (h *InstancesHandler) ShareInstances(w http.ResponseWriter, r *http.Request) {
+	var req batchShareRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.InstanceIDs) == 0 || len(req.UserIDs) == 0 {
+		RespondError(w, http.StatusBadRequest, "instanceIds and userIds are required")
+		return
+	}
+
+	instanceIDs := make(map[int]struct{}, len(req.InstanceIDs))
+	for _, id := range req.InstanceIDs {
+		if id <= 0 {
+			RespondError(w, http.StatusBadRequest, "Invalid instance ID")
+			return
+		}
+		instanceIDs[id] = struct{}{}
+	}
+	userIDs := make(map[int]struct{}, len(req.UserIDs))
+	for _, id := range req.UserIDs {
+		if id <= 0 {
+			RespondError(w, http.StatusBadRequest, "Invalid user ID")
+			return
+		}
+		userIDs[id] = struct{}{}
+	}
+
+	owners := make(map[int]int, len(instanceIDs))
+	for instanceID := range instanceIDs {
+		ownerID, err := h.instanceStore.OwnerID(r.Context(), instanceID)
+		if errors.Is(err, models.ErrInstanceNotFound) {
+			RespondError(w, http.StatusNotFound, "Instance not found")
+			return
+		}
+		if err != nil {
+			RespondError(w, http.StatusInternalServerError, "Failed to authorize instance")
+			return
+		}
+		if !isAdmin(r) && ownerID != currentUserID(r) {
+			RespondError(w, http.StatusForbidden, "Permission denied")
+			return
+		}
+		owners[instanceID] = ownerID
+	}
+
+	instanceIDList := make([]int, 0, len(owners))
+	for instanceID, ownerID := range owners {
+		instanceIDList = append(instanceIDList, instanceID)
+		for userID := range userIDs {
+			if userID == ownerID {
+				RespondError(w, http.StatusBadRequest, "Cannot share an instance with yourself")
+				return
+			}
+		}
+	}
+	userIDList := make([]int, 0, len(userIDs))
+	for userID := range userIDs {
+		userIDList = append(userIDList, userID)
+	}
+	if err := h.instanceStore.ShareMany(r.Context(), instanceIDList, userIDList, currentUserID(r)); err != nil {
+		if errors.Is(err, models.ErrInstanceShareTargetNotFound) {
+			RespondError(w, http.StatusNotFound, "User not found")
+			return
+		}
+		RespondError(w, http.StatusInternalServerError, "Failed to share instances")
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, map[string]string{"message": "Instances shared"})
 }
 func (h *InstancesHandler) UnshareInstance(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "instanceID"))

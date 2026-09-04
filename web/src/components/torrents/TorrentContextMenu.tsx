@@ -14,6 +14,7 @@ import {
   ContextMenuTrigger
 } from "@/components/ui/context-menu"
 import { useCrossSeedFilter } from "@/hooks/useCrossSeedFilter"
+import { useAuth } from "@/hooks/useAuth"
 import type { TorrentAction } from "@/hooks/useTorrentActions"
 import { TORRENT_ACTIONS } from "@/hooks/useTorrentActions"
 import { api } from "@/lib/api"
@@ -23,7 +24,7 @@ import type { TorrentFieldName, TorrentFieldSelection } from "@/lib/torrent-fiel
 import { getToggleSelectionState, getTorrentDisplayHash } from "@/lib/torrent-utils"
 import { resolveTorrentTargetCapabilities } from "@/lib/instance-capabilities"
 import { copyTextToClipboard } from "@/lib/utils"
-import type { Category, ExternalProgram, InstanceCapabilities, InstanceResponse, Torrent, TorrentFilters } from "@/types"
+import type { Category, ExecutableExternalProgram, InstanceCapabilities, InstanceResponse, Torrent, TorrentFilters } from "@/types"
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query"
 import {
   Blocks,
@@ -695,16 +696,19 @@ interface ExternalProgramsSubmenuProps {
 
 function ExternalProgramsSubmenu({ instanceId, hashes }: ExternalProgramsSubmenuProps) {
   const { t } = useTranslation("torrents")
+  const { user } = useAuth()
+  const canExecute = user?.role === "admin" || user?.permissions?.includes("execute_external_programs") === true
   const { data: programs, isLoading } = useQuery({
     queryKey: ["externalPrograms", "enabled"],
-    queryFn: () => api.listExternalPrograms(),
+    queryFn: () => api.listExecutableExternalPrograms(),
     select: (data) => data.filter(p => p.enabled),
     staleTime: 60 * 1000, // 1 minute
+    enabled: canExecute,
   })
 
   // Types derived from API for strong typing
   type ExecResp = Awaited<ReturnType<typeof api.executeExternalProgram>>
-  type ExecVars = { program: ExternalProgram; instanceId: number; hashes: string[] }
+  type ExecVars = { program: ExecutableExternalProgram; instanceId: number; hashes: string[] }
 
   const executeMutation = useMutation<ExecResp, Error, ExecVars>({
     mutationFn: async ({ program, instanceId, hashes }) =>
@@ -738,9 +742,13 @@ function ExternalProgramsSubmenu({ instanceId, hashes }: ExternalProgramsSubmenu
     },
   })
 
-  const handleExecute = useCallback((program: ExternalProgram) => {
+  const handleExecute = useCallback((program: ExecutableExternalProgram) => {
     executeMutation.mutate({ program, instanceId, hashes })
   }, [executeMutation, instanceId, hashes])
+
+  if (!canExecute) {
+    return null
+  }
 
   if (isLoading) {
     return (

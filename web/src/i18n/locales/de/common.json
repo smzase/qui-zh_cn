@@ -1,4 +1,13 @@
 {
+  "userMenu": {
+    "title": "Benutzer wechseln",
+    "description": "Gib die Zugangsdaten des Kontos ein.",
+    "addUser": "Benutzer hinzufügen",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "switch": "Benutzer wechseln",
+    "switchFailed": "Benutzerwechsel fehlgeschlagen"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "search": "Suche",
@@ -209,5 +218,6 @@
     "yearly": "{{price}} / Jahr",
     "monthly": "{{price}} / Monat",
     "notLicense": "Premium-Designs sind ein separater einmaliger Kauf."
-  }
+  },
+  "userSwitchPassword": "Gib das Passwort ein, um den Benutzer zu wechseln"
 }

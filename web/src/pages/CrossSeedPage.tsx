@@ -43,6 +43,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useActivityStream } from "@/contexts/SyncStreamContext"
+import { useAuth } from "@/hooks/useAuth"
 import { useDateTimeFormatters } from "@/hooks/useDateTimeFormatters"
 import { useInstances } from "@/hooks/useInstances"
 import { api } from "@/lib/api"
@@ -925,8 +926,11 @@ export function PooledCompletionSetting({
 
 export function CrossSeedPage({ activeTab, onTabChange }: CrossSeedPageProps) {
   const { t } = useTranslation("crossseed")
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const { formatDate } = useDateTimeFormatters()
+  const canConfigureGlobalSettings =
+    user?.role === "admin" || user?.permissions?.includes("manage_global_settings") === true
 
   // Keep the shared SSE stream open so qui activity events drive cache invalidation.
   useActivityStream()
@@ -1037,8 +1041,9 @@ export function CrossSeedPage({ activeTab, onTabChange }: CrossSeedPageProps) {
   }, [notifyMissingIndexers])
 
   const { data: externalPrograms } = useQuery({
-    queryKey: ["external-programs"],
-    queryFn: () => api.listExternalPrograms(),
+    queryKey: ["executable-external-programs"],
+    queryFn: () => api.listExecutableExternalPrograms(),
+    enabled: canConfigureGlobalSettings,
   })
   const enabledExternalPrograms = useMemo(
     () => (externalPrograms ?? []).filter(program => program.enabled),
@@ -3518,37 +3523,39 @@ export function CrossSeedPage({ activeTab, onTabChange }: CrossSeedPageProps) {
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-3 border-t border-border/50">
-                  <Label htmlFor="global-external-program">{t("rules.postInjection.externalProgram")}</Label>
-                  <Select
-                    value={globalSettings.runExternalProgramId ? String(globalSettings.runExternalProgramId) : "none"}
-                    onValueChange={(value) => setGlobalSettings(prev => ({
-                      ...prev,
-                      runExternalProgramId: value === "none" ? null : Number(value),
-                    }))}
-                    disabled={!enabledExternalPrograms.length}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={
-                        !enabledExternalPrograms.length ? t("rules.postInjection.noExternalPrograms") : t("rules.postInjection.selectExternalProgram")
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t("rules.postInjection.noneOption")}</SelectItem>
-                      {enabledExternalPrograms.map(program => (
-                        <SelectItem key={program.id} value={String(program.id)}>
-                          {program.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {t("rules.postInjection.externalProgramDescription")}
-                    {!enabledExternalPrograms.length && (
-                      <> <Link to="/settings" search={{ tab: "external-programs" }} className="font-medium text-primary underline-offset-4 hover:underline">{t("rules.postInjection.configureExternalPrograms")}</Link> {t("rules.postInjection.configureExternalProgramsSuffix")}</>
-                    )}
-                  </p>
-                </div>
+                {canConfigureGlobalSettings && (
+                  <div className="space-y-2 pt-3 border-t border-border/50">
+                    <Label htmlFor="global-external-program">{t("rules.postInjection.externalProgram")}</Label>
+                    <Select
+                      value={globalSettings.runExternalProgramId ? String(globalSettings.runExternalProgramId) : "none"}
+                      onValueChange={(value) => setGlobalSettings(prev => ({
+                        ...prev,
+                        runExternalProgramId: value === "none" ? null : Number(value),
+                      }))}
+                      disabled={!enabledExternalPrograms.length}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={
+                          !enabledExternalPrograms.length ? t("rules.postInjection.noExternalPrograms") : t("rules.postInjection.selectExternalProgram")
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t("rules.postInjection.noneOption")}</SelectItem>
+                        {enabledExternalPrograms.map(program => (
+                          <SelectItem key={program.id} value={String(program.id)}>
+                            {program.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {t("rules.postInjection.externalProgramDescription")}
+                      {!enabledExternalPrograms.length && (
+                        <> <Link to="/settings" search={{ tab: "external-programs" }} className="font-medium text-primary underline-offset-4 hover:underline">{t("rules.postInjection.configureExternalPrograms")}</Link> {t("rules.postInjection.configureExternalProgramsSuffix")}</>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {searchCacheStats && (

@@ -169,6 +169,211 @@ paths:
         '401':
           description: Invalid current password
 
+  /api/auth/switch-users:
+    get:
+      tags:
+        - Authentication
+      summary: List switchable users
+      description: Administrators see all accounts. Standard users see their current account; the browser may merge accounts saved in local storage.
+      responses:
+        '200':
+          description: User accounts available in the user switcher
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SwitchUser'
+    post:
+      tags:
+        - Authentication
+      summary: Verify an account for switching
+      description: Verify credentials and optionally switch the current session. The server does not retain reusable account credentials; the browser user switcher stores them in local storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  writeOnly: true
+                switchNow:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Account verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request body
+        '401':
+          description: Invalid credentials
+
+  /api/users:
+    get:
+      tags:
+        - Users
+      summary: List users
+      description: List all user accounts and their granted permissions. Requires an administrator account.
+      responses:
+        '200':
+          description: User accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ManagedUser'
+        '403':
+          description: Administrator permission required
+    post:
+      tags:
+        - Users
+      summary: Create user
+      description: Create a user account with an optional role and permissions. Requires an administrator account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                  writeOnly: true
+                role:
+                  type: string
+                  enum: [admin, user]
+                  default: user
+                permissions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UserPermission'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedUser'
+        '400':
+          description: Invalid user input
+        '403':
+          description: Administrator permission required
+        '409':
+          description: Username already exists
+
+  /api/users/share-targets:
+    get:
+      tags:
+        - Users
+      summary: List instance share targets
+      description: List the non-sensitive account details that can be selected when sharing an instance.
+      responses:
+        '200':
+          description: Share target accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShareTargetUser'
+
+  /api/users/{id}/role:
+    put:
+      tags:
+        - Users
+      summary: Update user role
+      description: Promote or demote a user. Requires an administrator account.
+      parameters:
+        - $ref: '#/components/parameters/userID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [admin, user]
+      responses:
+        '200':
+          description: User role updated
+        '403':
+          description: Administrator permission required
+        '404':
+          description: User not found
+        '409':
+          description: At least one administrator must remain
+
+  /api/users/{id}/permissions:
+    put:
+      tags:
+        - Users
+      summary: Update user permissions
+      description: Replace a standard user's granted permissions. Administrators always have every permission. Requires an administrator account.
+      parameters:
+        - $ref: '#/components/parameters/userID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - permissions
+              properties:
+                permissions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UserPermission'
+      responses:
+        '204':
+          description: User permissions updated
+        '400':
+          description: Invalid permission or request body
+        '403':
+          description: Administrator permission required
+        '404':
+          description: User not found
+
+  /api/users/{id}:
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Delete a user and their user-scoped data. Requires an administrator account. The current user, the last administrator, and a user who still owns instances cannot be deleted.
+      parameters:
+        - $ref: '#/components/parameters/userID'
+      responses:
+        '204':
+          description: User deleted
+        '403':
+          description: Administrator permission required
+        '404':
+          description: User not found
+        '409':
+          description: Cannot delete the current user, the last administrator, or a user who owns instances
+
   /api/api-keys:
     get:
       tags:
@@ -379,6 +584,24 @@ paths:
                 $ref: '#/components/schemas/ExternalProgram'
         '409':
           description: A program with this name already exists
+
+  /api/external-programs/executable:
+    get:
+      tags:
+        - External Programs
+      summary: List executable external programs
+      description: List enabled external programs without exposing their command paths or arguments. Requires external program execution permission.
+      responses:
+        '200':
+          description: Enabled external programs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutableExternalProgram'
+        '403':
+          description: External program execution permission required
 
   /api/external-programs/{id}:
     put:
@@ -1042,6 +1265,44 @@ paths:
         '500':
           description: Failed to persist the new instance order
 
+  /api/instances/shares/batch:
+    post:
+      tags:
+        - Instances
+      summary: Share instances in bulk
+      description: Share selected instances with selected users. Administrators can share any instance; standard users can share instances they own.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - instanceIds
+                - userIds
+              properties:
+                instanceIds:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: integer
+                    minimum: 1
+                userIds:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: integer
+                    minimum: 1
+      responses:
+        '200':
+          description: Instances shared
+        '400':
+          description: Invalid request body or an instance was shared with its owner
+        '403':
+          description: Permission denied
+        '404':
+          description: Instance or target user not found
+
   /api/instances/{instanceID}:
     put:
       tags:
@@ -1154,6 +1415,84 @@ paths:
           description: Instance not found
         '500':
           description: Failed to update instance status
+
+  /api/instances/{instanceID}/shares:
+    get:
+      tags:
+        - Instances
+      summary: List instance shares
+      description: List the user IDs the instance is shared with. Requires the instance owner or an administrator.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      responses:
+        '200':
+          description: Shared user IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
+        '400':
+          description: Invalid instance ID
+        '403':
+          description: Instance owner permission required
+        '404':
+          description: Instance not found
+    post:
+      tags:
+        - Instances
+      summary: Share instance
+      description: Share the instance with another user. Requires the instance owner or an administrator.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: integer
+                  minimum: 1
+                  description: ID of the user to share the instance with.
+      responses:
+        '200':
+          description: Instance shared
+        '400':
+          description: Invalid request body or cannot share with yourself
+        '403':
+          description: Instance owner permission required
+        '404':
+          description: Instance or target user not found
+
+  /api/instances/{instanceID}/shares/{userID}:
+    delete:
+      tags:
+        - Instances
+      summary: Remove instance share
+      description: Remove a user's access to the instance. Requires the instance owner, an administrator, or the shared user themselves.
+      parameters:
+        - $ref: '#/components/parameters/instanceID'
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: ID of the user whose share is removed
+      responses:
+        '200':
+          description: Instance share removed
+        '400':
+          description: Invalid instance or user ID
+        '403':
+          description: Permission denied
+        '404':
+          description: Instance not found
 
   /api/instances/{instanceID}/test:
     post:
@@ -5990,6 +6329,14 @@ components:
       description: Session cookie authentication
 
   parameters:
+    userID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: User ID
     instanceID:
       name: instanceID
       in: path
@@ -6135,6 +6482,78 @@ components:
           type: integer
         username:
           type: string
+        role:
+          type: string
+          enum: [admin, user]
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPermission'
+
+    ManagedUser:
+      type: object
+      required:
+        - id
+        - username
+        - role
+        - permissions
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPermission'
+
+    ShareTargetUser:
+      type: object
+      required:
+        - id
+        - username
+        - role
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+
+    SwitchUser:
+      type: object
+      required:
+        - id
+        - username
+        - role
+        - current
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        current:
+          type: boolean
+
+    UserPermission:
+      type: string
+      enum:
+        - manage_global_settings
+        - manage_external_programs
+        - execute_external_programs
+        - manage_notifications
+        - manage_arr
+        - manage_tracker_customizations
+        - manage_logs
+        - manage_updates
 
     ApiKey:
       type: object
@@ -6259,6 +6678,20 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    ExecutableExternalProgram:
+      type: object
+      required:
+        - id
+        - name
+        - enabled
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        enabled:
+          type: boolean
 
     NotificationEventDefinition:
       type: object

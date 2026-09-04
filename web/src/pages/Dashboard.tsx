@@ -48,6 +48,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TrackerIconImage } from "@/components/ui/tracker-icon"
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility"
+import { useAuth } from "@/hooks/useAuth"
 import { useInstancePreferences } from "@/hooks/useInstancePreferences"
 import { useInstances } from "@/hooks/useInstances"
 import { usePersistedTitleBarSpeeds } from "@/hooks/usePersistedTitleBarSpeeds"
@@ -1620,6 +1621,8 @@ interface TrackerBreakdownCardProps {
 
 function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollapsed, onCollapsedChange }: TrackerBreakdownCardProps) {
   const { t } = useTranslation("dashboard")
+  const { user } = useAuth()
+  const canManageTrackerCustomizations = user?.role === "admin" || user?.permissions?.includes("manage_tracker_customizations") === true
   // Accordion value is "tracker-breakdown" when expanded, "" when collapsed
   const accordionValue = isCollapsed ? "" : "tracker-breakdown"
   const setAccordionValue = (value: string) => onCollapsedChange(value === "")
@@ -2336,20 +2339,22 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                 <h3 className="text-base font-medium">{t("trackerBreakdown.title")}</h3>
               </div>
               <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => { e.stopPropagation(); openImportDialog() }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); openImportDialog() } }}
-                      className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>{t("trackerBreakdown.importTooltip")}</TooltipContent>
-                </Tooltip>
+                {canManageTrackerCustomizations && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); openImportDialog() }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); openImportDialog() } }}
+                        className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("trackerBreakdown.importTooltip")}</TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span
@@ -2393,9 +2398,11 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                   <DropdownMenuItem onClick={() => handleSort("performance")}>{t("trackerBreakdown.sortOptions.seeded")}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="ghost" size="icon" className="size-11" onClick={openImportDialog} aria-label={t("trackerBreakdown.importTooltip")}>
-                <Download className="h-4 w-4" />
-              </Button>
+              {canManageTrackerCustomizations && (
+                <Button variant="ghost" size="icon" className="size-11" onClick={openImportDialog} aria-label={t("trackerBreakdown.importTooltip")}>
+                  <Download className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -2430,7 +2437,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                   >
                     {/* reserves the width when the checkbox is hidden, so rows stay aligned */}
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center">
-                      {showCheckbox && (
+                      {canManageTrackerCustomizations && showCheckbox && (
                         <Checkbox
                           checked={hasCustomization ? isGroupSelected : isSelected}
                           onCheckedChange={() => hasCustomization ? toggleGroupSelection(customizationId!) : toggleSelection(domain)}
@@ -2608,7 +2615,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                       className={`group ${isSelected || isGroupSelected ? "bg-primary/5" : index % 2 === 1 ? "bg-muted/30" : ""} hover:bg-muted/50`}
                     >
                       <TableCell className="w-8 pl-4">
-                        {hasCustomization ? (
+                        {canManageTrackerCustomizations && (hasCustomization ? (
                         // Show group checkbox if no group selected or the group selected
                           (selectedGroupId === null || isGroupSelected) && (
                             <Checkbox
@@ -2623,7 +2630,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                             onCheckedChange={() => toggleSelection(domain)}
                             className="opacity-0 group-hover:opacity-100 data-[state=checked]:opacity-100"
                           />
-                        )}
+                        ))}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -2643,7 +2650,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                             )}
                           </Tooltip>
                           {isMerged && <Link2 className="h-3 w-3 text-muted-foreground shrink-0" />}
-                          <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 shrink-0">
+                          {canManageTrackerCustomizations && <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 shrink-0">
                             {hasCustomization && customizationId ? (
                             // Show group merge if domains selected and if no other group is selected
                               selectedDomains.size > 0 && !(selectedGroupId !== null && selectedGroupId !== customizationId) ? (
@@ -2708,7 +2715,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                          </div>
+                          </div>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-semibold">
@@ -2813,7 +2820,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                   <DrawerDescription className="truncate">{subtitle}</DrawerDescription>
                 </DrawerHeader>
                 <MetricGrid metrics={metrics} className="pb-2" />
-                <DrawerFooter>
+                {canManageTrackerCustomizations && <DrawerFooter>
                   {canMergeIntoGroup ? (
                     <Button className="h-11" onClick={closeAnd(() => handleMergeIntoGroup(customizationId!))}>
                       <Link2 className="h-4 w-4" />
@@ -2840,7 +2847,7 @@ function TrackerBreakdownCard({ statsData, settings, onSettingsChange, isCollaps
                       {selectedGroupId ? t("trackerBreakdown.mergeIntoGroup") : selectedDomains.size > 0 ? t("trackerBreakdown.addToMerge") : t("trackerBreakdown.rename")}
                     </Button>
                   )}
-                </DrawerFooter>
+                </DrawerFooter>}
               </>
             )
           })()}

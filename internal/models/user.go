@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 
 	"github.com/autobrr/qui/internal/dbinterface"
 )
@@ -21,11 +22,42 @@ const (
 	UserRoleUser  UserRole = "user"
 )
 
+type UserPermission string
+
+const (
+	PermissionManageGlobalSettings    UserPermission = "manage_global_settings"
+	PermissionManageExternalPrograms  UserPermission = "manage_external_programs"
+	PermissionExecuteExternalPrograms UserPermission = "execute_external_programs"
+	PermissionManageNotifications     UserPermission = "manage_notifications"
+	PermissionManageARR               UserPermission = "manage_arr"
+	PermissionManageTrackerRules      UserPermission = "manage_tracker_customizations"
+	PermissionManageLogs              UserPermission = "manage_logs"
+	PermissionManageUpdates           UserPermission = "manage_updates"
+)
+
+func AllUserPermissions() []UserPermission {
+	return []UserPermission{
+		PermissionManageGlobalSettings,
+		PermissionManageExternalPrograms,
+		PermissionExecuteExternalPrograms,
+		PermissionManageNotifications,
+		PermissionManageARR,
+		PermissionManageTrackerRules,
+		PermissionManageLogs,
+		PermissionManageUpdates,
+	}
+}
+
+func IsValidUserPermission(permission UserPermission) bool {
+	return slices.Contains(AllUserPermissions(), permission)
+}
+
 type User struct {
-	ID           int      `json:"id"`
-	Username     string   `json:"username"`
-	PasswordHash string   `json:"-"`
-	Role         UserRole `json:"role"`
+	ID           int              `json:"id"`
+	Username     string           `json:"username"`
+	PasswordHash string           `json:"-"`
+	Role         UserRole         `json:"role"`
+	Permissions  []UserPermission `json:"permissions"`
 }
 
 type UserStore struct {
@@ -49,7 +81,7 @@ func (s *UserStore) Create(ctx context.Context, username, passwordHash string) (
 		RETURNING id, username, password_hash, role
 	`
 
-	user := &User{}
+	user := &User{Permissions: []UserPermission{}}
 	err = tx.QueryRowContext(ctx, query, username, passwordHash).Scan(
 		&user.ID,
 		&user.Username,
@@ -93,6 +125,9 @@ func (s *UserStore) Get(ctx context.Context) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := s.populatePermissions(ctx, user); err != nil {
+		return nil, err
+	}
 
 	return user, nil
 }
@@ -116,6 +151,9 @@ func (s *UserStore) GetByUsername(ctx context.Context, username string) (*User, 
 		return nil, ErrUserNotFound
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := s.populatePermissions(ctx, user); err != nil {
 		return nil, err
 	}
 

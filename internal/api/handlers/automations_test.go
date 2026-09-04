@@ -33,7 +33,7 @@ func TestAutomationDryRunNow(t *testing.T) {
 	}`
 
 	t.Run("returns 503 when service is unavailable", func(t *testing.T) {
-		handler := NewAutomationHandler(nil, nil, nil, nil, nil)
+		handler := NewAutomationHandler(nil, nil, nil, nil, nil, nil)
 		rec := httptest.NewRecorder()
 
 		handler.DryRunNow(rec, newRequest(validPayload))
@@ -42,7 +42,7 @@ func TestAutomationDryRunNow(t *testing.T) {
 	})
 
 	t.Run("returns 400 on invalid JSON payload", func(t *testing.T) {
-		handler := NewAutomationHandler(nil, nil, nil, nil, &automations.Service{})
+		handler := NewAutomationHandler(nil, nil, nil, nil, &automations.Service{}, nil)
 		rec := httptest.NewRecorder()
 
 		handler.DryRunNow(rec, newRequest("{"))
@@ -51,7 +51,7 @@ func TestAutomationDryRunNow(t *testing.T) {
 	})
 
 	t.Run("runs dry-run and returns accepted status", func(t *testing.T) {
-		handler := NewAutomationHandler(nil, nil, nil, nil, &automations.Service{})
+		handler := NewAutomationHandler(nil, nil, nil, nil, &automations.Service{}, nil)
 		rec := httptest.NewRecorder()
 
 		handler.DryRunNow(rec, newRequest(validPayload))

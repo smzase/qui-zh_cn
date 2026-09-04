@@ -556,6 +556,17 @@ class ApiClient {
       return false
     }
 
+    // Invalid credentials here belong to the account being selected, not the
+    // current session. Other authentication failures on this endpoint still
+    // need to send the browser back through login.
+    if (
+      endpoint === "/auth/switch-users" &&
+      status === 401 &&
+      errorMessage.trim().toLowerCase() === "invalid credentials"
+    ) {
+      return false
+    }
+
     if (this.isAuthCheckEndpoint(endpoint)) {
       return false
     }
@@ -578,7 +589,11 @@ class ApiClient {
   }
 
   private isAuthCheckEndpoint(endpoint: string): boolean {
-    return endpoint === "/auth/me" || endpoint === "/auth/validate"
+    return endpoint === "/auth/login" ||
+      endpoint === "/auth/setup" ||
+      endpoint === "/auth/me" ||
+      endpoint === "/auth/validate" ||
+      endpoint === "/auth/change-password"
   }
 
   // Auth endpoints
@@ -617,16 +632,24 @@ class ApiClient {
     return this.request("/users")
   }
 
-  async listShareTargetUsers(): Promise<import("@/types").ManagedUser[]> {
+  async listShareTargetUsers(): Promise<import("@/types").ShareTargetUser[]> {
     return this.request("/users/share-targets")
   }
 
-  async createUser(username: string, password: string): Promise<import("@/types").ManagedUser> {
-    return this.request("/users", { method: "POST", body: JSON.stringify({ username, password }) })
+  async createUser(input: import("@/types").CreateManagedUserInput): Promise<import("@/types").ManagedUser> {
+    return this.request("/users", { method: "POST", body: JSON.stringify(input) })
   }
 
   async updateUserRole(id: number, role: "admin" | "user"): Promise<void> {
     await this.request(`/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) })
+  }
+
+  async updateUserPermissions(id: number, permissions: import("@/types").UserPermission[]): Promise<void> {
+    await this.request(`/users/${id}/permissions`, { method: "PUT", body: JSON.stringify({ permissions }) })
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    await this.request(`/users/${id}`, { method: "DELETE" })
   }
 
   async listInstanceShares(instanceId: number): Promise<number[]> {
@@ -644,6 +667,23 @@ class ApiClient {
     await this.request(`/instances/${instanceId}/shares/${userId}`, { method: "DELETE" })
   }
 
+  async shareInstances(instanceIds: number[], userIds: number[]): Promise<void> {
+    await this.request("/instances/shares/batch", {
+      method: "POST",
+      body: JSON.stringify({ instanceIds, userIds }),
+    })
+  }
+
+  async listSwitchUsers(): Promise<import("@/types").SwitchUser[]> {
+    return this.request("/auth/switch-users")
+  }
+
+  async addSwitchUser(username: string, password: string, switchNow = false): Promise<User> {
+    return this.request("/auth/switch-users", {
+      method: "POST",
+      body: JSON.stringify({ username, password, switchNow }),
+    })
+  }
 
   async logout(): Promise<void> {
     return this.request("/auth/logout", { method: "POST" })
@@ -2347,6 +2387,10 @@ class ApiClient {
   // External Programs endpoints
   async listExternalPrograms(): Promise<ExternalProgram[]> {
     return this.request<ExternalProgram[]>("/external-programs")
+  }
+
+  async listExecutableExternalPrograms(): Promise<import("@/types").ExecutableExternalProgram[]> {
+    return this.request<import("@/types").ExecutableExternalProgram[]>("/external-programs/executable")
   }
 
   async createExternalProgram(program: ExternalProgramCreate): Promise<ExternalProgram> {

@@ -184,12 +184,31 @@ var expectedSchema = map[string][]columnSpec{
 		{Name: "created_at", Type: "TIMESTAMP"},
 		{Name: "updated_at", Type: "TIMESTAMP"},
 	},
+	"users": {
+		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "username", Type: "TEXT"},
+		{Name: "password_hash", Type: "TEXT"},
+		{Name: "role", Type: "TEXT"},
+		{Name: "created_at", Type: "TIMESTAMP"},
+		{Name: "updated_at", Type: "TIMESTAMP"},
+	},
+	"user_permissions": {
+		{Name: "user_id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "permission", Type: "TEXT", PrimaryKey: true},
+	},
+	"instance_shares": {
+		{Name: "instance_id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "user_id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "created_by", Type: "INTEGER"},
+		{Name: "created_at", Type: "TIMESTAMP"},
+	},
 	"api_keys": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
 		{Name: "key_hash", Type: "TEXT"},
 		{Name: "name_id", Type: "INTEGER"},
 		{Name: "created_at", Type: "TIMESTAMP"},
 		{Name: "last_used_at", Type: "TIMESTAMP"},
+		{Name: "user_id", Type: "INTEGER"},
 	},
 	"instances": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
@@ -210,6 +229,7 @@ var expectedSchema = map[string][]columnSpec{
 		{Name: "use_reflinks", Type: "BOOLEAN"},
 		{Name: "fallback_to_regular_mode", Type: "BOOLEAN"},
 		{Name: "client_type", Type: "TEXT"},
+		{Name: "owner_id", Type: "INTEGER"},
 	},
 	"licenses": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
@@ -235,6 +255,12 @@ var expectedSchema = map[string][]columnSpec{
 		{Name: "instance_id", Type: "INTEGER"},
 		{Name: "created_at", Type: "TIMESTAMP"},
 		{Name: "last_used_at", Type: "TIMESTAMP"},
+	},
+	"client_settings": {
+		{Name: "user_id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "key", Type: "TEXT", PrimaryKey: true},
+		{Name: "value", Type: "TEXT"},
+		{Name: "updated_at", Type: "TIMESTAMP"},
 	},
 	"instance_errors": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},

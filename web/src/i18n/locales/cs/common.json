@@ -1,4 +1,13 @@
 {
+  "userMenu": {
+    "title": "Přepnout uživatele",
+    "description": "Zadejte přihlašovací údaje k účtu.",
+    "addUser": "Přidat uživatele",
+    "username": "Uživatelské jméno",
+    "password": "Heslo",
+    "switch": "Přepnout uživatele",
+    "switchFailed": "Nepodařilo se přepnout uživatele"
+  },
   "nav": {
     "dashboard": "Domů",
     "search": "Hledat",
@@ -209,5 +218,6 @@
     "yearly": "{{price}} / rok",
     "monthly": "{{price}} / měsíc",
     "notLicense": "Prémiové motivy jsou samostatný jednorázový nákup."
-  }
+  },
+  "userSwitchPassword": "Zadejte heslo pro přepnutí uživatele"
 }

@@ -354,7 +354,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 	torrentsHandler := handlers.NewTorrentsHandler(s.syncManager, s.jackettService, s.instanceStore)
 	preferencesHandler := handlers.NewPreferencesHandler(s.syncManager)
 	clientAPIKeysHandler := handlers.NewClientAPIKeysHandler(s.clientAPIKeyStore, s.instanceStore, s.config.Config.BaseURL)
-	externalProgramsHandler := handlers.NewExternalProgramsHandler(s.externalProgramStore, s.externalProgramService, s.clientPool, s.automationStore)
+	externalProgramsHandler := handlers.NewExternalProgramsHandler(s.externalProgramStore, s.externalProgramService, s.clientPool, s.automationStore, s.instanceStore)
 	arrHandler := handlers.NewArrHandler(s.arrInstanceStore, s.arrService)
 	versionHandler := handlers.NewVersionHandler(s.updateService, s.version)
 	updateHandler := handlers.NewUpdateHandler(update.NewBinaryInstaller())
@@ -374,7 +374,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 		s.instanceStore,
 		s.seasonPackRunStore,
 	)
-	automationsHandler := handlers.NewAutomationHandler(s.automationStore, s.automationActivityStore, s.instanceStore, s.externalProgramStore, s.automationService)
+	automationsHandler := handlers.NewAutomationHandler(s.automationStore, s.automationActivityStore, s.instanceStore, s.externalProgramStore, s.automationService, s.authService)
 	orphanScanHandler := handlers.NewOrphanScanHandler(s.orphanScanStore, s.instanceStore, s.orphanScanService)
 	var dirScanHandler *handlers.DirScanHandler
 	if s.dirScanService != nil {
@@ -436,12 +436,18 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			apiKeyQueryMiddleware,
 			middleware.PopulateUserContext(s.authService, s.config.Config),
 			instancesHandler.RequireInstanceAccess,
+			middleware.RequirePermission(s.authService, models.PermissionManageGlobalSettings),
 		)
 
 		// Dir scan webhook (query param auth for external triggers like *arr custom scripts)
 		if dirScanHandler != nil {
 			r.Route("/dir-scan/webhook", func(r chi.Router) {
-				r.With(apiKeyQueryMiddleware, authMiddleware).Post("/scan", dirScanHandler.WebhookTriggerScan)
+				r.With(
+					apiKeyQueryMiddleware,
+					authMiddleware,
+					middleware.PopulateUserContext(s.authService, s.config.Config),
+					middleware.RequirePermission(s.authService, models.PermissionManageGlobalSettings),
+				).Post("/scan", dirScanHandler.WebhookTriggerScan)
 			})
 		}
 
@@ -458,7 +464,11 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			r.Get("/users/share-targets", managedUsersHandler.ListShareTargets)
 			r.Post("/users", managedUsersHandler.Create)
 			r.Put("/users/{id}/role", managedUsersHandler.UpdateRole)
+			r.Put("/users/{id}/permissions", managedUsersHandler.UpdatePermissions)
+			r.Delete("/users/{id}", managedUsersHandler.Delete)
 			r.Put("/auth/change-password", authHandler.ChangePassword)
+			r.Get("/auth/switch-users", authHandler.ListSwitchUsers)
+			r.Post("/auth/switch-users", authHandler.AddSwitchUser)
 
 			// License API routes disabled — all themes are free in this fork.
 			// r.Route("/license", licenseHandler.Routes)
@@ -467,7 +477,8 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			r.Get("/themes/custom", themesHandler.ListCustomThemes)
 
 			// Persisted theme selection (reads are public above)
-			r.Put("/themes/settings", themesHandler.UpdateThemeSettings)
+			r.With(middleware.RequirePermission(s.authService, models.PermissionManageGlobalSettings)).
+				Put("/themes/settings", themesHandler.UpdateThemeSettings)
 
 			// Persisted frontend user settings (opaque key-value map)
 			r.Get("/client-settings", clientSettingsHandler.GetClientSettings)
@@ -475,7 +486,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 
 			// Jackett routes (if configured)
 			if jackettHandler != nil {
-				jackettHandler.Routes(r)
+				jackettHandler.Routes(r.With(middleware.RequirePermission(s.authService, models.PermissionManageGlobalSettings)))
 			}
 
 			// API key management
@@ -494,15 +505,23 @@ func (s *Server) Handler() (*chi.Mux, error) {
 
 			// External programs management
 			r.Route("/external-programs", func(r chi.Router) {
-				r.Get("/", externalProgramsHandler.ListExternalPrograms)
-				r.Post("/", externalProgramsHandler.CreateExternalProgram)
-				r.Put("/{id}", externalProgramsHandler.UpdateExternalProgram)
-				r.Delete("/{id}", externalProgramsHandler.DeleteExternalProgram)
-				r.Post("/execute", externalProgramsHandler.ExecuteExternalProgram)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageExternalPrograms)).
+					Get("/", externalProgramsHandler.ListExternalPrograms)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionExecuteExternalPrograms)).
+					Get("/executable", externalProgramsHandler.ListExecutableExternalPrograms)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageExternalPrograms)).
+					Post("/", externalProgramsHandler.CreateExternalProgram)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageExternalPrograms)).
+					Put("/{id}", externalProgramsHandler.UpdateExternalProgram)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageExternalPrograms)).
+					Delete("/{id}", externalProgramsHandler.DeleteExternalProgram)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionExecuteExternalPrograms)).
+					Post("/execute", externalProgramsHandler.ExecuteExternalProgram)
 			})
 
 			// Notification targets and events
 			r.Route("/notifications", func(r chi.Router) {
+				r.Use(middleware.RequirePermission(s.authService, models.PermissionManageNotifications))
 				r.Get("/events", notificationsHandler.ListEvents)
 				r.Get("/targets", notificationsHandler.ListTargets)
 				r.Post("/targets", notificationsHandler.CreateTarget)
@@ -513,6 +532,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 
 			// ARR (Sonarr/Radarr) instance management
 			r.Route("/arr", func(r chi.Router) {
+				r.Use(middleware.RequirePermission(s.authService, models.PermissionManageARR))
 				r.Get("/instances", arrHandler.ListInstances)
 				r.Post("/instances", arrHandler.CreateInstance)
 				r.Get("/instances/{id}", arrHandler.GetInstance)
@@ -526,9 +546,12 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			// Tracker customizations (nicknames and merged domains)
 			r.Route("/tracker-customizations", func(r chi.Router) {
 				r.Get("/", trackerCustomizationHandler.List)
-				r.Post("/", trackerCustomizationHandler.Create)
-				r.Put("/{id}", trackerCustomizationHandler.Update)
-				r.Delete("/{id}", trackerCustomizationHandler.Delete)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageTrackerRules)).
+					Post("/", trackerCustomizationHandler.Create)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageTrackerRules)).
+					Put("/{id}", trackerCustomizationHandler.Update)
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageTrackerRules)).
+					Delete("/{id}", trackerCustomizationHandler.Delete)
 			})
 
 			// Dashboard settings (per-user layout preferences)
@@ -544,16 +567,19 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			})
 
 			// Log exclusions (muted log message patterns)
-			r.Get("/log-exclusions", logExclusionsHandler.Get)
-			r.Put("/log-exclusions", logExclusionsHandler.Update)
+			r.With(middleware.RequirePermission(s.authService, models.PermissionManageLogs)).
+				Get("/log-exclusions", logExclusionsHandler.Get)
+			r.With(middleware.RequirePermission(s.authService, models.PermissionManageLogs)).
+				Put("/log-exclusions", logExclusionsHandler.Update)
 
 			// Log settings and streaming
-			logsHandler.Routes(r)
+			logsHandler.Routes(r.With(middleware.RequirePermission(s.authService, models.PermissionManageLogs)))
 
 			// Version endpoints (current running version + update checks)
 			r.Get("/version", versionHandler.GetVersion)
 			r.Get("/version/latest", versionHandler.GetLatestVersion)
-			r.Post("/update/upload", updateHandler.UploadBinary)
+			r.With(middleware.RequirePermission(s.authService, models.PermissionManageUpdates)).
+				Post("/update/upload", updateHandler.UploadBinary)
 			r.Get("/application/info", applicationHandler.GetInfo)
 
 			r.Get("/stream", s.streamManager.Serve)
@@ -563,6 +589,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 				r.Get("/", instancesHandler.ListInstances)
 				r.Post("/", instancesHandler.CreateInstance)
 				r.Put("/order", instancesHandler.UpdateInstanceOrder)
+				r.Post("/shares/batch", instancesHandler.ShareInstances)
 
 				r.Route("/{instanceID}", func(r chi.Router) {
 					r.Use(instancesHandler.RequireInstanceAccess)
@@ -709,7 +736,7 @@ func (s *Server) Handler() (*chi.Mux, error) {
 
 			// Directory scanner (global, not per-instance)
 			if dirScanHandler != nil {
-				r.Route("/dir-scan", func(r chi.Router) {
+				r.With(middleware.RequirePermission(s.authService, models.PermissionManageGlobalSettings)).Route("/dir-scan", func(r chi.Router) {
 					r.Get("/settings", dirScanHandler.GetSettings)
 					r.Patch("/settings", dirScanHandler.UpdateSettings)
 					r.Route("/directories", func(r chi.Router) {

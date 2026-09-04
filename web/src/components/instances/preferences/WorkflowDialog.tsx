@@ -52,6 +52,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { TrackerIconImage } from "@/components/ui/tracker-icon"
+import { useAuth } from "@/hooks/useAuth"
 import { useInstanceCapabilities } from "@/hooks/useInstanceCapabilities"
 import { useInstanceMetadata } from "@/hooks/useInstanceMetadata"
 import { useIndexerTrackerDomains } from "@/hooks/useIndexerTrackerDomains"
@@ -665,6 +666,8 @@ function hydrateShareLimit(storedValue: number | undefined): ShareLimitHydration
 
 export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess }: WorkflowDialogProps) {
   const { t } = useTranslation("instances")
+  const { user } = useAuth()
+  const canExecuteExternalPrograms = user?.role === "admin" || user?.permissions?.includes("execute_external_programs") === true
   const queryClient = useQueryClient()
   const [formState, setFormState] = useState<FormState>(emptyFormState)
   const [previewResult, setPreviewResult] = useState<AutomationPreviewResult | null>(null)
@@ -733,9 +736,9 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
     isError: externalProgramsError,
     isLoading: externalProgramsLoading,
   } = useQuery({
-    queryKey: ["externalPrograms"],
-    queryFn: () => api.listExternalPrograms(),
-    enabled: open,
+    queryKey: ["executable-external-programs"],
+    queryFn: () => api.listExecutableExternalPrograms(),
+    enabled: open && canExecuteExternalPrograms,
   })
   // Show enabled programs + the currently selected program (even if disabled) so users can see what's configured
   const externalPrograms = useMemo(() => {
@@ -2710,7 +2713,8 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                       const enabledActions = getEnabledActions(formState)
                       const availableActions = COMBINABLE_ACTIONS.filter(action =>
                         !enabledActions.includes(action) &&
-                        (supportsQbittorrentOnlyActions || !QBITTORRENT_ONLY_ACTIONS.has(action))
+                        (supportsQbittorrentOnlyActions || !QBITTORRENT_ONLY_ACTIONS.has(action)) &&
+                        (action !== "externalProgram" || canExecuteExternalPrograms)
                       )
                       if (availableActions.length === 0) return null
                       return (
@@ -2791,7 +2795,9 @@ export function WorkflowDialog({ open, onOpenChange, instanceId, rule, onSuccess
                           <SelectItem value="category">{t("preferences.workflowDialog.actions.category")}</SelectItem>
                         )}
                         <SelectItem value="move">{t("preferences.workflowDialog.actions.move")}</SelectItem>
-                        <SelectItem value="externalProgram">{t("preferences.workflowDialog.actions.externalProgram")}</SelectItem>
+                        {canExecuteExternalPrograms && (
+                          <SelectItem value="externalProgram">{t("preferences.workflowDialog.actions.externalProgram")}</SelectItem>
+                        )}
                         {supportsQbittorrentOnlyActions && (
                           <SelectItem value="autoManagement">{t("preferences.workflowDialog.actions.autoManagement")}</SelectItem>
                         )}

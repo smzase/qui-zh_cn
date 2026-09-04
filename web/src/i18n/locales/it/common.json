@@ -1,4 +1,13 @@
 {
+  "userMenu": {
+    "title": "Cambia utente",
+    "description": "Inserisci le credenziali dell'account.",
+    "addUser": "Aggiungi utente",
+    "username": "Nome utente",
+    "password": "Password",
+    "switch": "Cambia utente",
+    "switchFailed": "Impossibile cambiare utente"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "search": "Ricerca",
@@ -209,5 +218,6 @@
     "yearly": "{{price}} / anno",
     "monthly": "{{price}} / mese",
     "notLicense": "I temi premium sono un acquisto unico separato."
-  }
+  },
+  "userSwitchPassword": "Inserisci la password per cambiare utente"
 }

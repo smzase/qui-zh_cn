@@ -100,7 +100,7 @@ export const useLocalCrossSeedMatches = (
   // Fetch all instances for the instance lookup map
   const { data: allInstances, isLoading: isLoadingInstances } = useQuery({
     queryKey: ["instances"],
-    queryFn: api.getInstances,
+    queryFn: () => api.getInstances(),
     enabled,
     staleTime: 60000,
   })

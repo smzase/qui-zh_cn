@@ -94,6 +94,19 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"newPassword"`
 }
 
+type switchUser struct {
+	ID       int             `json:"id"`
+	Username string          `json:"username"`
+	Role     models.UserRole `json:"role"`
+	Current  bool            `json:"current"`
+}
+
+type addSwitchUserRequest struct {
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	SwitchNow bool   `json:"switchNow"`
+}
+
 // Setup handles initial user setup
 func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 	if h.rejectIfAuthDisabled(w) {
@@ -144,23 +157,17 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).Msg("Failed to renew session token")
 	}
 
-	h.sessionManager.Put(r.Context(), "authenticated", true)
-	h.sessionManager.Put(r.Context(), "user_id", user.ID)
-	h.sessionManager.Put(r.Context(), "username", user.Username)
+	h.startSession(r.Context(), user, false)
 
 	RespondJSON(w, http.StatusCreated, map[string]any{
 		"message": "Setup completed successfully",
-		"user": map[string]any{
-			"id":       user.ID,
-			"username": user.Username,
-			"role":     user.Role,
-		},
+		"user":    authUserResponse(user),
 	})
 }
 
-// warmSession prefetches data to improve perceived performance after login
-func (h *AuthHandler) warmSession(ctx context.Context) {
-	instances, err := h.instanceStore.List(ctx)
+// warmSession prefetches data to improve perceived performance after login.
+func (h *AuthHandler) warmSession(ctx context.Context, userID int, admin bool) {
+	instances, err := h.instanceStore.ListForUser(ctx, userID, admin)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list instances for session warming")
 		return
@@ -273,25 +280,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).Msg("Failed to renew session token")
 	}
 
-	h.sessionManager.Put(r.Context(), "authenticated", true)
-	h.sessionManager.Put(r.Context(), "user_id", user.ID)
-	h.sessionManager.Put(r.Context(), "username", user.Username)
-	h.sessionManager.Put(r.Context(), "auth_method", "password")
-
-	// Handle remember_me functionality
-	h.sessionManager.RememberMe(r.Context(), req.RememberMe)
+	h.startSession(r.Context(), user, req.RememberMe)
 
 	// Warm the session by prefetching data in the background
 	// Use a detached context since this should continue even after the HTTP request completes
-	go h.warmSession(context.Background()) //nolint:gosec // G118: session warm-up must outlive the login request
+	go h.warmSession( //nolint:gosec // G118: session warm-up must outlive the login request
+		context.Background(),
+		user.ID,
+		user.Role == models.UserRoleAdmin,
+	)
 
 	RespondJSON(w, http.StatusOK, map[string]any{
 		"message": "Login successful",
-		"user": map[string]any{
-			"id":       user.ID,
-			"username": user.Username,
-			"role":     user.Role,
-		},
+		"user":    authUserResponse(user),
 	})
 }
 
@@ -353,6 +354,7 @@ func (h *AuthHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 
 	if user, err := h.authService.FindUser(r.Context(), username); err == nil {
 		response["role"] = user.Role
+		response["permissions"] = user.Permissions
 	}
 
 	// Only include ID if it exists (for built-in auth users)
@@ -395,6 +397,7 @@ func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 		response["id"] = userID
 		if user, err := h.authService.GetUser(r.Context(), userID); err == nil {
 			response["role"] = user.Role
+			response["permissions"] = user.Permissions
 		}
 	}
 
@@ -447,6 +450,103 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	RespondJSON(w, http.StatusOK, map[string]string{
 		"message": "Password changed successfully",
 	})
+}
+
+func authUserResponse(user *models.User) map[string]any {
+	return map[string]any{
+		"id":          user.ID,
+		"username":    user.Username,
+		"role":        user.Role,
+		"permissions": user.Permissions,
+	}
+}
+
+func (h *AuthHandler) startSession(ctx context.Context, user *models.User, rememberMe bool) {
+	h.sessionManager.Put(ctx, "authenticated", true)
+	h.sessionManager.Put(ctx, "user_id", user.ID)
+	h.sessionManager.Put(ctx, "username", user.Username)
+	h.sessionManager.Put(ctx, "auth_method", "password")
+	h.sessionManager.RememberMe(ctx, rememberMe)
+}
+
+func (h *AuthHandler) requireSession(w http.ResponseWriter, r *http.Request) bool {
+	if h.sessionManager.GetBool(r.Context(), "authenticated") {
+		return true
+	}
+	RespondError(w, http.StatusUnauthorized, "Session authentication required")
+	return false
+}
+
+// ListSwitchUsers returns all accounts to administrators. Standard users see
+// their current account; the browser merges locally saved accounts into this
+// list and verifies their credentials through AddSwitchUser when selected.
+func (h *AuthHandler) ListSwitchUsers(w http.ResponseWriter, r *http.Request) {
+	if !h.requireSession(w, r) {
+		return
+	}
+	currentID := currentUserID(r)
+	current, err := h.authService.GetUser(r.Context(), currentID)
+	if err != nil {
+		RespondError(w, http.StatusUnauthorized, "Not authenticated")
+		return
+	}
+
+	if isAdmin(r) {
+		accounts, err := h.authService.ListUsers(r.Context())
+		if err != nil {
+			RespondError(w, http.StatusInternalServerError, "Failed to list users")
+			return
+		}
+		response := make([]switchUser, 0, len(accounts))
+		for _, account := range accounts {
+			response = append(response, switchUser{
+				ID: account.ID, Username: account.Username, Role: account.Role,
+				Current: account.ID == currentID,
+			})
+		}
+		RespondJSON(w, http.StatusOK, response)
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, []switchUser{{
+		ID: current.ID, Username: current.Username, Role: current.Role, Current: true,
+	}})
+}
+
+// AddSwitchUser verifies credentials and optionally switches the current
+// session. The browser stores any credentials it wants to reuse locally.
+func (h *AuthHandler) AddSwitchUser(w http.ResponseWriter, r *http.Request) {
+	if h.rejectIfAuthDisabled(w) {
+		return
+	}
+	if !h.requireSession(w, r) {
+		return
+	}
+
+	var req addSwitchUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Username == "" || req.Password == "" {
+		RespondError(w, http.StatusBadRequest, "Username and password are required")
+		return
+	}
+	user, err := h.authService.Login(r.Context(), req.Username, req.Password)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			RespondError(w, http.StatusUnauthorized, "Invalid credentials")
+			return
+		}
+		RespondError(w, http.StatusInternalServerError, "Failed to verify credentials")
+		return
+	}
+
+	if req.SwitchNow {
+		if err := h.sessionManager.RenewToken(r.Context()); err != nil {
+			log.Error().Err(err).Msg("Failed to renew session token")
+		}
+		h.startSession(r.Context(), user, true)
+		go h.warmSession(context.Background(), user.ID, user.Role == models.UserRoleAdmin) //nolint:gosec // session warm-up must outlive the request
+	}
+
+	RespondJSON(w, http.StatusOK, authUserResponse(user))
 }
 
 // API Key Management

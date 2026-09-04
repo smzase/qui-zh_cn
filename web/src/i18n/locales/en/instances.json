@@ -53,6 +53,14 @@
     }
   },
   "sharing": {
+    "batchTitle": "Share instances",
+    "batchDescription": "Select instances and the users who can access them.",
+    "instanceOwner": "Instance owner",
+    "selectInstances": "Select instances",
+    "selectUsers": "Select users",
+    "shared": "Instances shared",
+    "shareFailed": "Failed to share instances",
+    "cancel": "Cancel",
     "badge": "Shared",
     "manage": "Manage sharing",
     "leave": "Leave shared instance",

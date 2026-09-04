@@ -7,6 +7,7 @@ import { IndexersPage } from "@/components/indexers/IndexersPage"
 import { InstanceCard } from "@/components/instances/InstanceCard"
 import { InstanceForm } from "@/components/instances/InstanceForm"
 import { PasswordIssuesBanner } from "@/components/instances/PasswordIssuesBanner"
+import { ShareInstancesDialog } from "@/components/instances/ShareInstancesDialog"
 import { InstancePreferencesDialog } from "@/components/instances/preferences/InstancePreferencesDialog"
 import { ArrInstancesManager } from "@/components/settings/ArrInstancesManager"
 import { ClientApiKeysManager } from "@/components/settings/ClientApiKeysManager"
@@ -525,6 +526,7 @@ function InstancesManager({ search, onSearchChange }: InstancesManagerProps) {
   const [titleBarSpeedsEnabled, setTitleBarSpeedsEnabled] = usePersistedTitleBarSpeeds(false)
   const isDialogOpen = search.tab === "instances" && search.modal === "add-instance"
   const [editingInstanceId, setEditingInstanceId] = useState<number | null>(null)
+  const [sharingDialogOpen, setSharingDialogOpen] = useState(false)
   const editingInstance = instances?.find(instance => instance.id === editingInstanceId)
 
   // Close edit dialog if instance was deleted
@@ -571,6 +573,10 @@ function InstancesManager({ search, onSearchChange }: InstancesManagerProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={() => setSharingDialogOpen(true)} size="sm" className="w-full sm:w-auto">
+          <Share2 className="mr-2 h-4 w-4" />
+          {t("instances.shareButton")}
+        </Button>
         <Button onClick={handleOpenAddDialog} size="sm" className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           {t("instances.addButton")}
@@ -657,6 +663,8 @@ function InstancesManager({ search, onSearchChange }: InstancesManagerProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ShareInstancesDialog open={sharingDialogOpen} onOpenChange={setSharingDialogOpen} />
 
       {/* Edit Instance Preferences Dialog */}
       {editingInstanceId && editingInstance && (
@@ -1062,6 +1070,8 @@ function ManualUpdatePanel() {
 
 function ApplicationInfoPanel() {
   const { t } = useTranslation("settings")
+  const { user } = useAuth()
+  const canManageUpdates = user?.role === "admin" || user?.permissions?.includes("manage_updates") === true
   const appInfoQuery = useQuery({
     queryKey: ["application-info"],
     queryFn: () => api.getApplicationInfo(),
@@ -1081,7 +1091,7 @@ function ApplicationInfoPanel() {
   })
 
   const info = appInfoQuery.data
-  const user = currentUserQuery.data
+  const authUser = currentUserQuery.data
 
   const [liveUptimeSeconds, setLiveUptimeSeconds] = useState(0)
 
@@ -1104,7 +1114,7 @@ function ApplicationInfoPanel() {
     }
   }, [info])
 
-  let currentSessionAuth = formatCurrentSessionAuth(user, t)
+  let currentSessionAuth = formatCurrentSessionAuth(authUser, t)
   if (currentUserQuery.isLoading) {
     currentSessionAuth = t("application.auth.loading")
   } else if (currentUserQuery.isError) {
@@ -1229,7 +1239,7 @@ function ApplicationInfoPanel() {
               </Button>
             )}
           />
-          {info.goOS === "linux" && <ManualUpdatePanel />}
+          {info.goOS === "linux" && canManageUpdates && <ManualUpdatePanel />}
           <ApplicationSection
             title={t("application.runtime.title")}
             description={t("application.runtime.description")}
@@ -1324,7 +1334,33 @@ function SettingsScrollPanel({ children, contentClassName }: SettingsScrollPanel
 export function Settings({ search, onSearchChange }: SettingsProps) {
   const { t } = useTranslation("settings")
   const { user } = useAuth()
-  const activeTab: SettingsTab = search.tab === "users" && user?.role !== "admin" ? "application" : search.tab ?? "application"
+  const canManageGlobalSettings = user?.role === "admin" || user?.permissions?.includes("manage_global_settings") === true
+  const canManageExternalPrograms = user?.role === "admin" || user?.permissions?.includes("manage_external_programs") === true
+  const canManageNotifications = user?.role === "admin" || user?.permissions?.includes("manage_notifications") === true
+  const canManageARR = user?.role === "admin" || user?.permissions?.includes("manage_arr") === true
+  const canManageLogs = user?.role === "admin" || user?.permissions?.includes("manage_logs") === true
+  const canAccessTab = (tab: SettingsTab) => {
+    switch (tab) {
+      case "users":
+        return user?.role === "admin"
+      case "indexers":
+      case "search-cache":
+      case "themes":
+        return canManageGlobalSettings
+      case "external-programs":
+        return canManageExternalPrograms
+      case "notifications":
+        return canManageNotifications
+      case "integrations":
+        return canManageARR
+      case "logs":
+        return canManageLogs
+      default:
+        return true
+    }
+  }
+  const requestedTab = search.tab ?? "application"
+  const activeTab: SettingsTab = canAccessTab(requestedTab) ? requestedTab : "application"
   const scrollPanelContentClassName = "space-y-4"
   const appInfoQuery = useQuery({
     queryKey: ["application-info"],
@@ -1333,7 +1369,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
   })
 
   const handleTabChange = (tab: SettingsTab) => {
-    if (tab === "users" && user?.role !== "admin") {
+    if (!canAccessTab(tab)) {
       onSearchChange({ tab: "application" })
       return
     }
@@ -1371,7 +1407,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
                 {t("tabs.instances")}
               </div>
             </SelectItem>
-            {user?.role === "admin" && (
+            {canAccessTab("users") && (
               <SelectItem value="users">
                 <div className="flex items-center">
                   <Users className="w-4 h-4 mr-2" />
@@ -1379,24 +1415,30 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
                 </div>
               </SelectItem>
             )}
-            <SelectItem value="indexers">
-              <div className="flex items-center">
-                <Database className="w-4 h-4 mr-2" />
-                {t("tabs.indexers")}
-              </div>
-            </SelectItem>
-            <SelectItem value="search-cache">
-              <div className="flex items-center">
-                <Layers className="w-4 h-4 mr-2" />
-                {t("tabs.searchCache")}
-              </div>
-            </SelectItem>
-            <SelectItem value="integrations">
-              <div className="flex items-center">
-                <Link2 className="w-4 h-4 mr-2" />
-                {t("tabs.integrations")}
-              </div>
-            </SelectItem>
+            {canAccessTab("indexers") && (
+              <SelectItem value="indexers">
+                <div className="flex items-center">
+                  <Database className="w-4 h-4 mr-2" />
+                  {t("tabs.indexers")}
+                </div>
+              </SelectItem>
+            )}
+            {canAccessTab("search-cache") && (
+              <SelectItem value="search-cache">
+                <div className="flex items-center">
+                  <Layers className="w-4 h-4 mr-2" />
+                  {t("tabs.searchCache")}
+                </div>
+              </SelectItem>
+            )}
+            {canAccessTab("integrations") && (
+              <SelectItem value="integrations">
+                <div className="flex items-center">
+                  <Link2 className="w-4 h-4 mr-2" />
+                  {t("tabs.integrations")}
+                </div>
+              </SelectItem>
+            )}
             <SelectItem value="client-api">
               <div className="flex items-center">
                 <Share2 className="w-4 h-4 mr-2" />
@@ -1409,42 +1451,50 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
                 {t("tabs.apiKeys")}
               </div>
             </SelectItem>
-            <SelectItem value="external-programs">
-              <div className="flex items-center">
-                <Terminal className="w-4 h-4 mr-2" />
-                {t("tabs.externalPrograms")}
-              </div>
-            </SelectItem>
-            <SelectItem value="notifications">
-              <div className="flex items-center">
-                <Bell className="w-4 h-4 mr-2" />
-                {t("tabs.notifications")}
-              </div>
-            </SelectItem>
+            {canAccessTab("external-programs") && (
+              <SelectItem value="external-programs">
+                <div className="flex items-center">
+                  <Terminal className="w-4 h-4 mr-2" />
+                  {t("tabs.externalPrograms")}
+                </div>
+              </SelectItem>
+            )}
+            {canAccessTab("notifications") && (
+              <SelectItem value="notifications">
+                <div className="flex items-center">
+                  <Bell className="w-4 h-4 mr-2" />
+                  {t("tabs.notifications")}
+                </div>
+              </SelectItem>
+            )}
             <SelectItem value="datetime">
               <div className="flex items-center">
                 <Globe className="w-4 h-4 mr-2" />
                 {t("tabs.dateTime")}
               </div>
             </SelectItem>
-            <SelectItem value="themes">
-              <div className="flex items-center">
-                <Palette className="w-4 h-4 mr-2" />
-                {t("tabs.premiumThemes")}
-              </div>
-            </SelectItem>
+            {canAccessTab("themes") && (
+              <SelectItem value="themes">
+                <div className="flex items-center">
+                  <Palette className="w-4 h-4 mr-2" />
+                  {t("tabs.premiumThemes")}
+                </div>
+              </SelectItem>
+            )}
             <SelectItem value="security">
               <div className="flex items-center">
                 <Shield className="w-4 h-4 mr-2" />
                 {t("tabs.security")}
               </div>
             </SelectItem>
-            <SelectItem value="logs">
-              <div className="flex items-center">
-                <FileText className="w-4 h-4 mr-2" />
-                {t("tabs.logs")}
-              </div>
-            </SelectItem>
+            {canAccessTab("logs") && (
+              <SelectItem value="logs">
+                <div className="flex items-center">
+                  <FileText className="w-4 h-4 mr-2" />
+                  {t("tabs.logs")}
+                </div>
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -1472,7 +1522,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.instances")}
             </button>
             <button
-              hidden={user?.role !== "admin"}
+              hidden={!canAccessTab("users")}
               onClick={() => handleTabChange("users")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "users" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
@@ -1482,6 +1532,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.users")}
             </button>
             <button
+              hidden={!canAccessTab("indexers")}
               onClick={() => handleTabChange("indexers")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "indexers" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
@@ -1491,6 +1542,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.indexers")}
             </button>
             <button
+              hidden={!canAccessTab("search-cache")}
               onClick={() => handleTabChange("search-cache")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "search-cache" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
@@ -1500,6 +1552,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.searchCache")}
             </button>
             <button
+              hidden={!canAccessTab("integrations")}
               onClick={() => handleTabChange("integrations")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "integrations" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
@@ -1527,6 +1580,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.apiKeys")}
             </button>
             <button
+              hidden={!canAccessTab("external-programs")}
               onClick={() => handleTabChange("external-programs")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "external-programs" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
@@ -1536,6 +1590,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.externalPrograms")}
             </button>
             <button
+              hidden={!canAccessTab("notifications")}
               onClick={() => handleTabChange("notifications")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "notifications" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
@@ -1554,6 +1609,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.dateTime")}
             </button>
             <button
+              hidden={!canAccessTab("themes")}
               onClick={() => handleTabChange("themes")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "themes" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
@@ -1572,6 +1628,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               {t("tabs.security")}
             </button>
             <button
+              hidden={!canAccessTab("logs")}
               onClick={() => handleTabChange("logs")}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === "logs" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"

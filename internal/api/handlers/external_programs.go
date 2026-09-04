@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autobrr/qui/internal/api/ctxkeys"
 	"github.com/autobrr/qui/internal/models"
 	"github.com/autobrr/qui/internal/qbittorrent"
 	"github.com/autobrr/qui/internal/services/externalprograms"
@@ -25,6 +26,13 @@ type ExternalProgramsHandler struct {
 	externalProgramService *externalprograms.Service
 	clientPool             *qbittorrent.ClientPool
 	automationStore        *models.AutomationStore
+	instanceStore          *models.InstanceStore
+}
+
+type executableExternalProgram struct {
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
 }
 
 func NewExternalProgramsHandler(
@@ -32,12 +40,14 @@ func NewExternalProgramsHandler(
 	service *externalprograms.Service,
 	pool *qbittorrent.ClientPool,
 	automationStore *models.AutomationStore,
+	instanceStore *models.InstanceStore,
 ) *ExternalProgramsHandler {
 	return &ExternalProgramsHandler{
 		externalProgramStore:   store,
 		externalProgramService: service,
 		clientPool:             pool,
 		automationStore:        automationStore,
+		instanceStore:          instanceStore,
 	}
 }
 
@@ -75,6 +85,30 @@ func (h *ExternalProgramsHandler) ListExternalPrograms(w http.ResponseWriter, r 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(programs); err != nil {
 		log.Error().Err(err).Msg("Failed to encode external programs response")
+	}
+}
+
+// ListExecutableExternalPrograms returns the safe subset needed by users who
+// may run, but not manage, external programs.
+func (h *ExternalProgramsHandler) ListExecutableExternalPrograms(w http.ResponseWriter, r *http.Request) {
+	programs, err := h.externalProgramStore.ListEnabled(r.Context())
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to list executable external programs")
+		http.Error(w, "Failed to list external programs", http.StatusInternalServerError)
+		return
+	}
+
+	response := make([]executableExternalProgram, 0, len(programs))
+	for _, program := range programs {
+		response = append(response, executableExternalProgram{
+			ID:      program.ID,
+			Name:    program.Name,
+			Enabled: program.Enabled,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Error().Err(err).Msg("Failed to encode executable external programs response")
 	}
 }
 
@@ -266,6 +300,26 @@ func (h *ExternalProgramsHandler) ExecuteExternalProgram(w http.ResponseWriter, 
 	}
 
 	ctx := r.Context()
+	if h.instanceStore == nil {
+		http.Error(w, "Instance store not configured", http.StatusInternalServerError)
+		return
+	}
+	userID, _ := ctx.Value(ctxkeys.UserID).(int)
+	role, _ := ctx.Value(ctxkeys.UserRole).(string)
+	allowed, err := h.instanceStore.CanAccess(
+		ctx,
+		req.InstanceID,
+		userID,
+		role == string(models.UserRoleAdmin),
+	)
+	if err != nil {
+		http.Error(w, "Failed to authorize instance", http.StatusInternalServerError)
+		return
+	}
+	if !allowed {
+		http.Error(w, "Instance access denied", http.StatusForbidden)
+		return
+	}
 
 	// Get the program configuration (we need it to get the instance ID for bulk torrent fetch)
 	program, err := h.externalProgramStore.GetByID(ctx, req.ProgramID)

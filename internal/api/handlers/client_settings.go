@@ -29,7 +29,7 @@ func NewClientSettingsHandler(store *models.ClientSettingsStore, publisher activ
 
 // GetClientSettings returns every stored setting as a key-value map.
 func (h *ClientSettingsHandler) GetClientSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.store.GetAll(r.Context())
+	settings, err := h.store.GetAll(r.Context(), currentUserID(r))
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to load client settings")
 		RespondError(w, http.StatusInternalServerError, "Failed to load client settings")
@@ -59,7 +59,7 @@ func (h *ClientSettingsHandler) UpdateClientSettings(w http.ResponseWriter, r *h
 		}
 	}
 
-	if err := h.store.SetMany(r.Context(), settings); err != nil {
+	if err := h.store.SetMany(r.Context(), currentUserID(r), settings); err != nil {
 		log.Error().Err(err).Msg("Failed to save client settings")
 		RespondError(w, http.StatusInternalServerError, "Failed to save client settings")
 		return
